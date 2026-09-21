@@ -1,0 +1,35 @@
+name: Playwright tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  playwright-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Enable corepack and install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers and system deps
+        run: pnpm run ci:install-browsers
+
+      - name: Run Playwright smoke tests
+        run: pnpm test:smoke
+
+      - name: Run full Playwright tests
+        run: pnpm test:e2e -- --reporter=list

@@ -1,0 +1,45 @@
+name: Block primed-cache artifacts
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  check-primed-cache:
+    name: Check for primed-cache artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if sensitive cache files are present
+        run: |
+          set -euo pipefail
+          echo "Checking for sensitive cache artifacts..."
+          patterns=(
+            'data/national/primed-cache/*'
+            'data/national/*individual*.json'
+            'data/national/*firm*.json'
+            'data/national/*/api.*_individual_*.json'
+            'data/national/*/api.*_firm_*.json'
+          )
+
+          found=0
+          files=""
+          for p in "${patterns[@]}"; do
+            f=$(git ls-files "$p" || true)
+            if [ -n "$f" ]; then
+              files="$files\n$f"
+              found=1
+            fi
+          done
+
+          if [ "$found" -eq 1 ]; then
+            echo "ERROR: sensitive cache artifacts detected in repository:" >&2
+            echo "$files" >&2
+            echo "Remove these files before committing or add them to .gitignore. If you intentionally generate primed-cache bundles, set ENABLE_PRIMED_CACHE=true and keep them out of the repo." >&2
+            exit 1
+          fi
+
+          echo "No sensitive cache artifacts found."

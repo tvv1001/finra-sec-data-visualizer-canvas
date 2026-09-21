@@ -1,0 +1,9 @@
+{
+	"name": "finra-native-graph-layout",
+	"version": "0.1.0",
+	"private": true,
+	"main": "index.linux-x64-gnu.node",
+	"scripts": {
+		"build": "napi build --platform --release"
+	}
+}

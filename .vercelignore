@@ -1,0 +1,33 @@
+# Keep Vercel deployments lean: exclude the massive local data tree by default,
+# then opt back into the small runtime artifacts that production still uses.
+
+/data/**
+!/data/national/
+!/data/national/finra-seed-bank.json
+!/data/seed-profiles.json
+!/data/crd-inventory.json.gz
+!/data/crd-log.json
+
+# Explicit exclusions for large or local-only artifacts.
+/data/national/finra-graph.json
+/data/national/search-index.*.json
+/data/national/finra-recent-seeds.json
+/data/national/*.bak
+/data/cache-binary/**
+/data/raw/**
+
+# Standard local build and test artifacts.
+/node_modules/**
+/.next/**
+/coverage/**
+/dist/**
+/build/**
+/.DS_Store
+/Thumbs.db
+/.env*
+*.log
+/.vercel/**
+/tests/**
+/test-results/**
+/playwright-report/**
+/archive/**

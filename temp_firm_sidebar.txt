@@ -1,0 +1,331 @@
+		const entries = Array.isArray(d.registrationStatus) ? d.registrationStatus.filter((entry: any) => entry && typeof entry === 'object') : [];
+		const fallbackEntries =
+			entries.length ? entries
+			: d.firmStatus ? [{ secJurisdiction: 'SEC', status: d.firmStatus, effectiveDate: d.firmStatusDate }]
+			: [];
+		if (!fallbackEntries.length) return '';
+		return `
+			<div class="fg-section-title fg-section-title--sticky">Registration Status</div>
+			${fallbackEntries
+				.map((entry: any) => {
+					const jurisdiction = String(entry.secJurisdiction || entry.jurisdiction || entry.state || entry.name || 'SEC').trim() || 'SEC';
+					const status = String(entry.status || entry.registrationStatus || entry.regStatus || '').trim();
+					const effectiveDate = String(entry.effectiveDate || entry.effectiveDateText || entry.effective || entry.date || '').trim();
+					return `
+						<div class="fg-detail-row">
+							<span class="fg-label">SEC / Jurisdiction</span>
+							<span>${esc(jurisdiction)}</span>
+						</div>
+						<div class="fg-detail-row">
+							<span class="fg-label">Registration Status</span>
+							<span>${status ? esc(status) : '–'}</span>
+						</div>
+						<div class="fg-detail-row">
+							<span class="fg-label">Effective Date</span>
+							<span>${effectiveDate ? esc(effectiveDate) : '–'}</span>
+						</div>`;
+				})
+				.join('')}`;
+	}
+	const disclosureTotal =
+		Number.isFinite(Number(d.disclosureCount)) ? Number(d.disclosureCount) : disclosures.reduce((sum, dis) => sum + Number(dis?.count ?? dis?.disclosureCount ?? 0), 0);
+	const disclosureLabel = disclosureTotal === 1 ? 'Disclosure' : 'Disclosures';
+	const disclosureBadge = (showFinra || showSec) && disclosureTotal > 0 ? `<span class="fg-badge inactive">${disclosureLabel} ${esc(String(disclosureTotal))}</span>` : '';
+	const hasAffiliateDisclosureSummary = Boolean(d.affiliateDisclosures);
+	const sortedBrochures = Array.isArray(d.brochures) ? d.brochures.slice().sort((a, b) => compareFirmDatesDesc(a, b, ['dateSubmitted'])) : [];
+	const officeAddressRaw = String(d.officeAddress || '').trim();
+	const officeAddress = /^(?:-|n\/?a|na|none|null|undefined)$/i.test(officeAddressRaw) ? '' : officeAddressRaw;
+	const hasOfficeAddress = Boolean(officeAddress);
+	const businessPhone = String(d.businessPhone || '').trim();
+	const districtLabel = String(d.districtName || '').trim();
+	const finraSummaryLabel = `Brokerage Firm${districtLabel ? ` Regulated by FINRA (${districtLabel})` : ' Regulated by FINRA'}`;
+	const secSummaryLabel = 'Investment Adviser Firm';
+	const topSummaryRoleHtml = `
+		<div class="fg-firm-summary__roles">
+			${
+				showFinra ?
+					`
+			<div class="fg-firm-summary__role">
+				<span class="fg-firm-summary__role-icon fg-firm-summary__role-icon--broker" aria-hidden="true">B</span>
+				<div class="fg-firm-summary__role-copy">
+					<div class="fg-firm-summary__role-title">${esc(finraSummaryLabel)}</div>
+				</div>
+			</div>`
+				:	''
+			}
+			${
+				showSec && hasSecPage ?
+					`
+			<div class="fg-firm-summary__role">
+				<span class="fg-firm-summary__role-icon fg-firm-summary__role-icon--ia" aria-hidden="true">IA</span>
+				<div class="fg-firm-summary__role-copy">
+					<div class="fg-firm-summary__role-title">${esc(secSummaryLabel)}</div>
+				</div>
+			</div>`
+				:	''
+			}
+		</div>`;
+
+	return `
+		<div class="fg-sb-header firm">
+			<div class="fg-sb-title-row">
+				<div class="fg-sb-title">${esc(getPreferredNodeLabel(d))}</div>
+			</div>
+			${crdSec ? `<div class="fg-sb-crd">${crdSec}</div>` : ''}
+      <div class="fg-sb-badges">
+        ${legacyBadge}
+        ${(() => {
+					if (d.firmSize && d.firmStatus) {
+						const combined = `${esc(firmSizeLabel(d.firmSize))} - ${esc(statusText)}`;
+						return `<span class="fg-badge ${statusClass}">${combined}</span>`;
+					}
+					return `${statusBadge}${d.firmSize ? `<span class="fg-badge">${esc(firmSizeLabel(d.firmSize))}</span>` : ''}`;
+				})()}
+        ${scopeBadge}
+        ${disclosureBadge}
+      </div>
+			<div class="fg-sb-role-summary">
+				${topSummaryRoleHtml}
+			</div>
+			<div class="fg-sb-title-actions fg-sb-title-actions--below-tags">
+				${renderMobileSidebarToggle()}
+				${renderSidebarSelectionLogToggle()}
+			</div>
+    </div>
+    <div class="fg-sb-body">
+			<div class="fg-firm-summary">
+				<div class="fg-firm-summary__header">
+					${d.otherNames?.length ? `<div class="fg-firm-summary__aliases">${escImpl(d.otherNames.map((n) => formatOtherNameImpl(n, true)).join(', '))}</div>` : ''}
+					${crdSec ? `<div class="fg-firm-summary__crd">${esc(crdSec)}</div>` : ''}
+				</div>
+				${
+					hasOfficeAddress ?
+						`<div class="fg-firm-summary__grid">
+							<div class="fg-firm-summary__panel fg-firm-summary__panel--address">
+								<div class="fg-firm-summary__panel-title">Main Address</div>
+								<div class="fg-firm-summary__address">${esc(officeAddress)}</div>
+							</div>
+						</div>`
+					:	''
+				}
+			</div>
+			<div class="fg-ext-links">
+				${showFinra && hasFinraPage && firmId ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
+				${
+					showSec && hasSecPage && Array.isArray(secDocumentLinks) && secDocumentLinks.length > 0 ?
+						secDocumentLinks
+							.filter((link) => link?.href)
+							.map((link) => `<a class="fg-ext-link sec" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>`)
+							.join('')
+					:	''
+				}
+			</div>
+			<div class="fg-sb-copy-below-links">
+      ${showSec && secSummaryDescription ? `<div class="fg-section-title fg-section-title--sticky">SEC summary</div><p class="fg-sb-note">${esc(secSummaryDescription)}</p>` : ''}
+			${showFinra && d.isLegacy === 'Y' ? `<p class="fg-sb-note">Not currently registered as broker. FINRA contains only limited information about this firm.</p>` : ''}
+			${
+				hasOfficeAddress || businessPhone ?
+					`<div class="fg-section-title fg-section-title--sticky">Contact</div>
+					${hasOfficeAddress ? row('Address', esc(officeAddress)) : ''}
+					${businessPhone ? row('Phone', esc(businessPhone)) : ''}`
+				:	''
+			}
+			</div>
+      <div class="fg-section-title fg-section-title--sticky">Registration</div>
+			${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
+			${showSec ? renderRegistrationStatusRows() : ''}
+			${showFinra && d.districtName ? row('FINRA District', esc(d.districtName)) : ''}
+			${showFinra ? row('Company Type', esc(d.firmType || 'N/A')) : ''}
+			${showFinra ? row('Self-Regulatory Orgs', esc(sros)) : ''}
+			${
+				showFinra ?
+					row(
+						'U.S. States &amp; Territories',
+						states !== 'N/A' ? esc(states)
+						: d.activeStates?.length ? `${d.activeStates.length} states/territories`
+						: 'N/A',
+					)
+				:	''
+			}
+      ${row('Regulator', esc(d.regulator || '–'))}
+			${
+				connections.length ?
+					`<div class="fg-section-title fg-section-title--sticky">Connected Nodes (${connections.length})</div>
+					<div class="fg-timeline">
+						${connections
+							.map((connection) => {
+								const displaySecondary =
+									connection.group === 'firm' ?
+										(() => {
+											const connectedFirmId = String(connection.id || '')
+												.replace(/^(?:firm[:_])?/, '')
+												.trim();
+											return connectedFirmId ? ` <small>CRD#${esc(connectedFirmId)}</small>` : '';
+										})()
+									:	'';
+								const relHtml =
+									connection.relationshipLabels.length || connection.positions.length ?
+										`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
+									:	'';
+								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
+									${relHtml}
+									${datesHtml}
+									${addrHtml}
+								</button>`;
+							})
+							.join('')}
+					</div>`
+				:	''
+			}
+			${
+				currentConnections.length ?
+					`<div class="fg-section-title fg-section-title--sticky">Current Connections (${currentConnections.length})</div>
+					<div class="fg-timeline">
+						${currentConnections
+							.map((connection) => {
+								const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
+								const relHtml =
+									connection.relationshipLabels.length || connection.positions.length ?
+										`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
+									:	'';
+								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
+									${relHtml}
+									${datesHtml}
+									${addrHtml}
+								</button>`;
+							})
+							.join('')}
+					</div>`
+				:	''
+			}
+			${
+				previousConnections.length ?
+					`<div class="fg-section-title fg-section-title--sticky">Previous Connections (${previousConnections.length})</div>
+					<div class="fg-timeline fg-timeline--previous">
+						${previousConnections
+							.map((connection) => {
+								const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
+								const relHtml =
+									connection.relationshipLabels.length || connection.positions.length ?
+										`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
+									:	'';
+								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+								return `<button type="button" class="fg-tl-entry fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
+									${relHtml}
+									${datesHtml}
+									${addrHtml}
+								</button>`;
+							})
+							.join('')}
+					</div>`
+				:	''
+			}
+			<div class="fg-section-title fg-section-title--sticky">General Information</div>
+      ${row('Established in', d.formedState ? `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}` : '–')}
+      ${row('Type', esc(d.firmType || '–'))}
+      ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
+      ${
+				showSec && sortedBrochures.length ?
+					`
+				<div class="fg-section-title fg-section-title--sticky">Form ADV Brochures</div>
+						${sortedBrochures
+							.slice(0, 5)
+							.map((b) => `<div class="fg-detail-row"><span class="fg-label">${esc(b.brochureName || '')}</span><span>${esc(b.dateSubmitted || '')}</span></div>`)
+							.join('')}
+      `
+				:	''
+			}
+
+			${
+				(showFinra || showSec) && (disclosures.length || disclosureTotal > 0 || hasAffiliateDisclosureSummary) ?
+					`
+        <div class="fg-section-title fg-section-title--sticky">Disclosures</div>
+					<div class="fg-disclosure">
+						${disclosures
+							.map(
+								(dis) => `
+							<div class="fg-dis-header">
+								<span class="fg-dis-type">${esc(dis.type || dis.disclosureType || '')}:</span>
+							</div>
+							<div class="fg-dis-row"><span class="fg-dis-label">Total Disclosure</span> ${esc(String(dis.count ?? dis.disclosureCount ?? ''))}</div>
+						`,
+							)
+							.join('')}
+						${
+							disclosureTotal > 0 && !disclosures.length ?
+								`<div class="fg-dis-header">
+								<span class="fg-dis-type">Total Disclosure</span>
+							</div>
+							<div class="fg-dis-row">${esc(String(disclosureTotal))}</div>`
+							:	''
+						}
+						${
+							disclosureTotal > 0 ?
+								showFinra ?
+									`<div class="fg-dis-row">For details of these disclosures as well as disclosures involving non-registered affiliated entities refer to the Detailed Report${brokerCheckReportUrl ? ` <a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}. For disclosures involving registered affiliated entities visit the BrokerCheck page for those firms.</div>`
+								: secSummaryUrl ? `<div class="fg-dis-row">For disclosure details, open the SEC AdvisorInfo Summary for this firm.</div>`
+								: ''
+							:	''
+						}
+						${
+							hasAffiliateDisclosureSummary ?
+								`<div class="fg-dis-header">
+								<span class="fg-dis-type">Affiliate Disclosure (registered)</span>
+							</div>
+							<div class="fg-dis-row"><span class="fg-dis-label">Count:</span> ${esc(String(d.affiliateDisclosures.registeredAffiliateDisclosureCount ?? 0))}</div>
+							<div class="fg-dis-header">
+								<span class="fg-dis-type">Affiliate Disclosure (non-registered)</span>
+							</div>
+							<div class="fg-dis-row"><span class="fg-dis-label">Count:</span> ${esc(String(d.affiliateDisclosures.nonRegisteredAffiliateDisclosureCount ?? 0))}</div>`
+							:	''
+						}
+					</div>
+      `
+				:	''
+			}
+
+      ${
+				controlConnections.length || (showFinra && staticOwnersToRender.length) ?
+					`
+        <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers (${controlConnections.length + (showFinra ? staticOwnersToRender.length : 0)})</div>
+		<div class="fg-timeline">
+			${controlConnections
+				.map((connection) => {
+					const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
+					const relHtml =
+						connection.relationshipLabels.length || connection.positions.length ?
+							`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
+						:	'';
+					const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+					const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+					return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+						<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
+						${relHtml}
+						${datesHtml}
+						${addrHtml}
+					</button>`;
+				})
+				.join('')}
+			${
+				showFinra ?
+					staticOwnersToRender
+						.map((o) => {
+							const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
+							const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
+							if (o.crdNumber) {
+								return `
+						<button type="button" class="fg-owner-row fg-card-clickable fg-crd-link" data-crd="${esc(o.crdNumber)}" data-crd-type="person" title="View person ${esc(o.crdNumber)}">
+							${nameHtml}
+							${posHtml}
+						</button>
+						`;
+							}
+							return `

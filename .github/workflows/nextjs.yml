@@ -1,0 +1,163 @@
+# Deploy Next.js app to Vercel
+#
+# Deploy Next.js app to Vercel after search-focused validation passes.
+#
+# Required GitHub repository secrets:
+#   VERCEL_TOKEN      – personal access token from vercel.com/account/tokens
+#   VERCEL_ORG_ID     – from .vercel/project.json (teamId) after `vercel link`
+#   VERCEL_PROJECT_ID – from .vercel/project.json (projectId) after `vercel link`
+#   UPSTASH_REDIS_REST_URL   – production Upstash REST URL used to publish graph/search/cache artifacts
+#   UPSTASH_REDIS_REST_TOKEN – production Upstash REST token used to publish graph/search/cache artifacts
+#
+# Required Vercel environment variables (set in Vercel project settings):
+#   UPSTASH_REDIS_REST_URL
+#   UPSTASH_REDIS_REST_TOKEN
+
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: ['main']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: 'vercel-production'
+  cancel-in-progress: false
+
+jobs:
+  search-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run search regression tests
+        run: pnpm exec vitest run tests/unit/local-search.spec.ts tests/unit/graph-search-route.spec.ts
+
+  deploy:
+    needs: search-tests
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Build Redis deployment artifacts
+        run: pnpm run build:deploy-artifacts
+
+      - name: Upload graph and search artifacts to Upstash
+        run: |
+          pnpm run deploy:graph
+          pnpm run deploy:search-indexes
+          pnpm run deploy:primed-cache
+
+      - name: Pull Vercel environment info
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build project
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Smoke test production graph and search
+        run: |
+          node - <<'NODE'
+          const baseUrl = 'https://finra-data-chart-next-02.vercel.app';
+          const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+          async function fetchJson(path) {
+            const response = await fetch(`${baseUrl}${path}`, {
+              headers: { Accept: 'application/json' },
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+              throw new Error(`${path} failed with HTTP ${response.status}: ${JSON.stringify(payload)}`);
+            }
+            return payload;
+          }
+
+          async function verifyOnce() {
+            const [graph, finra, secFirm] = await Promise.all([
+              fetchJson('/api/finra/graph'),
+              fetchJson('/api/finra/search?q=westpark&limit=5'),
+              fetchJson('/api/finra/sec-search-firm?q=39914&limit=5'),
+            ]);
+
+            const graphNodes = Array.isArray(graph?.nodes) ? graph.nodes.length : 0;
+            const graphLinks = Array.isArray(graph?.links) ? graph.links.length : 0;
+            if (graphNodes <= 0 || graphLinks <= 0) {
+              throw new Error(`Expected deployed graph to be populated, got nodes=${graphNodes} links=${graphLinks}`);
+            }
+
+            if (!finra || typeof finra.total !== 'number' || finra.total <= 0) {
+              throw new Error(`FINRA search smoke test failed: ${JSON.stringify(finra)}`);
+            }
+
+            if (!secFirm || typeof secFirm.total !== 'number' || secFirm.total <= 0) {
+              throw new Error(`SEC firm search smoke test failed: ${JSON.stringify(secFirm)}`);
+            }
+
+            console.log(`Production smoke test passed: graphNodes=${graphNodes}, graphLinks=${graphLinks}, finraTotal=${finra.total}, secFirmTotal=${secFirm.total}`);
+          }
+
+          (async () => {
+            let lastError = null;
+            for (let attempt = 1; attempt <= 12; attempt += 1) {
+              try {
+                await verifyOnce();
+                return;
+              } catch (error) {
+                lastError = error;
+                console.error(`Smoke attempt ${attempt} failed:`, error.message || error);
+                if (attempt < 12) await wait(10000);
+              }
+            }
+            throw lastError || new Error('Smoke test failed without an error');
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE

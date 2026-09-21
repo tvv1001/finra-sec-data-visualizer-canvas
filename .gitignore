@@ -1,0 +1,98 @@
+# Node
+node_modules/
+.env*
+*.log
+*.tsbuildinfo
+dist/
+build/
+.next/
+coverage/
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# VSCode
+.vscode/
+
+# Misc
+# *.local
+*.cache
+.tmp/
+*.swp
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Test/coverage
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+.playwright-mcp/
+
+# Ad-hoc root test/scrape scripts — use .local/scripts/scrape.mjs + .local/test-scripts/
+/test-*.js
+/test_*.js
+/test.json
+/unwrap.js
+/scrape*.js
+/crawl*.js
+/*-verified.png
+/red-over-blue-links.png
+/clear-non-log*.png
+
+# Production
+out/
+.next/cache/*
+public/workers/
+rust/target/
+rust/graph-layout/target/
+native/graph-layout/target/
+data/cache-binary/
+data/national/
+data/national/**
+data/primed-cache/
+data/raw/
+data/raw/**
+.vercel
+scripts/import_raw_data.sh
+data/build_manifest.json
+data/last_*_report.json
+
+# Generated notes / docs
+generated/
+*.generated.md
+
+# AI tool settings (local only)
+.gemini/
+SESSION-HANDOFF.md
+
+finra-data-large-view.code-workspace
+
+
+notes.md
+data/orphan_validation_report.json
+
+data/**
+!data/crd-log.json
+!data/crd-inventory.json.gz
+patch_**
+
+/.local/*
+!/.local/scripts/
+!/.local/test-scripts/
+/.local/test-scripts/**
+!/.local/test-scripts/README.md
+
+# Next.js regenerates this on every dev/build and flips the routes import path
+# between .next/types and .next/dev/types, so it churns constantly. Vercel
+# recreates it during `next build` before typecheck, so it is safe to ignore.
+next-env.d.ts
+.local/scripts/generate_search**.js
+rust-force-layout/target/

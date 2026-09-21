@@ -1,0 +1,10 @@
+https://api.adviserinfo.sec.gov/search/firm/<CRD>?hl=true&wt=json
+
+https://api.brokercheck.finra.org/search/firm/<CRD>?hl=true&wt=json
+
+
+
+https://api.adviserinfo.sec.gov/search/individual/<CRD>?hl=true&includePrevious=true&wt=json
+
+
+https://api.brokercheck.finra.org/search/individual/<CRD>?hl=true&includePrevious=true&wt=json

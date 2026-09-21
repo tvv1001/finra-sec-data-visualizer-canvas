@@ -1,0 +1,83 @@
+{
+  "individualCrd": "1085996",
+  "updatedAt": "2026-08-29T23:47:02.344Z",
+  "firms": {
+    "5249": {
+      "firmId": "5249",
+      "firmName": "MANEQUITY, INC.",
+      "currentCount": 18,
+      "previousCount": 60,
+      "total": 78
+    },
+    "6321": {
+      "firmId": "6321",
+      "firmName": "IDS LIFE INSURANCE COMPANY",
+      "currentCount": 0,
+      "previousCount": 8718,
+      "total": 8718
+    },
+    "6363": {
+      "firmId": "6363",
+      "firmName": "AMERICAN EXPRESS FINANCIAL ADVISORS INC.",
+      "currentCount": 182,
+      "previousCount": 542,
+      "total": 724
+    },
+    "7471": {
+      "firmId": "7471",
+      "firmName": "PRUDENTIAL-BACHE SECURITIES INC.",
+      "currentCount": 0,
+      "previousCount": 545,
+      "total": 545
+    },
+    "7691": {
+      "firmId": "7691",
+      "firmName": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED",
+      "currentCount": 1839,
+      "previousCount": 9916,
+      "total": 11755
+    },
+    "8174": {
+      "firmId": "8174",
+      "firmName": "UBS PAINEWEBBER INC.",
+      "currentCount": 260,
+      "previousCount": 795,
+      "total": 1055
+    },
+    "11469": {
+      "firmId": "11469",
+      "firmName": "WESTMORELAND CAPITAL CORPORATION",
+      "currentCount": 2,
+      "previousCount": 2,
+      "total": 4
+    },
+    "18272": {
+      "firmId": "18272",
+      "firmName": "ALLSTATE FINANCIAL SERVICES, LLC",
+      "currentCount": 67,
+      "previousCount": 184,
+      "total": 251
+    },
+    "45915": {
+      "firmId": "45915",
+      "firmName": "SUMMITALLIANCE SECURITIES, L.L.C.",
+      "currentCount": 0,
+      "previousCount": 7,
+      "total": 7
+    },
+    "103863": {
+      "firmId": "103863",
+      "firmName": "FARMERS FINANCIAL SOLUTIONS, LLC",
+      "currentCount": 2318,
+      "previousCount": 6550,
+      "total": 8868
+    },
+    "133019": {
+      "firmId": "133019",
+      "firmName": "HERITAGE FINANCIAL SYSTEMS, INC.",
+      "currentCount": 2,
+      "previousCount": 3,
+      "total": 5
+    }
+  }
+}

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<body>
+<div id="main" style="width: 400px; height: 400px; background: red;">
+    <canvas id="canvas" width="400" height="400" style="position: absolute; top:0; left:0; pointer-events: auto;"></canvas>
+</div>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+    const main = d3.select("#main");
+    const zoom = d3.zoom().on("zoom", (e) => {
+        console.log("Zoomed!", e.transform);
+    });
+    main.call(zoom);
+</script>
+</body>
+</html>

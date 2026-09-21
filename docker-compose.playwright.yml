@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  playwright:
+    image: mcr.microsoft.com/playwright:latest
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace:cached
+    ports:
+      - '4444:4444'
+    entrypoint: ['/bin/bash', '-lc']
+    command: 'corepack enable && corepack prepare pnpm@latest --activate && pnpm install --frozen-lockfile && npx playwright install --with-deps && npx playwright test'

@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"path": ".",
+		},
+	],
+	"settings": {
+		"files.exclude": {
+			"**/.git": true,
+			"**/.DS_Store": true,
+			"**/node_modules": true,
+		},
+		"search.exclude": {
+			"**/node_modules": true,
+			"**/dist": true,
+		},
+		"workbench.colorCustomizations": {
+			"titleBar.activeBackground": "#043769",
+			"titleBar.inactiveBackground": "#022241",
+			// "titleBar.activeForeground": "#FFFFFF",
+		},
+	},
+}

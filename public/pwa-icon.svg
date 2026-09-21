@@ -1,0 +1,44 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="hatch-dark" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(-32)">
+      <rect width="18" height="18" fill="rgba(0,0,0,0)" />
+      <line x1="2" y1="0" x2="2" y2="18" stroke="#101010" stroke-width="7" stroke-linecap="round" />
+    </pattern>
+    <pattern id="hatch-light" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(-32)">
+      <rect width="22" height="22" fill="rgba(0,0,0,0)" />
+      <line x1="3" y1="0" x2="3" y2="22" stroke="#FFF9EF" stroke-opacity="0.92" stroke-width="8" stroke-linecap="round" />
+    </pattern>
+    <clipPath id="hex-clip">
+      <polygon points="256,74 408,164 408,348 256,438 104,348 104,164" />
+    </clipPath>
+  </defs>
+
+  <rect width="512" height="512" rx="104" fill="#F5F0E4" />
+  <rect x="18" y="18" width="476" height="476" rx="86" stroke="#E8DDC8" stroke-width="6" />
+
+  <g clip-path="url(#hex-clip)">
+    <polygon points="256,60 418,154 418,354 256,452 94,354 94,154" fill="#FFF9EF" stroke="#111111" stroke-width="14" stroke-linejoin="round" />
+
+    <polygon points="256,60 418,154 256,256 94,154" fill="#F59E0B" fill-opacity="0.75" />
+    <polygon points="94,154 256,256 94,354 46,256" fill="#FB923C" fill-opacity="0.75" />
+    <polygon points="418,154 466,256 418,354 256,256" fill="#F59E0B" fill-opacity="0.65" />
+    <polygon points="94,354 256,256 418,354 256,452" fill="#F97316" fill-opacity="0.8" />
+
+    <polygon points="140,160 242,208 160,310 104,242" fill="#EF4444" fill-opacity="0.28" stroke="#EF4444" stroke-opacity="0.6" stroke-width="4" />
+    <polygon points="214,108 330,146 272,256 196,216" fill="#EF4444" fill-opacity="0.2" stroke="#EF4444" stroke-opacity="0.55" stroke-width="4" />
+    <polygon points="286,206 380,160 402,288 314,306" fill="#EF4444" fill-opacity="0.22" stroke="#EF4444" stroke-opacity="0.55" stroke-width="4" />
+    <polygon points="166,324 258,284 306,384 210,396" fill="#DC2626" fill-opacity="0.25" stroke="#DC2626" stroke-opacity="0.55" stroke-width="4" />
+
+    <polygon points="256,74 408,164 408,348 256,438 104,348 104,164" fill="url(#hatch-dark)" opacity="0.86" />
+    <polygon points="132,122 328,98 430,232 360,390 168,414 82,286" fill="url(#hatch-light)" opacity="0.7" />
+
+    <path d="M256 74V438" stroke="#111111" stroke-width="14" stroke-linecap="round" />
+    <path d="M104 164L408 348" stroke="#111111" stroke-width="14" stroke-linecap="round" />
+    <path d="M408 164L104 348" stroke="#111111" stroke-width="14" stroke-linecap="round" />
+    <path d="M104 164L256 256L408 164" stroke="#111111" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M104 348L256 256L408 348" stroke="#111111" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+
+  <polygon points="256,60 418,154 418,354 256,452 94,354 94,154" fill="none" stroke="#111111" stroke-width="16" stroke-linejoin="round" />
+  <polygon points="256,88 392,168 392,344 256,424 120,344 120,168" fill="none" stroke="#111111" stroke-opacity="0.5" stroke-width="8" stroke-linejoin="round" />
+</svg>

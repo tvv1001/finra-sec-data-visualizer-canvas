@@ -1,0 +1,131 @@
+				{/* Detail sidebar */}
+				<aside
+					id='fg-sidebar'
+					className='fg-sidebar hidden'>
+					<div className='fg-sidebar-actions'>
+						<button
+							type='button'
+							data-fg-action='refresh-layout'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only'
+							title='Re-run the graph layout'
+							aria-label='Reflow layout'>
+							<span className='fg-sidebar-action-label'>Refresh</span>
+							<span
+								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+								aria-hidden='true'>
+								↺
+							</span>
+						</button>
+
+						<button
+							type='button'
+							data-fg-trace-mode-button='sidebar-mobile'
+							className='fg-ghost-btn'
+							title='Toggle path tracing mode'>
+							Trace Mode
+						</button>
+						<button
+							type='button'
+							data-fg-action='clear-session'
+							className='fg-danger-btn'
+							title='Clear saved session and reload fresh'>
+							Reset Session
+						</button>
+						<button
+							id='fg-sidebar-pin-toggle'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--pin fg-sidebar-action-btn--icon-only'
+							type='button'
+							onClick={toggleSidebarPin}
+							title='Pin panel open'
+							aria-label='Pin panel open'
+							aria-pressed='false'
+							data-pinned='false'>
+							<span
+								className='fg-sidebar-action-icon'
+								aria-hidden='true'>
+								<svg
+									viewBox='0 0 16 16'
+									fill='none'
+									xmlns='http://www.w3.org/2000/svg'>
+									<path
+										d='M9.5 1.5L14.5 6.5L10.5 10.5L9 9L7 11H5L3 13L3 11L5 9H3L3.5 7L7 7L5.5 5.5L9.5 1.5Z'
+										stroke='currentColor'
+										strokeWidth='1.2'
+										strokeLinejoin='round'
+									/>
+								</svg>
+							</span>
+						</button>
+					</div>
+					<div className='fg-sidebar-mobile-actions'>
+						<button
+							type='button'
+							data-fg-graph-action='clear-non-connected'
+							className='fg-ghost-btn fg-clear-non-connected-btn'
+							title='Keep only nodes connected to the current selection'>
+							Clear non-connected
+						</button>
+						<button
+							type='button'
+							data-fg-action='clear-highlights'
+							className='fg-ghost-btn'
+							title='Clear hop/line highlights only — selected nodes stay selected'>
+							Clear Highlight
+						</button>
+						<button
+							id='fg-focus-btn'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
+							type='button'
+							title='Focus on this node'
+							aria-label='Center on this node'>
+							<span className='fg-sidebar-action-label'>Center</span>
+							<span
+								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+								aria-hidden='true'>
+								<svg
+									viewBox='0 0 16 16'
+									fill='none'
+									focusable='false'>
+									<circle
+										cx='8'
+										cy='8'
+										r='2.75'
+										stroke='currentColor'
+										strokeWidth='1.4'
+									/>
+									<path
+										d='M8 1.75V4'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
+									/>
+									<path
+										d='M8 12V14.25'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
+									/>
+									<path
+										d='M1.75 8H4'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
+									/>
+									<path
+										d='M12 8H14.25'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
+									/>
+								</svg>
+							</span>
+						</button>
+
+						<ThemeToggle />
+					</div>
+
+					<div
+						id='fg-sidebar-inner'
+						className='fg-sidebar-inner'>
+						{/* <p className='fg-hint'>Click a node to inspect it.</p> */}
+					</div>
