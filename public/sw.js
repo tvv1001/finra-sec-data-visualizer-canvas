@@ -10,7 +10,6 @@ const PRECACHE_URLS = [
 	'/favicon.ico',
 	'/favicon-32x32.png',
 	'/favicon-16x16.png',
-	'/pwa-icon.svg',
 	'/icon-192.png',
 	'/icon-512.png',
 	'/icon-512-maskable.png',
