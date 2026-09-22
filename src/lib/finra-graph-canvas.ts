@@ -17,11 +17,60 @@ let currentLinks: Link[] = [];
 let currentOpts: any = {};
 let currentTransform = { x: 0, y: 0, k: 1 };
 let hoverNodeId: string | null = null;
+let canvasTooltip: HTMLDivElement | null = null;
 let activeCanvasDrag: { node: Node; offsetX: number; offsetY: number; pointerId: number; moved: boolean } | null = null;
 let suppressNextCanvasClick = false;
 const CANVAS_NODE_SCALE = 1.5;
 const CANVAS_DEFAULT_LABEL_SIZE = 27;
 const CANVAS_SELECTED_LABEL_SIZE = 65;
+
+function shouldShowCanvasLabel(node: Node) {
+	const scale = currentTransform.k || 1;
+	const nodeId = String(node?.id);
+	const forcedLabelIds = new Set((currentOpts.logLabelNodeIds || []).map((id: string | number) => String(id)));
+	const selectedIds = new Set((currentOpts.selectedNodeIds || []).map((id: string | number) => String(id)));
+	return (
+		forcedLabelIds.has(nodeId) ||
+		selectedIds.has(nodeId) ||
+		(currentOpts.selectedId != null && String(currentOpts.selectedId) === nodeId) ||
+		scale >= 0.45
+	);
+}
+
+function hideCanvasTooltip() {
+	canvasTooltip?.remove();
+	canvasTooltip = null;
+}
+
+function updateCanvasTooltip(node: Node | null, clientX?: number, clientY?: number) {
+	if (!node || shouldShowCanvasLabel(node) || !parentEl) {
+		hideCanvasTooltip();
+		return;
+	}
+
+	if (!canvasTooltip) {
+		canvasTooltip = document.createElement('div');
+		canvasTooltip.style.position = 'absolute';
+		canvasTooltip.style.pointerEvents = 'none';
+		canvasTooltip.style.zIndex = '4';
+		canvasTooltip.style.padding = '6px 9px';
+		canvasTooltip.style.borderRadius = '5px';
+		canvasTooltip.style.background = 'rgba(15, 23, 42, 0.94)';
+		canvasTooltip.style.color = '#f8fafc';
+		canvasTooltip.style.font = '12px/1.35 Urbanist, system-ui, sans-serif';
+		canvasTooltip.style.boxShadow = '0 4px 14px rgba(2, 6, 23, 0.24)';
+		parentEl.appendChild(canvasTooltip);
+	}
+
+	const label = getNodeLabel(node) || String(node?.id || '');
+	const crd = node?.crd ?? node?.crdId ?? node?.individualCrd ?? node?.firmCrd;
+	canvasTooltip.textContent = crd && String(crd) !== label ? `${label} (${crd})` : label;
+	const rect = parentEl.getBoundingClientRect();
+	const left = (clientX ?? rect.left) - rect.left + 10;
+	const top = (clientY ?? rect.top) - rect.top - 10;
+	canvasTooltip.style.left = `${Math.max(4, Math.min(rect.width - canvasTooltip.offsetWidth - 4, left))}px`;
+	canvasTooltip.style.top = `${Math.max(4, top - canvasTooltip.offsetHeight)}px`;
+}
 
 function getCanvasNodeSize(node: Node) {
 	const vizHalf = (node && node._vizHalf) || (node.group === 'firm' ? 6 : 4);
@@ -131,6 +180,7 @@ function onCanvasPointerMove(e: PointerEvent) {
 	}
 	const hit = getHitNode(e.clientX, e.clientY);
 	const newHover = hit ? String(hit.id) : null;
+	updateCanvasTooltip(hit, e.clientX, e.clientY);
 	if (hoverNodeId !== newHover) {
 		hoverNodeId = newHover;
 		if (canvas) {
@@ -143,6 +193,7 @@ function onCanvasPointerMove(e: PointerEvent) {
 function onCanvasPointerDown(e: PointerEvent) {
 	const hit = getHitNode(e.clientX, e.clientY);
 	if (!hit || !canvas) return;
+	hideCanvasTooltip();
 	const rect = canvas.getBoundingClientRect();
 	const invK = 1 / (currentTransform.k || 1);
 	const worldX = (e.clientX - rect.left - currentTransform.x) * invK;
@@ -175,6 +226,14 @@ function endCanvasDrag(e: PointerEvent) {
 	if (canvas) canvas.style.cursor = 'default';
 }
 
+function onCanvasPointerLeave() {
+	if (!activeCanvasDrag) {
+		hoverNodeId = null;
+		hideCanvasTooltip();
+		drawCanvasFrame(currentNodes, currentLinks, currentTransform, currentOpts);
+	}
+}
+
 export function createCanvasOverlay(parent: HTMLElement) {
 	cachedThemeColors = null;
 	destroyCanvas();
@@ -201,6 +260,7 @@ export function createCanvasOverlay(parent: HTMLElement) {
 	canvas.addEventListener('pointermove', onCanvasPointerMove);
 	canvas.addEventListener('pointerup', endCanvasDrag);
 	canvas.addEventListener('pointercancel', endCanvasDrag);
+	canvas.addEventListener('pointerleave', onCanvasPointerLeave);
 	return { drawFrame: drawCanvasFrame, resize, destroy: destroyCanvas };
 }
 
@@ -213,8 +273,10 @@ export function destroyCanvas() {
 		canvas.removeEventListener('pointermove', onCanvasPointerMove);
 		canvas.removeEventListener('pointerup', endCanvasDrag);
 		canvas.removeEventListener('pointercancel', endCanvasDrag);
+		canvas.removeEventListener('pointerleave', onCanvasPointerLeave);
 	}
 	activeCanvasDrag = null;
+	hideCanvasTooltip();
 	suppressNextCanvasClick = false;
 	currentNodes = [];
 	currentLinks = [];

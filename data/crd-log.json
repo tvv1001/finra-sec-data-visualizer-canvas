@@ -1,6 +1,182 @@
 {
   "firms": [
     {
+      "id": 8039,
+      "name": "EATON VANCE DISTRIBUTORS, INC."
+    },
+    {
+      "id": 104859,
+      "name": "EATON VANCE MANAGEMENT"
+    },
+    {
+      "id": 37731,
+      "name": "EATON VANCE DISTRIBUTORS, INC."
+    },
+    {
+      "id": 30344,
+      "name": "MORGAN STANLEY DISTRIBUTION, INC."
+    },
+    {
+      "id": 13626,
+      "name": "AMERICAN GENERAL SECURITIES INCORPORATED"
+    },
+    {
+      "id": 146,
+      "name": "ADVANTAGE CAPITAL CORPORATION"
+    },
+    {
+      "id": 23131,
+      "name": "ROYAL ALLIANCE ASSOCIATES, INC."
+    },
+    {
+      "id": 133763,
+      "name": "SAGEPOINT FINANCIAL, INC."
+    },
+    {
+      "id": 42803,
+      "name": "VALIC FINANCIAL ADVISORS, INC."
+    },
+    {
+      "id": 421,
+      "name": "WOODBURY FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 7461,
+      "name": "FSC SECURITIES CORPORATION"
+    },
+    {
+      "id": 29106,
+      "name": "E*TRADE SECURITIES LLC"
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
+    },
+    {
+      "id": 11707,
+      "name": "NATWEST MARKETS SECURITIES INC."
+    },
+    {
+      "id": 109011,
+      "name": "INVESTACORP ADVISORY SERVICES INC"
+    },
+    {
+      "id": 110518,
+      "name": "SECURITIES AMERICA ADVISORS, INC."
+    },
+    {
+      "id": 282589,
+      "name": "INSIGNEO ADVISORY SERVICES, LLC"
+    },
+    {
+      "id": 10078,
+      "name": "WATERSTONE FINANCIAL GROUP, INC."
+    },
+    {
+      "id": 7684,
+      "name": "INVESTACORP, INC."
+    },
+    {
+      "id": 10205,
+      "name": "SECURITIES AMERICA, INC."
+    },
+    {
+      "id": 25803,
+      "name": "TRIAD ADVISORS LLC"
+    },
+    {
+      "id": 29249,
+      "name": "INSIGNEO SECURITIES, LLC"
+    },
+    {
+      "id": 29087,
+      "name": "WORLD EQUITY GROUP, INC."
+    },
+    {
+      "id": 26582,
+      "name": "BARBER & BRONSON INCORPORATED"
+    },
+    {
+      "id": 46472,
+      "name": "THE KLEIN GROUP, LLC"
+    },
+    {
+      "id": 505,
+      "name": "LADENBURG THALMANN & CO. INC."
+    },
+    {
+      "id": 37306,
+      "name": "DWS DISTRIBUTORS, INC."
+    },
+    {
+      "id": 10465,
+      "name": "CAPITAL BROKERAGE CORPORATION"
+    },
+    {
+      "id": 17344,
+      "name": "FIRST CLEARING CORPORATION"
+    },
+    {
+      "id": 18487,
+      "name": "AMERICAN PORTFOLIOS FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 35371,
+      "name": "OSAIC INSTITUTIONS, INC."
+    },
+    {
+      "id": 25454,
+      "name": "ESSEX NATIONAL SECURITIES, INC."
+    },
+    {
+      "id": 17516,
+      "name": "FIRST CHICAGO NBD INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 46091,
+      "name": "ASSET PLANNING SOLUTIONS, INC."
+    },
+    {
+      "id": 32444,
+      "name": "FIRST ALLIED SECURITIES, INC."
+    },
+    {
+      "id": 5979,
+      "name": "AMERIPRISE ADVISOR SERVICES, INC."
+    },
+    {
+      "id": 4806,
+      "name": "MUTUAL SERVICE CORPORATION"
+    },
+    {
+      "id": 13787,
+      "name": "UVEST FINANCIAL SERVICES GROUP, INC."
+    },
+    {
+      "id": 866,
+      "name": "WADDELL & REED"
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 8733,
+      "name": "LPL ENTERPRISE"
+    },
+    {
+      "id": 20472,
+      "name": "TIAA-CREF INDIVIDUAL & INSTITUTIONAL SERVICES, LLC"
+    },
+    {
+      "id": 36130,
+      "name": "TEACHERS PERSONAL INVESTORS SERVICES, INC."
+    },
+    {
+      "id": 754,
+      "name": "DEAM INVESTOR SERVICES, INC."
+    },
+    {
       "id": 105325,
       "name": "FEDERATED INVESTMENT COUNSELING"
     },
@@ -45,10 +221,6 @@
       "name": "JOHN HANCOCK DISTRIBUTORS LLC"
     },
     {
-      "id": 23131,
-      "name": "ROYAL ALLIANCE ASSOCIATES, INC."
-    },
-    {
       "id": 168638,
       "name": "MML STRATEGIC DISTRIBUTORS, LLC"
     },
@@ -81,10 +253,6 @@
       "name": "CNL SECURITIES CORP."
     },
     {
-      "id": 6413,
-      "name": "LPL FINANCIAL LLC"
-    },
-    {
       "id": 18004,
       "name": "THE TAVENNER COMPANY"
     },
@@ -97,10 +265,6 @@
       "name": "PACIFIC WEST FINANCIAL CONSULTANTS INC"
     },
     {
-      "id": 110518,
-      "name": "SECURITIES AMERICA ADVISORS, INC."
-    },
-    {
       "id": 6390,
       "name": "PACIFIC WEST SECURITIES, INC."
     },
@@ -111,14 +275,6 @@
     {
       "id": 3866,
       "name": "KMS FINANCIAL SERVICES, INC."
-    },
-    {
-      "id": 10205,
-      "name": "SECURITIES AMERICA, INC."
-    },
-    {
-      "id": 133763,
-      "name": "OSAIC SERVICES, INC."
     },
     {
       "id": 250,
@@ -169,10 +325,6 @@
       "name": "E*TRADE CAPITAL MANAGEMENT, LLC"
     },
     {
-      "id": 866,
-      "name": "WADDELL & REED, INC."
-    },
-    {
       "id": 43177,
       "name": "J.P. TURNER & COMPANY, L.L.C."
     },
@@ -183,14 +335,6 @@
     {
       "id": 5167,
       "name": "NYLIFE SECURITIES LLC"
-    },
-    {
-      "id": 29106,
-      "name": "E*TRADE SECURITIES LLC"
-    },
-    {
-      "id": 149777,
-      "name": "MORGAN STANLEY"
     },
     {
       "id": 7784,
@@ -369,26 +513,6 @@
       "name": "MORGAN STANLEY & CO. INCORPORATED"
     },
     {
-      "id": 13626,
-      "name": "AMERICAN GENERAL SECURITIES INCORPORATED"
-    },
-    {
-      "id": 146,
-      "name": "ADVANTAGE CAPITAL CORPORATION"
-    },
-    {
-      "id": 42803,
-      "name": "VALIC FINANCIAL ADVISORS, INC."
-    },
-    {
-      "id": 7461,
-      "name": "FSC SECURITIES CORPORATION"
-    },
-    {
-      "id": 421,
-      "name": "WOODBURY FINANCIAL SERVICES, INC."
-    },
-    {
       "id": 2882,
       "name": "VOYA FINANCIAL ADVISORS, INC."
     },
@@ -529,10 +653,6 @@
       "name": "MORGAN STANLEY DW INC."
     },
     {
-      "id": 32444,
-      "name": "FIRST ALLIED SECURITIES, INC."
-    },
-    {
       "id": 17507,
       "name": "FIDELITY INVESTMENTS INSTITUTIONAL SERVICES COMPANY, INC."
     },
@@ -571,22 +691,6 @@
     {
       "id": 145276,
       "name": "ETC BROKERAGE SERVICES, LLC"
-    },
-    {
-      "id": 20472,
-      "name": "TIAA-CREF INDIVIDUAL & INSTITUTIONAL SERVICES, LLC"
-    },
-    {
-      "id": 36130,
-      "name": "TEACHERS PERSONAL INVESTORS SERVICES, INC."
-    },
-    {
-      "id": 754,
-      "name": "DEAM INVESTOR SERVICES, INC."
-    },
-    {
-      "id": 37306,
-      "name": "DWS DISTRIBUTORS, INC."
     },
     {
       "id": 14013,
@@ -691,14 +795,6 @@
     {
       "id": 30349,
       "name": "1ST GLOBAL CAPITAL CORP."
-    },
-    {
-      "id": 30344,
-      "name": "MORGAN STANLEY DISTRIBUTION, INC."
-    },
-    {
-      "id": 5979,
-      "name": "OLDE DISCOUNT CORPORATION"
     },
     {
       "id": 6939,
@@ -989,28 +1085,8 @@
       "name": "INVESTORS CAPITAL CORP."
     },
     {
-      "id": 25803,
-      "name": "TRIAD ADVISORS LLC"
-    },
-    {
-      "id": 7684,
-      "name": "INVESTACORP, INC."
-    },
-    {
       "id": 13318,
       "name": "SECURITIES SERVICE NETWORK, LLC"
-    },
-    {
-      "id": 18487,
-      "name": "AMERICAN PORTFOLIOS FINANCIAL SERVICES, INC."
-    },
-    {
-      "id": 505,
-      "name": "LADENBURG THALMANN & CO. INC."
-    },
-    {
-      "id": 35371,
-      "name": "OSAIC INSTITUTIONS, INC."
     },
     {
       "id": 313171,
@@ -1499,10 +1575,6 @@
     {
       "id": 304735,
       "name": "RHP WEALTH MANAGEMENT"
-    },
-    {
-      "id": 25454,
-      "name": "ESSEX NATIONAL SECURITIES, INC."
     },
     {
       "id": 47683,
@@ -2631,6 +2703,42 @@
   ],
   "individuals": [
     {
+      "id": 2730645,
+      "name": "DAVID ANDREW MICHAUD"
+    },
+    {
+      "id": 2139630,
+      "name": "William Peet"
+    },
+    {
+      "id": 4820047,
+      "name": "Stephen Stanley Dudas"
+    },
+    {
+      "id": 2775629,
+      "name": "BARRY EVAN STEINER"
+    },
+    {
+      "id": 4210778,
+      "name": "KEVIN S ABBOTT"
+    },
+    {
+      "id": 3259012,
+      "name": "DORI JAMILLE HAMMOND"
+    },
+    {
+      "id": 3165067,
+      "name": "STEPHEN PAUL AMARANTE"
+    },
+    {
+      "id": 2420144,
+      "name": "CHRISTOPHER MILLS MITCHELL"
+    },
+    {
+      "id": 4748490,
+      "name": "NICOLE M. CHELEL"
+    },
+    {
       "id": 3072063,
       "name": "Kevin Gang"
     },
@@ -2825,10 +2933,6 @@
     {
       "id": 7996345,
       "name": "Serge Budevich"
-    },
-    {
-      "id": 4748490,
-      "name": "NICOLE M. CHELEL"
     },
     {
       "id": 8071637,
