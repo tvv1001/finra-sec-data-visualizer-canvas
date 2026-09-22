@@ -6988,7 +6988,6 @@ function refreshNodeLayout() {
 	// can delay the final stop briefly after newly-revealed nodes settle.
 	refreshFinalizeLayoutFn = () => {
 		simulation.alphaTarget(0);
-		simulation.stop();
 		refreshLayoutStopTimer = null;
 		try {
 			saveSession();
@@ -6997,7 +6996,9 @@ function refreshNodeLayout() {
 		}
 	};
 
-	simulation.alphaTarget(0.04);
+	// Let the refresh reheat briefly, then cool naturally to D3's alpha minimum.
+	// A non-zero alphaTarget keeps the simulation energized and prevents settling.
+	simulation.alphaTarget(0);
 	simulation
 		.alpha(
 			isHuge ? 0.28

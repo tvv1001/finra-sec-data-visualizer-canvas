@@ -1,6 +1,70 @@
 {
   "firms": [
     {
+      "id": 105325,
+      "name": "FEDERATED INVESTMENT COUNSELING"
+    },
+    {
+      "id": 108477,
+      "name": "ALLIANCEBERNSTEIN L.P."
+    },
+    {
+      "id": 5009,
+      "name": "FEDERATED SECURITIES CORP."
+    },
+    {
+      "id": 14549,
+      "name": "ALLIANCEBERNSTEIN INVESTMENTS, INC."
+    },
+    {
+      "id": 104474,
+      "name": "SANFORD C. BERNSTEIN & CO., LLC"
+    },
+    {
+      "id": 102920,
+      "name": "J.P. MORGAN INSTITUTIONAL INVESTMENTS INC."
+    },
+    {
+      "id": 103848,
+      "name": "QUASAR DISTRIBUTORS, LLC"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 19061,
+      "name": "SIGNATOR FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 468,
+      "name": "SIGNATOR INVESTORS, INC."
+    },
+    {
+      "id": 5249,
+      "name": "JOHN HANCOCK DISTRIBUTORS LLC"
+    },
+    {
+      "id": 23131,
+      "name": "ROYAL ALLIANCE ASSOCIATES, INC."
+    },
+    {
+      "id": 168638,
+      "name": "MML STRATEGIC DISTRIBUTORS, LLC"
+    },
+    {
+      "id": 38030,
+      "name": "MML DISTRIBUTORS, LLC"
+    },
+    {
+      "id": 10409,
+      "name": "MML INVESTORS SERVICES, LLC"
+    },
+    {
+      "id": 293019,
+      "name": "FLOURISH FINANCIAL LLC"
+    },
+    {
       "id": 139121,
       "name": "MAIN STREET FAMILY ADVISORS, INC."
     },
@@ -53,16 +117,8 @@
       "name": "SECURITIES AMERICA, INC."
     },
     {
-      "id": 23131,
-      "name": "OSAIC WEALTH, INC."
-    },
-    {
       "id": 133763,
       "name": "OSAIC SERVICES, INC."
-    },
-    {
-      "id": 10409,
-      "name": "MML INVESTORS SERVICES, INC."
     },
     {
       "id": 250,
@@ -135,38 +191,6 @@
     {
       "id": 149777,
       "name": "MORGAN STANLEY"
-    },
-    {
-      "id": 105325,
-      "name": "FEDERATED INVESTMENT COUNSELING"
-    },
-    {
-      "id": 108477,
-      "name": "ALLIANCEBERNSTEIN L.P."
-    },
-    {
-      "id": 5009,
-      "name": "FEDERATED SECURITIES CORP."
-    },
-    {
-      "id": 14549,
-      "name": "ALLIANCEBERNSTEIN INVESTMENTS, INC."
-    },
-    {
-      "id": 104474,
-      "name": "SANFORD C. BERNSTEIN & CO., LLC"
-    },
-    {
-      "id": 102920,
-      "name": "J.P. MORGAN INSTITUTIONAL INVESTMENTS INC."
-    },
-    {
-      "id": 103848,
-      "name": "QUASAR DISTRIBUTORS, LLC"
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
     {
       "id": 7784,
@@ -339,10 +363,6 @@
     {
       "id": 14251,
       "name": "MSI FINANCIAL SERVICES, INC."
-    },
-    {
-      "id": 168638,
-      "name": "MML STRATEGIC DISTRIBUTORS, LLC"
     },
     {
       "id": 8209,
@@ -1261,10 +1281,6 @@
       "name": "MASSACHUSETTS MUTUAL LIFE INSURANCE COMPANY"
     },
     {
-      "id": 5249,
-      "name": "MANULIFE FINANCIAL SECURITIES LLC"
-    },
-    {
       "id": 265,
       "name": "EQUITY SERVICES, INC."
     },
@@ -1901,10 +1917,6 @@
       "name": "THE O.N. EQUITY SALES COMPANY"
     },
     {
-      "id": 468,
-      "name": "SIGNATOR INVESTORS, INC."
-    },
-    {
       "id": 12965,
       "name": "BA INVESTMENT SERVICES, INC."
     },
@@ -2227,14 +2239,6 @@
     {
       "id": 305174,
       "name": "MAGEN FINANCIAL LLC"
-    },
-    {
-      "id": 38030,
-      "name": "MML DISTRIBUTORS, LLC"
-    },
-    {
-      "id": 19061,
-      "name": "SYMETRA INVESTMENT SERVICES, INC."
     },
     {
       "id": 1703,
@@ -2627,6 +2631,14 @@
   ],
   "individuals": [
     {
+      "id": 3072063,
+      "name": "Kevin Gang"
+    },
+    {
+      "id": 4364402,
+      "name": "Frank Joseph Rispoli"
+    },
+    {
       "id": 1294878,
       "name": "CARY CHRISTOPHER MCDONALD"
     },
@@ -2645,10 +2657,6 @@
     {
       "id": 3206906,
       "name": "Matthew Adam Janssen"
-    },
-    {
-      "id": 3072063,
-      "name": "Kevin Gang"
     },
     {
       "id": 7626714,
