@@ -15960,7 +15960,7 @@ function pinNodeAndReleaseOthers(pinnedNode) {
 export async function handleNodeOpen(event, d) {
 	if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
 	pinNodeAndReleaseOthers(d);
-	openNodeWithExpansion(d, { syncRoute: !canvasModeActive });
+	openNodeWithExpansion(d, { syncRoute: true });
 }
 
 export function shouldAutoRevealNodeConnections(node) {
