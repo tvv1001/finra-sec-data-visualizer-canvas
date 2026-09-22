@@ -687,10 +687,17 @@ async function readBucketDocsFromLocalRedis(bucket) {
 		return { docs: null, generatedAt: null, reason: "ioredis module not available" };
 	}
 
-	const redis = new IORedis("redis://127.0.0.1:6379", { lazyConnect: true, maxRetriesPerRequest: 1 });
+	const redis = new IORedis("redis://127.0.0.1:6379", { 
+		lazyConnect: true, 
+		maxRetriesPerRequest: 1,
+		retryStrategy: () => null 
+	});
+	redis.on("error", () => {}); // Ignore connection drop errors to prevent noisy logs
+
 	try {
 		await redis.connect();
 	} catch (error) {
+		redis.disconnect();
 		return { docs: null, generatedAt: null, reason: `local Redis unavailable: ${error?.message || error}` };
 	}
 
