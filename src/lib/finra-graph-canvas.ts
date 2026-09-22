@@ -399,17 +399,24 @@ function getColorForGroup(g: string) {
 	return colors.defaultText;
 }
 
-function getLinkStyle(link: Link, selectedId: string | number | undefined, selectedNodeIds: Set<string>, selectedNodeActive: boolean) {
+function getLinkStyle(link: Link, selectedId: string | number | undefined, selectedNodeIds: Set<string>, selectedNodeActive: boolean, nodeGroupMap: Map<string, string>) {
 	const colors = resolveCachedThemeColors();
 	const source = endpointNode(link?.source);
 	const target = endpointNode(link?.target);
 	const inactive = isInactiveNode(source) || isInactiveNode(target);
 	const previous = isPreviousLink(link);
 	const control = isControlLink(link);
-	const selected =
-		(selectedId != null && (String(source?.id) === String(selectedId) || String(target?.id) === String(selectedId))) ||
-		selectedNodeIds.has(String(source?.id)) ||
-		selectedNodeIds.has(String(target?.id));
+	const sId = String(source?.id);
+	const tId = String(target?.id);
+	const sFirm = nodeGroupMap.get(sId) === 'firm';
+	const tFirm = nodeGroupMap.get(tId) === 'firm';
+	
+	const isHovered = (hoverNodeId != null && (sId === hoverNodeId || tId === hoverNodeId));
+	
+	const sTrigger = (String(selectedId) === sId || selectedNodeIds.has(sId)) && !sFirm;
+	const tTrigger = (String(selectedId) === tId || selectedNodeIds.has(tId)) && !tFirm;
+	
+	const selected = isHovered || sTrigger || tTrigger;
 	return {
 		color:
 			inactive || previous ? colors.inactiveStroke
@@ -446,6 +453,10 @@ export function drawCanvasFrame(
 	currentTransform = transform;
 	const selectedNodeIds = new Set((opts.selectedNodeIds || []).map((id) => String(id)));
 	const selectedNodeActive = Boolean(opts.selectedId) || selectedNodeIds.size > 0;
+	const nodeGroupMap = new Map();
+	for (const n of nodes) {
+		nodeGroupMap.set(String(n.id), n.group);
+	}
 	if (!canvas || !ctx || !parentEl) return;
 	const rect = parentEl.getBoundingClientRect();
 	const w = rect.width;
@@ -478,7 +489,7 @@ export function drawCanvasFrame(
 		if (a.y > maxY && b.y > maxY) continue;
 		const sa = worldToScreen(a.x, a.y, transform);
 		const sb = worldToScreen(b.x, b.y, transform);
-		const style = getLinkStyle(l, opts.selectedId, selectedNodeIds, selectedNodeActive);
+		const style = getLinkStyle(l, opts.selectedId, selectedNodeIds, selectedNodeActive, nodeGroupMap);
 		ctx.beginPath();
 		ctx.setLineDash(style.dash);
 		// Keep links thin at every zoom; only taper further when the graph is zoomed out.

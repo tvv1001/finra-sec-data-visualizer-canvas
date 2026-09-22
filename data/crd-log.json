@@ -1,6 +1,62 @@
 {
   "firms": [
     {
+      "id": 5393,
+      "name": "CHARLES SCHWAB & CO., INC."
+    },
+    {
+      "id": 13906,
+      "name": "UST SECURITIES CORP."
+    },
+    {
+      "id": 1141,
+      "name": "JULIUS BAER SECURITIES INC."
+    },
+    {
+      "id": 2347,
+      "name": "JEFFERIES & COMPANY, INC."
+    },
+    {
+      "id": 7556,
+      "name": "MORGAN STANLEY DW INC."
+    },
+    {
+      "id": 8209,
+      "name": "MORGAN STANLEY & CO. INCORPORATED"
+    },
+    {
+      "id": 25025,
+      "name": "E*TRADE CLEARING LLC"
+    },
+    {
+      "id": 29106,
+      "name": "E*TRADE SECURITIES LLC"
+    },
+    {
+      "id": 47873,
+      "name": "SAFRA SECURITIES LLC"
+    },
+    {
+      "id": 48015,
+      "name": "FOLIO INVESTMENTS, INC."
+    },
+    {
+      "id": 7452,
+      "name": "VANGUARD MARKETING CORPORATION"
+    },
+    {
+      "id": 145276,
+      "name": "ETC BROKERAGE SERVICES, LLC"
+    },
+    {
+      "id": 26506,
+      "name": "AMERICAN ENTERPRISE INVESTMENT SERVICES INC."
+    },
+    {
+      "id": 6363,
+      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
+    },
+    {
       "id": 136356,
       "name": "MEDALIST SECURITIES INC."
     },
@@ -401,10 +457,6 @@
       "name": "MCDONALD INVESTMENTS INC."
     },
     {
-      "id": 5393,
-      "name": "CHARLES SCHWAB & CO., INC."
-    },
-    {
       "id": 42803,
       "name": "VALIC FINANCIAL ADVISORS, INC."
     },
@@ -525,16 +577,8 @@
       "name": "BBVA WEALTH SOLUTIONS INC."
     },
     {
-      "id": 6363,
-      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
-    },
-    {
       "id": 6321,
       "name": "IDS LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 7556,
-      "name": "DEAN WITTER REYNOLDS INC."
     },
     {
       "id": 13648,
@@ -1183,10 +1227,6 @@
     {
       "id": 121430,
       "name": "SMITH CAPITAL MARKETS, LLC."
-    },
-    {
-      "id": 7452,
-      "name": "VANGUARD MARKETING CORPORATION"
     },
     {
       "id": 287515,
@@ -2865,16 +2905,8 @@
       "name": "FOCUS PARTNERS WEALTH, LLC"
     },
     {
-      "id": 29106,
-      "name": "E*TRADE SECURITIES LLC"
-    },
-    {
       "id": 159515,
       "name": "SAOS CAPITAL, LLC"
-    },
-    {
-      "id": 2347,
-      "name": "JEFFERIES LLC"
     },
     {
       "id": 171346,
@@ -3131,10 +3163,6 @@
     {
       "id": 17530,
       "name": "BOK FINANCIAL SECURITIES, INC."
-    },
-    {
-      "id": 8209,
-      "name": "MORGAN STANLEY & CO., INCORPORATED"
     },
     {
       "id": 19660,
@@ -5125,10 +5153,6 @@
       "name": "RIVERSOURCE DISTRIBUTORS, INC."
     },
     {
-      "id": 26506,
-      "name": "AMERICAN ENTERPRISE INVESTMENT SERVICES INC."
-    },
-    {
       "id": 2091,
       "name": "OSCAR GRUSS & SON, INCORPORATED"
     },
@@ -5139,10 +5163,6 @@
     {
       "id": 134736,
       "name": "FM PARTNERS HOLDINGS LLC"
-    },
-    {
-      "id": 47873,
-      "name": "SAFRA SECURITIES LLC"
     },
     {
       "id": 106237,
@@ -5179,26 +5199,6 @@
     {
       "id": 40794,
       "name": "HORAN SECURITIES, INC."
-    },
-    {
-      "id": 13906,
-      "name": "UST SECURITIES CORP."
-    },
-    {
-      "id": 1141,
-      "name": "JULIUS BAER SECURITIES INC."
-    },
-    {
-      "id": 25025,
-      "name": "E*TRADE CLEARING LLC"
-    },
-    {
-      "id": 48015,
-      "name": "FOLIO INVESTMENTS, INC."
-    },
-    {
-      "id": 145276,
-      "name": "ETC BROKERAGE SERVICES, LLC"
     },
     {
       "id": 14013,
@@ -6518,6 +6518,10 @@
     }
   ],
   "individuals": [
+    {
+      "id": 2391989,
+      "name": "JOSEPH FRANCIS GERDES"
+    },
     {
       "id": 5924814,
       "name": "TRACIE ERIN OKEEFE"
@@ -8397,10 +8401,6 @@
     {
       "id": 1954117,
       "name": "William Williams"
-    },
-    {
-      "id": 2391989,
-      "name": "JOSEPH FRANCIS GERDES"
     },
     {
       "id": 7996345,

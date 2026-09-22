@@ -5802,13 +5802,16 @@ function computeHighlightState() {
 		adjacency.get(targetId).push({ nodeId: sourceId, link });
 	});
 
-	const walkHighlightRoot = (entry: { id: string; hops?: any; isSelection?: boolean }, options: { ignoreFirmSelectionSuppress?: boolean } = {}) => {
+	const walkHighlightRoot = (entry: { id: string; hops?: any; isSelection?: boolean }, options: { ignoreFirmSelectionSuppress?: boolean; isHoverOverride?: boolean } = {}) => {
 		if (!entry?.id) return;
 		const entryNode = nodeById.get(entry.id) || null;
 		const entryInactive = isNodeInactive(entryNode);
 
 		rootIds.add(entry.id);
 		nodeIds.add(entry.id);
+
+		// Firm nodes do not keep lines highlighted on selection, only on hover
+		if (entryNode?.group === 'firm' && !options.isHoverOverride) return;
 
 		if (!adjacency.has(entry.id)) return;
 
@@ -5864,7 +5867,7 @@ function computeHighlightState() {
 	// firm selection root (selectHopHighlightRoots de-dupes that id as isSelection=true,
 	// which would otherwise keep person edges suppressed).
 	if (globalState.hoveredNodeId) {
-		walkHighlightRoot({ id: String(globalState.hoveredNodeId), hops: 1, isSelection: false }, { ignoreFirmSelectionSuppress: true });
+		walkHighlightRoot({ id: String(globalState.hoveredNodeId), hops: 1, isSelection: false }, { ignoreFirmSelectionSuppress: true, isHoverOverride: true });
 	}
 
 	return { rootIds, nodeIds, hopNodeIds, linkKeys };
