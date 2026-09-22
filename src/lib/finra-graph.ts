@@ -10532,40 +10532,7 @@ let _cacheStatsInFlight: Promise<void> | null = null;
 let _cacheStatsFetchedAt = 0;
 const CACHE_STATS_MIN_INTERVAL_MS = 20000;
 function fetchCacheStats(options: { force?: boolean } = {}) {
-	if (isBrowserOffline()) {
-		showOfflineFetchStatus();
-		return Promise.resolve();
-	}
-	clearOfflineFetchStatus();
-	const now = Date.now();
-	if (!options.force && _cacheStatsInFlight) return _cacheStatsInFlight;
-	if (!options.force && _cacheStats && now - _cacheStatsFetchedAt < CACHE_STATS_MIN_INTERVAL_MS) {
-		return Promise.resolve();
-	}
-	_cacheStatsInFlight = fetchWithTimeout('/api/finra/cache-stats', { cache: 'no-store' })
-		.then((r) => r.json())
-		.then((data) => {
-			if (data?.counts) {
-				_cacheStats = data.counts;
-				_cacheStatsFetchedAt = Date.now();
-				updateMeta();
-				try {
-					// Ensure subset info updates to reflect Redis totals as soon as we
-					// receive them (so the header can show People+Firms sum instead
-					// of the possibly-stale server subset total).
-					const shown = Array.isArray(layoutNodes) ? layoutNodes.length : 0;
-					const totalFromGraph = graphData?.meta?.totalNodes ?? (Array.isArray(graphData?.nodes) ? graphData.nodes.length : 0);
-					updateSubsetInfo(shown, totalFromGraph);
-				} catch (e) {
-					// swallow — non-critical UI sync
-				}
-			}
-		})
-		.catch(() => {})
-		.finally(() => {
-			_cacheStatsInFlight = null;
-		});
-	return _cacheStatsInFlight;
+	return Promise.resolve();
 }
 
 function updateMeta(meta: { totalIndividuals?: number; totalFirms?: number; totalLinks?: number } = {}) {
