@@ -444,7 +444,8 @@ export function drawCanvasFrame(
 		if (shouldShowLabel && (isForcedLabel || isNodeSelected || scale >= selectedCanvasLabelZoomThreshold)) {
 			const p = worldToScreen(n.x, n.y, transform);
 
-			const labelSize = isNodeSelected || isForcedLabel ? CANVAS_SELECTED_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
+			const baseLabelSize = isNodeSelected || isForcedLabel ? CANVAS_SELECTED_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
+			const labelSize = baseLabelSize * Math.max(0.01, transform.k || 1);
 			ctx.save();
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 			ctx.font = `${isForcedLabel || isNodeSelected ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;
@@ -455,8 +456,10 @@ export function drawCanvasFrame(
 			ctx.textAlign = 'center';
 			ctx.textBaseline = 'top';
 			const labelText = getNodeLabel(n);
-			const labelOffset = n.group === 'entity' ? size * 1.5 : size;
-			ctx.fillText(labelText || String(n.id), p.x, p.y + labelOffset + DEFAULT_NODE_LABEL_GAP_PX);
+			const nodeScreenRadius = Math.max(1, size * (transform.k || 1));
+			const labelOffset = n.group === 'entity' ? nodeScreenRadius * 1.5 : nodeScreenRadius;
+			const labelY = p.y + labelOffset + DEFAULT_NODE_LABEL_GAP_PX - Math.min(2, labelSize * 0.1);
+			ctx.fillText(labelText || String(n.id), p.x, labelY);
 			ctx.textAlign = 'start';
 			ctx.textBaseline = 'alphabetic';
 			ctx.restore();

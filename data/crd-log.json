@@ -1,6 +1,66 @@
 {
   "firms": [
     {
+      "id": 6321,
+      "name": "IDS LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 6363,
+      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 5393,
+      "name": "CHARLES SCHWAB & CO., INC."
+    },
+    {
+      "id": 13906,
+      "name": "UST SECURITIES CORP."
+    },
+    {
+      "id": 1141,
+      "name": "JULIUS BAER SECURITIES INC."
+    },
+    {
+      "id": 2347,
+      "name": "JEFFERIES & COMPANY, INC."
+    },
+    {
+      "id": 7556,
+      "name": "MORGAN STANLEY DW INC."
+    },
+    {
+      "id": 8209,
+      "name": "MORGAN STANLEY & CO. INCORPORATED"
+    },
+    {
+      "id": 25025,
+      "name": "E*TRADE CLEARING LLC"
+    },
+    {
+      "id": 29106,
+      "name": "E*TRADE SECURITIES LLC"
+    },
+    {
+      "id": 47873,
+      "name": "SAFRA SECURITIES LLC"
+    },
+    {
+      "id": 48015,
+      "name": "FOLIO INVESTMENTS, INC."
+    },
+    {
+      "id": 7452,
+      "name": "VANGUARD MARKETING CORPORATION"
+    },
+    {
+      "id": 145276,
+      "name": "ETC BROKERAGE SERVICES, LLC"
+    },
+    {
+      "id": 26506,
+      "name": "AMERICAN ENTERPRISE INVESTMENT SERVICES INC."
+    },
+    {
       "id": 15340,
       "name": "CETERA INVESTMENT SERVICES LLC"
     },
@@ -109,10 +169,6 @@
       "name": "UBS SECURITIES LLC"
     },
     {
-      "id": 7556,
-      "name": "DEAN WITTER REYNOLDS INC."
-    },
-    {
       "id": 7506,
       "name": "SHEARSON LEHMAN HUTTON INC."
     },
@@ -183,14 +239,6 @@
     {
       "id": 30344,
       "name": "MORGAN STANLEY DISTRIBUTION, INC."
-    },
-    {
-      "id": 8209,
-      "name": "MORGAN STANLEY & CO. LLC"
-    },
-    {
-      "id": 29106,
-      "name": "E*TRADE SECURITIES LLC"
     },
     {
       "id": 149777,
@@ -299,10 +347,6 @@
     {
       "id": 3777,
       "name": "WILSON-DAVIS & CO., INC."
-    },
-    {
-      "id": 6363,
-      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
     },
     {
       "id": 18387,
@@ -505,10 +549,6 @@
       "name": "HILLTOP SECURITIES INC."
     },
     {
-      "id": 5393,
-      "name": "CHARLES SCHWAB & CO., INC."
-    },
-    {
       "id": 139304,
       "name": "M FINANCIAL SECURITIES MARKETING, INC."
     },
@@ -523,10 +563,6 @@
     {
       "id": 3870,
       "name": "LINCOLN FINANCIAL SECURITIES CORPORATION"
-    },
-    {
-      "id": 7452,
-      "name": "VANGUARD MARKETING CORPORATION"
     },
     {
       "id": 15708,
@@ -929,10 +965,6 @@
       "name": "DEPFA FIRST ALBANY SECURITIES, LLC"
     },
     {
-      "id": 2347,
-      "name": "JEFFERIES LLC"
-    },
-    {
       "id": 14974,
       "name": "R. SEELAUS & CO., LLC"
     },
@@ -1127,10 +1159,6 @@
     {
       "id": 10582,
       "name": "WELLS FARGO INVESTMENTS, LLC"
-    },
-    {
-      "id": 26506,
-      "name": "AMERICAN ENTERPRISE INVESTMENT SERVICES INC."
     },
     {
       "id": 126292,
@@ -1793,10 +1821,6 @@
       "name": "REDTREE INVESTMENT GROUP"
     },
     {
-      "id": 6321,
-      "name": "IDS LIFE INSURANCE COMPANY"
-    },
-    {
       "id": 24110,
       "name": "LANCASTER POLLARD & CO."
     },
@@ -2382,6 +2406,14 @@
     }
   ],
   "individuals": [
+    {
+      "id": 1954117,
+      "name": "William Williams"
+    },
+    {
+      "id": 2391989,
+      "name": "JOSEPH FRANCIS GERDES"
+    },
     {
       "id": 7996345,
       "name": "Serge Budevich"
