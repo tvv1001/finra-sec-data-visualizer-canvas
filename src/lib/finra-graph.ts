@@ -614,7 +614,11 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 			try {
 				const transform = getCurrentZoomTransform();
 				const labelScale = selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
-				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
+				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, {
+					selectedId,
+					selectedNodeIds: Array.from(new Set([selectedId, ...Array.from(persistentSelectedIds)].filter(Boolean))),
+					labelScale,
+				});
 				if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
 					try {
 						overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale });
@@ -3149,7 +3153,12 @@ function syncSelectionLogAuxiliaryRenderers() {
 	}
 	if (canvasApi && typeof canvasApi.drawFrame === 'function') {
 		try {
-			canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+			canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, {
+				selectedId,
+				selectedNodeIds: Array.from(new Set([selectedId, ...Array.from(persistentSelectedIds)].filter(Boolean))),
+				labelScale,
+				logLabelNodeIds,
+			});
 		} catch {}
 	}
 	if (pixiApi && typeof pixiApi.drawFrame === 'function') {
@@ -16767,15 +16776,10 @@ function updateShortDetail(d) {
 }
 
 function clearHighlights() {
-	// Clear line/hop emphasis only. The durable node selection survives this action.
-	// Keep selectedId + persistentSelectedIds intact so previously selected nodes keep
-	// their selected chrome when the highlight overlay resets.
-	if (selectedId) {
-		rememberPersistentSelection(selectedId);
-		persistentSelectedIds.add(String(selectedId));
-	}
+	// Clear both the line emphasis and durable selected-node chrome.
 	disableAllTraceModes();
-	if (!nodeSel) return;
+	selectedId = null;
+	persistentSelectedIds.clear();
 	if (selectionRestoreTimer) {
 		clearTimeout(selectionRestoreTimer);
 		selectionRestoreTimer = null;
@@ -16793,6 +16797,9 @@ function clearHighlights() {
 	// user explicitly re-enables Log Bold via the toggle action.
 	logBoldHighlightRootsSuppressed = true;
 	reapplySelectionState();
+	// Canvas has no node selection, so ensure it redraws even when the SVG
+	// selections have not been initialized.
+	syncSelectionLogAuxiliaryRenderers();
 	try {
 		saveSession();
 	} catch (e) {

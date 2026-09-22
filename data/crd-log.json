@@ -1,6 +1,86 @@
 {
   "firms": [
     {
+      "id": 36451,
+      "name": "GREAT AMERICAN ADVISORS, INC."
+    },
+    {
+      "id": 16164,
+      "name": "TRANSAMERICA FINANCIAL ADVISORS, INC"
+    },
+    {
+      "id": 16496,
+      "name": "IVY DISTRIBUTORS, INC."
+    },
+    {
+      "id": 866,
+      "name": "WADDELL & REED"
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 133763,
+      "name": "SAGEPOINT FINANCIAL, INC."
+    },
+    {
+      "id": 23131,
+      "name": "OSAIC WEALTH, INC."
+    },
+    {
+      "id": 39543,
+      "name": "CAMBRIDGE INVESTMENT RESEARCH, INC."
+    },
+    {
+      "id": 136102,
+      "name": "FRONTIER SOLUTIONS, LLC"
+    },
+    {
+      "id": 134139,
+      "name": "CAMBRIDGE INVESTMENT RESEARCH ADVISORS, INC."
+    },
+    {
+      "id": 14762,
+      "name": "COORDINATED CAPITAL SECURITIES, INC."
+    },
+    {
+      "id": 20068,
+      "name": "SUNAMERICA SECURITIES, INC."
+    },
+    {
+      "id": 11761,
+      "name": "ENERIC FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 151381,
+      "name": "CONTINUITY PARTNERS GROUP, LLC"
+    },
+    {
+      "id": 132221,
+      "name": "MCDERMOTT INVESTMENT ADVISORS, LLC"
+    },
+    {
+      "id": 127648,
+      "name": "AFA FINANCIAL GROUP, LLC"
+    },
+    {
+      "id": 29639,
+      "name": "DIRECT CAPITAL SECURITIES, INC."
+    },
+    {
+      "id": 47261,
+      "name": "UNITED EQUITY SECURITIES, LLC"
+    },
+    {
+      "id": 30833,
+      "name": "CENTAURUS FINANCIAL, INC."
+    },
+    {
+      "id": 154926,
+      "name": "MCDERMOTT INVESTMENT SERVICES, LLC"
+    },
+    {
       "id": 8158,
       "name": "ROBERT W. BAIRD & CO. INCORPORATED"
     },
@@ -27,10 +107,6 @@
     {
       "id": 10205,
       "name": "SECURITIES AMERICA, INC."
-    },
-    {
-      "id": 23131,
-      "name": "OSAIC WEALTH, INC."
     },
     {
       "id": 104204,
@@ -157,14 +233,6 @@
       "name": "CHARLES SCHWAB & CO., INC."
     },
     {
-      "id": 134139,
-      "name": "CAMBRIDGE INVESTMENT RESEARCH ADVISORS, INC."
-    },
-    {
-      "id": 39543,
-      "name": "CAMBRIDGE INVESTMENT RESEARCH, INC."
-    },
-    {
       "id": 139304,
       "name": "M FINANCIAL SECURITIES MARKETING, INC."
     },
@@ -285,10 +353,6 @@
       "name": "AMERICAN PORTFOLIOS FINANCIAL SERVICES, INC."
     },
     {
-      "id": 133763,
-      "name": "OSAIC SERVICES, INC."
-    },
-    {
       "id": 505,
       "name": "LADENBURG THALMANN & CO. INC."
     },
@@ -359,10 +423,6 @@
     {
       "id": 171351,
       "name": "NEWEDGE ADVISORS"
-    },
-    {
-      "id": 6413,
-      "name": "LPL FINANCIAL LLC"
     },
     {
       "id": 2881,
@@ -1501,10 +1561,6 @@
       "name": "THE ADVISORS GROUP, INC."
     },
     {
-      "id": 20068,
-      "name": "SUNAMERICA SECURITIES, INC."
-    },
-    {
       "id": 10232,
       "name": "SPELMAN & CO., INC."
     },
@@ -1639,10 +1695,6 @@
     {
       "id": 13302,
       "name": "AEGON USA SECURITIES INC."
-    },
-    {
-      "id": 16164,
-      "name": "INTERSECURITIES, INC."
     },
     {
       "id": 23988,
@@ -2137,10 +2189,6 @@
       "name": "CHARTER PACIFIC SECURITIES, LLC"
     },
     {
-      "id": 29639,
-      "name": "DIRECT CAPITAL SECURITIES, INC."
-    },
-    {
       "id": 103747,
       "name": "HANSON MCCLAIN"
     },
@@ -2202,6 +2250,26 @@
     }
   ],
   "individuals": [
+    {
+      "id": 3262384,
+      "name": "SHAWN MICHAEL MIHAL"
+    },
+    {
+      "id": 7842316,
+      "name": "Ryan Boen"
+    },
+    {
+      "id": 5077188,
+      "name": "COLLEEN MCGUIRE BELL"
+    },
+    {
+      "id": 1812670,
+      "name": "AMY LYNN WEBBER"
+    },
+    {
+      "id": 5443986,
+      "name": "Adam Jack Bryan"
+    },
     {
       "id": 722143,
       "name": "PETER ALAN BIEBEL"

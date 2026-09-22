@@ -17,6 +17,24 @@ let currentLinks: Link[] = [];
 let currentOpts: any = {};
 let currentTransform = { x: 0, y: 0, k: 1 };
 let hoverNodeId: string | null = null;
+const CANVAS_NODE_SCALE = 1.05;
+
+function getCanvasNodeSize(node: Node, transform = currentTransform) {
+	const vizHalf = (node && node._vizHalf) || (node.group === 'firm' ? 6 : 4);
+	const scale = transform.k || 1;
+	return Math.max(
+		1,
+		vizHalf *
+			CANVAS_NODE_SCALE *
+			(scale < 0.5 ? 0.6
+			: scale < 1 ? 0.9
+			: 1.2),
+	);
+}
+
+function isControlPositionNode(node: Node) {
+	return Boolean(node?._deg?.controls > 0 || node?.isControlPosition || node?.controlPosition);
+}
 
 function getHitNode(clientX: number, clientY: number) {
 	if (!canvas) return null;
@@ -35,8 +53,7 @@ function getHitNode(clientX: number, clientY: number) {
 		const dx = n.x - wx;
 		const dy = n.y - wy;
 		const dist = Math.sqrt(dx * dx + dy * dy);
-		const vizHalf = (n && n._vizHalf) || (n.group === 'firm' ? 6 : 4);
-		const size = Math.max(1, vizHalf * (currentTransform.k < 0.5 ? 0.6 : currentTransform.k < 1 ? 0.9 : 1.2));
+		const size = getCanvasNodeSize(n);
 
 		if (dist <= size + 4 * invK) {
 			if (dist < bestDist) {
@@ -66,7 +83,6 @@ function onCanvasPointerMove(e: PointerEvent) {
 		drawCanvasFrame(currentNodes, currentLinks, currentTransform, currentOpts);
 	}
 }
-
 
 export function createCanvasOverlay(parent: HTMLElement) {
 	cachedThemeColors = null;
@@ -153,7 +169,7 @@ function drawNode(ctx: CanvasRenderingContext2D, n: Node, transform: any, size =
 	ctx.beginPath();
 	if (n.group === 'firm') {
 		for (let i = 0; i < 6; i += 1) {
-			const angle = Math.PI / 3 * i - Math.PI / 6;
+			const angle = (Math.PI / 3) * i - Math.PI / 6;
 			const x = p.x + radius * Math.cos(angle);
 			const y = p.y + radius * Math.sin(angle);
 			if (i === 0) ctx.moveTo(x, y);
@@ -187,6 +203,7 @@ function resolveCachedThemeColors() {
 		stub: computed.getPropertyValue('--color-node-stub').trim() || '#8ab7ee',
 		firm: computed.getPropertyValue('--color-highlight-firm').trim() || '#7c3aed',
 		entity: computed.getPropertyValue('--color-highlight-entity').trim() || '#fb923c',
+		control: computed.getPropertyValue('--color-highlight-controls').trim() || '#ef4444',
 		defaultText: computed.getPropertyValue('--color-default-text').trim() || '#94a3b8',
 		defaultLine: computed.getPropertyValue('--color-default-line').trim() || 'rgba(100, 116, 139, 0.72)',
 		employed: computed.getPropertyValue('--color-highlight-employed').trim() || '#1a7af0',
@@ -195,6 +212,12 @@ function resolveCachedThemeColors() {
 		inactiveStroke: computed.getPropertyValue('--color-node-inactive-stroke').trim() || '#94a3b899',
 		inactiveLabel: computed.getPropertyValue('--color-node-inactive-label').trim() || '#334155',
 		border: computed.getPropertyValue('--color-node-border').trim() || '#ffffff',
+		selectedIndividual: computed.getPropertyValue('--color-node-individual-selected-fill').trim() || '#064bb0',
+		selectedStub: computed.getPropertyValue('--color-node-stub-selected-fill').trim() || '#5f98da',
+		selectedFirm: computed.getPropertyValue('--color-node-firm-selected-fill').trim() || '#9a2c00',
+		selectedEntity: computed.getPropertyValue('--color-node-entity-selected-fill').trim() || '#d63384',
+		selectedInactive: computed.getPropertyValue('--color-node-inactive-selected-fill').trim() || '#6f7f97',
+		selectedStroke: computed.getPropertyValue('--color-node-selected-stroke').trim() || '#16053f',
 	};
 	return cachedThemeColors;
 }
@@ -207,18 +230,39 @@ function getColorForGroup(g: string) {
 	return colors.defaultText;
 }
 
-function getLinkStyle(link: Link, selectedId: string | number | undefined) {
+function getLinkStyle(
+	link: Link,
+	selectedId: string | number | undefined,
+	selectedNodeIds: Set<string>,
+	selectedPersonSelected: boolean,
+) {
 	const colors = resolveCachedThemeColors();
 	const source = endpointNode(link?.source);
 	const target = endpointNode(link?.target);
 	const inactive = isInactiveNode(source) || isInactiveNode(target);
 	const previous = isPreviousLink(link);
 	const control = isControlLink(link);
-	const selected = selectedId != null && (String(source?.id) === String(selectedId) || String(target?.id) === String(selectedId));
+	const selected =
+		(selectedId != null && (String(source?.id) === String(selectedId) || String(target?.id) === String(selectedId))) ||
+		selectedNodeIds.has(String(source?.id)) ||
+		selectedNodeIds.has(String(target?.id));
 	return {
-		color: inactive || previous ? colors.inactiveStroke : control ? colors.controls : colors.employed,
-		width: control ? 2.35 : previous || inactive ? 1.65 : 1.95,
-		opacity: selected ? 1 : inactive ? 0.92 : control ? 1 : previous ? 0.92 : 0.98,
+		color:
+			inactive || previous ? colors.inactiveStroke
+			: control ? colors.controls
+			: colors.employed,
+		width:
+			control ? 0.95
+			: previous || inactive ? 0.68
+			: 0.78,
+		selectedWidthMultiplier: selected ? 1.5 : 1,
+		opacity:
+			selected ? 1
+			: selectedPersonSelected ? 0.22
+			: inactive ? 0.92
+			: control ? 1
+			: previous ? 0.92
+			: 0.98,
 		dash: previous || inactive ? [2, 3] : [],
 	};
 }
@@ -230,12 +274,18 @@ export function drawCanvasFrame(
 	nodes: Node[],
 	links: Link[],
 	transform: { x: number; y: number; k: number },
-	opts: { selectedId?: string | number; labelScale?: number; logLabelNodeIds?: Array<string | number> } = {},
+	opts: { selectedId?: string | number; selectedNodeIds?: Array<string | number>; labelScale?: number; logLabelNodeIds?: Array<string | number> } = {},
 ) {
 	currentNodes = nodes;
 	currentLinks = links;
 	currentOpts = opts;
 	currentTransform = transform;
+	const selectedNodeIds = new Set((opts.selectedNodeIds || []).map((id) => String(id)));
+	const selectedPersonSelected = nodes.some(
+		(node) =>
+			node?.group === 'individual' &&
+			(selectedNodeIds.has(String(node.id)) || String(node.id) === String(opts.selectedId)),
+	);
 	if (!canvas || !ctx || !parentEl) return;
 	const rect = parentEl.getBoundingClientRect();
 	const w = rect.width;
@@ -265,10 +315,13 @@ export function drawCanvasFrame(
 		if (a.y > maxY && b.y > maxY) continue;
 		const sa = worldToScreen(a.x, a.y, transform);
 		const sb = worldToScreen(b.x, b.y, transform);
-		const style = getLinkStyle(l, opts.selectedId);
+		const style = getLinkStyle(l, opts.selectedId, selectedNodeIds, selectedPersonSelected);
 		ctx.beginPath();
 		ctx.setLineDash(style.dash);
-		ctx.lineWidth = style.width * Math.max(0.55, Math.min(2.15, 1 / Math.max(0.35, transform.k)));
+		// Keep links thin at every zoom; only taper further when the graph is zoomed out.
+		const zoom = transform.k || 1;
+		const zoomOutScale = zoom >= 1 ? 1 : 0.7 + zoom * 0.3;
+		ctx.lineWidth = style.width * style.selectedWidthMultiplier * zoomOutScale;
 		ctx.strokeStyle = style.color;
 		ctx.globalAlpha = style.opacity;
 		ctx.moveTo(sa.x, sa.y);
@@ -287,44 +340,65 @@ export function drawCanvasFrame(
 	for (const n of visibleNodes) {
 		const colors = resolveCachedThemeColors();
 		const inactive = isInactiveNode(n);
-		const col = inactive ? colors.inactive : n.group === 'individual' && n.stub ? colors.stub : getColorForGroup(n.group);
-		// Prefer any precomputed viz half-radius (from D3 renderer); otherwise
-		// fall back to defaults. _vizHalf stores a half-radius used by SVG, so
-		// use it directly for canvas sizing when available.
-		const vizHalf = (n && n._vizHalf) || (n.group === 'firm' ? 6 : 4);
-		const size = Math.max(
-			1,
-			vizHalf *
-				(scale < 0.5 ? 0.6
-				: scale < 1 ? 0.9
-				: 1.2),
-		);
 		const isSelected = opts.selectedId && String(opts.selectedId) === String(n.id);
+		const isPersistentlySelected = selectedNodeIds.has(String(n.id));
+		const isNodeSelected = Boolean(isSelected || isPersistentlySelected);
 		const isHovered = hoverNodeId === String(n.id);
 		const isForcedLabel = forcedLabelIds.has(String(n.id));
-		const nodeStroke = inactive ? colors.inactiveStroke : isSelected ? '#16053f' : colors.border;
-		const nodeStrokeWidth = isSelected ? (n.group === 'firm' ? 3.4 : 3.2) : n.group === 'firm' ? 0.9 : 1.5;
-		const shouldShowLabel = isForcedLabel || isSelected || scale >= globalCanvasLabelZoomThreshold;
-		const focusLabelScale = isSelected || isForcedLabel ? Math.max(1, Number(opts.labelScale) || 1) : 1;
+		const isControlPosition = isControlPositionNode(n);
+		const size = getCanvasNodeSize(n, transform);
+		const col =
+			isNodeSelected ?
+				inactive ? colors.selectedInactive
+				: isControlPosition ? '#b91c1c'
+				: n.group === 'individual' ?
+					n.stub ?
+						colors.selectedStub
+					:	colors.selectedIndividual
+				: n.group === 'firm' ? colors.selectedFirm
+				: colors.selectedEntity
+			: inactive ? colors.inactive
+			: isControlPosition ? colors.control
+			: n.group === 'individual' && n.stub ? colors.stub
+			: getColorForGroup(n.group);
+		const nodeStroke =
+			inactive ? colors.inactiveStroke
+			: isNodeSelected ? colors.selectedStroke
+			: colors.border;
+		const nodeStrokeWidth =
+			isNodeSelected ?
+				isControlPosition ? 3
+				: n.group === 'firm' ? 3.4
+				: 3.2
+			: n.group === 'firm' ? 0.9
+			: 1.5;
+		const shouldShowLabel = isForcedLabel || isNodeSelected || scale >= globalCanvasLabelZoomThreshold;
+		const focusLabelScale = isNodeSelected || isForcedLabel ? Math.max(1, Number(opts.labelScale) || 1) : 1;
 
 		drawNode(ctx, n, transform, size, col, nodeStroke, nodeStrokeWidth);
+
+		if (isNodeSelected || isHovered) {
+			const p = worldToScreen(n.x, n.y, transform);
+			ctx.beginPath();
+			ctx.arc(p.x, p.y, Math.max(6, size * transform.k + 4), 0, Math.PI * 2);
+			ctx.strokeStyle = isNodeSelected ? colors.selectedStroke : '#18a0fb';
+			ctx.lineWidth = isNodeSelected ? 3 : 2;
+			ctx.stroke();
+		}
 
 		if (shouldShowLabel && scale > 0.4) {
 			const p = worldToScreen(n.x, n.y, transform);
 
-			if (isSelected || isHovered) {
-				ctx.beginPath();
-				ctx.arc(p.x, p.y, Math.max(6, size * transform.k + 4), 0, Math.PI * 2);
-				ctx.strokeStyle = isHovered ? '#18a0fb' : '#24115f';
-				ctx.lineWidth = isHovered ? 2 : 3;
-				ctx.stroke();
-			}
-
-			if (isForcedLabel || isSelected || scale >= selectedCanvasLabelZoomThreshold) {
+			if (isForcedLabel || isNodeSelected || scale >= selectedCanvasLabelZoomThreshold) {
 				const zoomBoost = scale < 0.85 ? 1 + (0.85 - scale) * 0.4 : 1;
-				const emphasisBoost = isSelected || isHovered || isForcedLabel ? (scale >= 1 ? 1.12 : 1.04) : 1;
+				const emphasisBoost =
+					isNodeSelected || isHovered || isForcedLabel ?
+						scale >= 1 ?
+							1.12
+						:	1.04
+					:	1;
 				const labelSize = Math.min(24, Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_SIZE_PX * zoomBoost * emphasisBoost * focusLabelScale));
-				ctx.font = `${isForcedLabel || isSelected ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px var(--font-urbanist, Urbanist, system-ui, sans-serif)`;
+				ctx.font = `${isForcedLabel || isNodeSelected ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px var(--font-urbanist, Urbanist, system-ui, sans-serif)`;
 				ctx.fillStyle = inactive ? colors.inactiveLabel : colors.defaultText;
 				ctx.textAlign = 'center';
 				ctx.textBaseline = 'top';
@@ -608,9 +682,10 @@ function renderNodeGraphic(graphic: any, node: any, selected: boolean, state: { 
 	if (isNew || selected || shouldRenderBlueOutline) {
 		graphic.circle(0, 0, radius + 4).stroke({ width: 3, color: 0x2196f3, alpha: 1 });
 	}
-	graphic.circle(0, 0, radius)
-	       .fill(color)
-	       .stroke({ width: 2, color: selected ? 0xffe399 : 0x222222, alpha: selected ? 1 : 0.65 });
+	graphic
+		.circle(0, 0, radius)
+		.fill(color)
+		.stroke({ width: 2, color: selected ? 0xffe399 : 0x222222, alpha: selected ? 1 : 0.65 });
 }
 
 function drawFrame() {
@@ -760,12 +835,7 @@ async function createCanvasRenderer(pixi: any) {
 		throw initError instanceof Error ? initError : new Error(String(initError));
 	}
 	try {
-		const rendererType = String(
-			pixiApp?.renderer?.rendererLogId ||
-				pixiApp?.renderer?.name ||
-				pixiApp?.renderer?.type ||
-				'unknown',
-		);
+		const rendererType = String(pixiApp?.renderer?.rendererLogId || pixiApp?.renderer?.name || pixiApp?.renderer?.type || 'unknown');
 		(window as any).__FINRA_PIXI_RENDERER = rendererType;
 		if (typeof console !== 'undefined' && console.info) {
 			console.info('[finra-graph] Pixi renderer:', rendererType);
@@ -1100,10 +1170,9 @@ export function setOnNodeClickCallback(cb: (event: any, node: any) => void) {
 	onNodeClickCallback = cb;
 }
 
-
 export async function createPixiRenderer(parent: HTMLElement) {
 	const PIXI = await import('pixi.js');
-	
+
 	let canvas = document.getElementById('fg-canvas') as HTMLCanvasElement | null;
 	if (!canvas) {
 		canvas = document.createElement('canvas');
@@ -1123,7 +1192,7 @@ export async function createPixiRenderer(parent: HTMLElement) {
 		drawFrame: (nodes: any[], links: any[], transform: any, options: any) => {
 			graphNodes = nodes;
 			graphLinks = links;
-			
+
 			// Ensure all nodes have sprites
 			for (const node of graphNodes) {
 				const idStr = String(node.id);
@@ -1134,21 +1203,21 @@ export async function createPixiRenderer(parent: HTMLElement) {
 				}
 			}
 
-            // Remove sprites for nodes that no longer exist
-            const nodeIds = new Set(graphNodes.map(n => String(n.id)));
-            for (const [id, sprite] of nodeSprites.entries()) {
-                if (!nodeIds.has(id)) {
-                    nodeLayer.removeChild(sprite);
-                    sprite.destroy();
-                    nodeSprites.delete(id);
-                }
-            }
-			
+			// Remove sprites for nodes that no longer exist
+			const nodeIds = new Set(graphNodes.map((n) => String(n.id)));
+			for (const [id, sprite] of nodeSprites.entries()) {
+				if (!nodeIds.has(id)) {
+					nodeLayer.removeChild(sprite);
+					sprite.destroy();
+					nodeSprites.delete(id);
+				}
+			}
+
 			if (pixiApp && pixiApp.stage) {
 				pixiApp.stage.position.set(transform.x, transform.y);
 				pixiApp.stage.scale.set(transform.k);
 			}
-			
+
 			updateNodeStyles();
 			drawFrame();
 			if (pixiApp && pixiApp.renderer) {
@@ -1163,6 +1232,6 @@ export async function createPixiRenderer(parent: HTMLElement) {
 			if (canvas && canvas.parentNode) {
 				canvas.parentNode.removeChild(canvas);
 			}
-		}
+		},
 	};
 }
