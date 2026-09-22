@@ -3,7 +3,7 @@
  * world coordinates by applying the same d3 zoom transform used by the renderer.
  */
 
-import { DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
+import { DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
 import { handleNodeKeyboardActivation } from './finra-graph';
 import { buildNodeRoutePath } from './node-route';
 type Node = any;
@@ -21,8 +21,10 @@ let dpr = 1;
 const detailCache = new Map<string, any>();
 let hoverTimerGlobal: number | null = null;
 let activeTooltipIdGlobal: string | null = null;
-const OVERLAY_LABEL_ZOOM_THRESHOLD = 1.4;
+const OVERLAY_LABEL_ZOOM_THRESHOLD = 0.8;
 const MAX_OVERLAY_LABELS = 100;
+const OVERLAY_DEFAULT_LABEL_SIZE_PX = 20;
+const OVERLAY_SELECTED_LABEL_SIZE_PX = 26;
 
 function worldToScreen(x: number, y: number, transform: { x: number; y: number; k: number }) {
 	return { x: transform.x + x * transform.k, y: transform.y + y * transform.k };
@@ -280,10 +282,9 @@ export function updateOverlay(
 		const p = worldToScreen(n.x, n.y, transform);
 		const visualHalf = getNodeVisualHalf(n) * Math.max(0.1, transform.k || 1);
 		const isFocusedLabel = Boolean(opts.selectedId && String(opts.selectedId) === String(n.id)) || forcedLabelIds.has(String(n.id));
-		const effectiveLabelScale = isFocusedLabel ? Math.max(1, Number(opts.labelScale) || 1) : 1;
 		el.style.left = `${Math.round(p.x)}px`;
 		el.style.top = `${Math.round(p.y + visualHalf + DEFAULT_NODE_LABEL_GAP_PX)}px`;
-		el.style.fontSize = `${Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, Math.round(DEFAULT_NODE_LABEL_FONT_SIZE_PX * effectiveLabelScale * 10) / 10)}px`;
+		el.style.fontSize = `${isFocusedLabel ? OVERLAY_SELECTED_LABEL_SIZE_PX : OVERLAY_DEFAULT_LABEL_SIZE_PX}px`;
 	}
 
 	// remove leftover labels

@@ -1612,7 +1612,6 @@ export default function FinraGraph() {
 					className='fg-main'
 					id='fg-main'>
 					<canvas id='fg-canvas' style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'auto'}}></canvas>
-					<svg id='fg-svg' style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, pointerEvents: 'none'}}></svg>
 					<div
 						id='fg-legend'
 						className='fg-legend'></div>

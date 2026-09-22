@@ -35,7 +35,6 @@ import {
 	DEFAULT_CLICK_EXPANSION_HOPS,
 	DEFAULT_EXPANSION_HOPS,
 	DEFAULT_NODE_LABEL_FONT_SIZE,
-	DEFAULT_NODE_LABEL_FONT_SIZE_PX,
 	DEFAULT_NODE_LABEL_FONT_WEIGHT,
 	DEFAULT_NODE_LABEL_GAP_PX,
 	DEFAULT_SELECTION_HOPS,
@@ -379,7 +378,7 @@ let arrowTopGroup = null;
 let rootGroup = null; // <g.fg-root> selection — for zoom/state-driven graph styling
 let allowFirstFetchZoom = false; // only auto-zoom on the first user fetch into an empty graph
 // D3 references needed for restoring zoom state
-let svgSel = null; // d3 selection for #fg-svg
+let svgSel = null; // d3 selection for the Canvas interaction surface (#fg-main)
 let zoomBehavior = null; // d3.zoom() instance
 let zoomSaveTimer = null; // debounce timer for zoom-state persistence
 let refreshLayoutStopTimer = null; // timer used to stop refresh-layout sooner
@@ -4975,8 +4974,8 @@ function updateSelectionLogUI() {
 			)
 			.reverse();
 		const groups = {
-			people: [] as Array<typeof filteredEntries[number]>,
-			firms: [] as Array<typeof filteredEntries[number]>,
+			people: [] as Array<(typeof filteredEntries)[number]>,
+			firms: [] as Array<(typeof filteredEntries)[number]>,
 		};
 		filteredEntries.forEach((entry) => {
 			if (isSelectionLogPeopleEntry(entry)) {
@@ -5005,7 +5004,7 @@ function updateSelectionLogUI() {
 				const actionButtonIcon =
 					isSelectionLogEditMode ?
 						'<svg viewBox="0 0 16 16" fill="none" width="18" height="18" aria-hidden="true"><path d="M4 4L12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 4L4 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
-					: '<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>';
+					:	'<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>';
 				const childNode = isSelectionLogChildNode(entry.id);
 				const secondaryLineHidden = childNode && clearedSelectionLogLabelNodeIds.has(String(entry.id).trim());
 				const isLabelShown = isSelectionLogBold && !clearedSelectionLogLabelNodeIds.has(String(entry.id)) && (layoutNodes || []).some((n) => String(n?.id) === String(entry.id));
@@ -5015,7 +5014,7 @@ function updateSelectionLogUI() {
 				const labelToggleIcon =
 					isLabelShown ?
 						'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M1 8h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
-					: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+					:	'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
 				const textSpan = document.createElement('span');
 				textSpan.className = 'fg-log-text';
@@ -5358,11 +5357,6 @@ function stopNodePulseLoop() {
 		if (nodeSel && typeof nodeSel.selectAll === 'function') {
 			nodeSel.selectAll('circle.fg-restore-ring, circle.fg-restore-ring--static').remove();
 		}
-		const svg = typeof document !== 'undefined' ? document.getElementById('fg-svg') : null;
-		if (svg) {
-			const rings = svg.querySelectorAll('circle.fg-restore-ring, circle.fg-restore-ring--static');
-			rings.forEach((el) => el.remove());
-		}
 	} catch (e) {
 		/* ignore */
 	}
@@ -5509,29 +5503,31 @@ function setFocusedNode(id) {
 }
 
 function bindHoverAndFocus(selection) {
-	return selection
-		.attr('focusable', 'true')
-		.attr('tabindex', '0')
-		// mouseover/out in addition to enter/leave: more reliable when the pointer is over
-		// nested hit-areas/labels inside the node group.
-		.on('mouseenter mouseover', function (event, d) {
-			setHoveredNode(d.id);
-		})
-		.on('mouseleave', function (event, d) {
-			// Only clear when truly leaving this node (not moving between its children).
-			const related = event?.relatedTarget;
-			if (related && typeof this.contains === 'function' && this.contains(related)) return;
-			setHoveredNode(null);
-		})
-		.on('focus', function (event, d) {
-			setFocusedNode(d.id);
-		})
-		.on('blur', function (event, d) {
-			setFocusedNode(null);
-		})
-		.on('keydown', function (event, d) {
-			handleNodeKeyboardActivation(event, d);
-		});
+	return (
+		selection
+			.attr('focusable', 'true')
+			.attr('tabindex', '0')
+			// mouseover/out in addition to enter/leave: more reliable when the pointer is over
+			// nested hit-areas/labels inside the node group.
+			.on('mouseenter mouseover', function (event, d) {
+				setHoveredNode(d.id);
+			})
+			.on('mouseleave', function (event, d) {
+				// Only clear when truly leaving this node (not moving between its children).
+				const related = event?.relatedTarget;
+				if (related && typeof this.contains === 'function' && this.contains(related)) return;
+				setHoveredNode(null);
+			})
+			.on('focus', function (event, d) {
+				setFocusedNode(d.id);
+			})
+			.on('blur', function (event, d) {
+				setFocusedNode(null);
+			})
+			.on('keydown', function (event, d) {
+				handleNodeKeyboardActivation(event, d);
+			})
+	);
 }
 
 export function getLinkIdentityKey(link) {
@@ -6369,9 +6365,9 @@ function showSessionRecoveryShell(reason: SessionRecoveryReason) {
 	document.getElementById('fg-session-prompt')?.classList.remove('hidden');
 	empty?.classList.add('fg-empty--session-restore');
 	empty?.classList.remove('hidden');
-	// Do not mark the app empty / hide the SVG — recovery is an overlay on a live restore.
-	const svg = document.getElementById('fg-svg');
-	if (svg) svg.style.visibility = 'visible';
+	// Recovery is an overlay on the live Canvas.
+	const canvas = document.getElementById('fg-canvas');
+	if (canvas) canvas.style.visibility = 'visible';
 }
 
 function showSessionRestoreLoader() {
@@ -6384,8 +6380,8 @@ function showSessionRestoreLoader() {
 	document.getElementById('fg-session-loader')?.classList.add('hidden');
 	empty?.classList.remove('fg-empty--session-restore');
 	empty?.classList.add('hidden');
-	const svg = document.getElementById('fg-svg');
-	if (svg) svg.style.visibility = 'visible';
+	const canvas = document.getElementById('fg-canvas');
+	if (canvas) canvas.style.visibility = 'visible';
 	document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
 	updateFetchStatus('Restoring previous session…', true);
 }
@@ -6402,8 +6398,8 @@ function hideSessionRestoreChrome() {
 		// showEmpty(true) during baseline render could leave the SVG visibility:hidden.
 		showEmpty(false);
 		document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
-		const svg = document.getElementById('fg-svg');
-		if (svg) svg.style.visibility = 'visible';
+		const canvas = document.getElementById('fg-canvas');
+		if (canvas) canvas.style.visibility = 'visible';
 		if (activeFetchStatusMessage === 'Restoring previous session…') {
 			updateFetchStatus('Session restored');
 		}
@@ -6447,9 +6443,7 @@ function buildSelectionLogStubNodes(entries: Array<SelectionLogEntry> = selected
 		const id = String(entry?.id || '').trim();
 		if (!id || seen.has(id)) continue;
 		seen.add(id);
-		const group =
-			entry?.group === 'firm' || id.startsWith('firm:') ? 'firm'
-			: 'individual';
+		const group = entry?.group === 'firm' || id.startsWith('firm:') ? 'firm' : 'individual';
 		const rawId = id.includes(':') ? id.split(':').pop() || '' : id;
 		const stub: Record<string, any> = {
 			id,
@@ -6952,7 +6946,6 @@ function refreshNodeLayout() {
 		: isLarge ? 8
 		: 6;
 
-
 	layoutNodes.forEach((node, index) => {
 		node.fx = null;
 		node.fy = null;
@@ -7056,6 +7049,33 @@ function drawDisclosureIndicator(g, d, r) {
 setOnNodeClickCallback(handleNodeOpen);
 
 export function destroy() {
+	cancelGraphTickPositions();
+	if (spreadAnimId != null) {
+		cancelAnimationFrame(spreadAnimId);
+		spreadAnimId = null;
+	}
+	for (const timer of [refreshLayoutStopTimer, selectionRestoreTimer, traceRefreshTimer, nodePulseTimer, spreadReleaseTimer, nodePinReleaseTimer]) {
+		if (timer != null) clearTimeout(timer);
+	}
+	refreshLayoutStopTimer = null;
+	selectionRestoreTimer = null;
+	traceRefreshTimer = null;
+	nodePulseTimer = null;
+	spreadReleaseTimer = null;
+	nodePinReleaseTimer = null;
+	refreshFinalizeLayoutFn = null;
+	if (nodePulseInterval) {
+		clearInterval(nodePulseInterval);
+		nodePulseInterval = null;
+	}
+	if (searchPulseInterval) {
+		clearInterval(searchPulseInterval);
+		searchPulseInterval = null;
+	}
+	if (nodePulseInteractionCleanup) {
+		nodePulseInteractionCleanup();
+		nodePulseInteractionCleanup = null;
+	}
 	if (simulation) {
 		simulation.stop();
 		simulation.on('tick', null);
@@ -7070,19 +7090,13 @@ export function destroy() {
 	canvasApi = null;
 	overlayApi = null;
 
-	if (svgSel) {
-		if (!canvasModeActive) { svgSel.selectAll('*').remove(); } else { d3.select('#fg-svg').selectAll('*').remove(); }
-		svgSel = null;
-	}
+	svgSel = null;
 	nodeGroup = null;
 	linkGroup = null;
 	layoutNodes = [];
 	layoutLinks = [];
 	graphData = null;
 	neighborMap = new Map();
-	
-	// We leave window event listeners bound (they are flagged by `routeNodeRequestListenerBound`)
-	// since they dispatch into the module state safely, but clearing the data stops the loop.
 }
 
 export function init(
@@ -7696,10 +7710,7 @@ export function init(
 				.split(/[,;]+/)
 				.map((t) => t.trim())
 				.filter(Boolean);
-			const isNameList =
-				!isCrdList &&
-				nameListTokens.length > 1 &&
-				nameListTokens.every((term) => term.length > 0 && term.length <= 80 && !/^\d{1,10}$/.test(term));
+			const isNameList = !isCrdList && nameListTokens.length > 1 && nameListTokens.every((term) => term.length > 0 && term.length <= 80 && !/^\d{1,10}$/.test(term));
 
 			if (!isCrdList) {
 				const crdMatches = Array.from(q.matchAll(/CRD#?\s*(\d{1,10})/gi));
@@ -7811,11 +7822,7 @@ export function init(
 
 				const fetchTextQueryHits = async (queryText, onPage: ((pageHits: any[]) => void | Promise<void>) | null = null) => {
 					const hits = [];
-					const results = await Promise.allSettled([
-						fetchFinraAll(false, queryText, onPage),
-						fetchFinraAll(true, queryText, onPage),
-						fetchSec(queryText, onPage),
-					]);
+					const results = await Promise.allSettled([fetchFinraAll(false, queryText, onPage), fetchFinraAll(true, queryText, onPage), fetchSec(queryText, onPage)]);
 					results.forEach((result, index) => {
 						if (result.status === 'fulfilled') {
 							hits.push(...result.value);
@@ -8105,10 +8112,10 @@ export function init(
 							addIndividualFromSource(src);
 							const sidecarGraphReady = Boolean(
 								(Array.isArray(src?.ind_current_employments) && src.ind_current_employments.length > 0) ||
-									(Array.isArray(src?.ind_ia_current_employments) && src.ind_ia_current_employments.length > 0) ||
-									(src?.ind_firstname && src?.ind_lastname) ||
-									src?.ind_crd ||
-									src?.ind_source_id,
+								(Array.isArray(src?.ind_ia_current_employments) && src.ind_ia_current_employments.length > 0) ||
+								(src?.ind_firstname && src?.ind_lastname) ||
+								src?.ind_crd ||
+								src?.ind_source_id,
 							);
 							textSearchHydrationCandidates.push({
 								nodeId: `person:${crd}`,
@@ -8278,9 +8285,7 @@ export function init(
 						updateFetchStatus(`No new graph nodes for "${q}" (hits lacked structured ids)`);
 						return;
 					}
-					updateFetchStatus(
-						isNameList ? `No database results for ${nameListTokens.length} names` : `No database results for "${q}"`,
-					);
+					updateFetchStatus(isNameList ? `No database results for ${nameListTokens.length} names` : `No database results for "${q}"`);
 					return;
 				}
 
@@ -8294,8 +8299,7 @@ export function init(
 							if (!rawId) return null;
 							try {
 								const onScreenFirmIds = Array.from(new Set((layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId))));
-								const batch =
-									target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId, null, { includePreviousEmployerIds: onScreenFirmIds });
+								const batch = target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId, null, { includePreviousEmployerIds: onScreenFirmIds });
 								const liveTargetNode = layoutNodes?.find((node) => node.id === targetId) || null;
 								const primaryNode = Array.isArray(batch?.nodes) ? batch.nodes.find((node) => node?.id === targetId) || null : null;
 								if (liveTargetNode && primaryNode && typeof primaryNode === 'object') {
@@ -8447,7 +8451,7 @@ async function fetchAndInjectLocalQuery(q) {
 		const nodes = Array.isArray(data) ? data : data?.nodes || [];
 		const links = Array.isArray(data) ? [] : data?.links || [];
 		if (!nodes.length) throw new Error('No local results');
-		
+
 		const CHUNK_SIZE = 15;
 		for (let i = 0; i < nodes.length; i += CHUNK_SIZE) {
 			const nodeChunk = nodes.slice(i, i + CHUNK_SIZE);
@@ -8458,7 +8462,7 @@ async function fetchAndInjectLocalQuery(q) {
 				await new Promise((resolve) => setTimeout(resolve, 40));
 			}
 		}
-		
+
 		return true;
 	} catch (err) {
 		console.log(`Local data not found for "${q}". Searching database to update graph...`);
@@ -8608,7 +8612,7 @@ async function fetchAndInjectQuery(q) {
 	if (!newNodes.length) return;
 
 	if (typeof appendFetched === 'function') appendFetched(newNodes, newLinks);
-	
+
 	const CHUNK_SIZE = 15;
 	for (let i = 0; i < newNodes.length; i += CHUNK_SIZE) {
 		const nodeChunk = newNodes.slice(i, i + CHUNK_SIZE);
@@ -9972,14 +9976,14 @@ async function hydratePendingNodeIds(
 		// Log-list restore only needs the logged CRDs (+ current employers from detail).
 		// Wiring previous employers to every on-screen firm multiplies work and payload size.
 		const onScreenFirmIds =
-			isLogList ? [] : (
-				Array.from(
+			isLogList ?
+				[]
+			:	Array.from(
 					new Set([
 						...normalizedIds.filter((id) => id.startsWith('firm:')).map((id) => id.split(':')[1]),
 						...(layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)),
 					]),
-				)
-			);
+				);
 
 		let completedDetail = normalizedIds.length - idsToFetch.length;
 		for (let i = 0; i < idsToFetch.length; i += detailBatchSize) {
@@ -10454,8 +10458,8 @@ function updateMeta(meta: { totalIndividuals?: number; totalFirms?: number; tota
 
 function showEmpty(show) {
 	document.getElementById('fg-empty')?.classList.toggle('hidden', !show);
-	const svg = document.getElementById('fg-svg');
-	if (svg) svg.style.visibility = show ? 'hidden' : 'visible';
+	const canvas = document.getElementById('fg-canvas');
+	if (canvas) canvas.style.visibility = show ? 'hidden' : 'visible';
 	const legend = document.getElementById('fg-legend');
 	if (legend) legend.style.display = show ? 'none' : 'flex';
 }
@@ -11053,9 +11057,7 @@ function getNodeCollisionRadius(node, nodeCount = layoutNodes?.length || 0) {
 		node?.group === 'firm' ? 10
 		: node?.group === 'individual' ? 6
 		: 0;
-	const focusPadding =
-		node && (node.isSelected || node.isHovered || node?._labelExpanded) ? 16
-		: 0;
+	const focusPadding = node && (node.isSelected || node.isHovered || node?._labelExpanded) ? 16 : 0;
 	const crowd = getNodeCrowdFactor(node);
 	const crowdPadding = Math.max(0, crowd - 1) * (nodeCount > 300 ? 30 : 38);
 	return (
@@ -11583,19 +11585,12 @@ export function getNodeLabelFontSize({
 	isHovered = false,
 	isBolded = false,
 	isEmphasized = false,
-	zoomScale = getCurrentGraphZoomScale(),
+	zoomScale: _zoomScale = getCurrentGraphZoomScale(),
 }: { isSelected?: boolean; isHovered?: boolean; isBolded?: boolean; isEmphasized?: boolean; zoomScale?: number } = {}) {
-	const normalizedScale = Math.max(0.08, Number(zoomScale) || 1);
-	const zoomBoost = normalizedScale < 0.85 ? 1 + (0.85 - normalizedScale) * 0.4 : 1;
 	const shouldEmphasize = isSelected || isHovered || isBolded || isEmphasized;
-	const emphasisBoost =
-		shouldEmphasize ?
-			normalizedScale >= 1 ?
-				1.12
-			:	1.04
-		:	1;
-	const size = DEFAULT_NODE_LABEL_FONT_SIZE_PX * zoomBoost * emphasisBoost;
-	return Math.min(24, Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, size));
+	const screenSize = shouldEmphasize ? 26 : 20;
+	const graphZoom = Math.max(0.01, Number(_zoomScale) || 1);
+	return screenSize / graphZoom;
 }
 
 export function getNodeTooltipTitle(node) {
@@ -12036,8 +12031,7 @@ function refreshLayeredLinkSelections({ enterDuration = 0, highlightState = comp
 		else midLinks.push(link);
 	}
 
-	const byPaintOrder = (a, b) =>
-		comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b));
+	const byPaintOrder = (a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b));
 	bottomLinks.sort(byPaintOrder);
 	midLinks.sort(byPaintOrder);
 	topLinks.sort(byPaintOrder);
@@ -12108,14 +12102,9 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 			const nodesEl = nodeGroup.node();
 			const parent = nodesEl.parentNode;
 			if (parent) {
-				const beforeNodes = [
-					linkBottomGroup?.node(),
-					arrowBottomGroup?.node(),
-					linkMidGroup?.node(),
-					arrowMidGroup?.node(),
-					linkTopGroup?.node(),
-					arrowTopGroup?.node(),
-				].filter(Boolean);
+				const beforeNodes = [linkBottomGroup?.node(), arrowBottomGroup?.node(), linkMidGroup?.node(), arrowMidGroup?.node(), linkTopGroup?.node(), arrowTopGroup?.node()].filter(
+					Boolean,
+				);
 				for (const el of beforeNodes) {
 					if (el && el.parentNode === parent) parent.insertBefore(el, nodesEl);
 				}
@@ -12148,9 +12137,7 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 			linkSel.each(function (d) {
 				try {
 					const pr = getLinkRenderPriority(d, highlightState);
-					const layer =
-						pr <= 0 ? 'bottom'
-						: 'mid';
+					const layer = pr <= 0 ? 'bottom' : 'mid';
 					const key = `${d.source?.id || d.source}-${d.target?.id || d.target}-${d.relationship}`;
 					linkRender.push({ key, priority: pr, layer });
 				} catch (e) {
@@ -12225,10 +12212,6 @@ function reapplySelectionState() {
 			'highlighted-hop',
 			(node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && !fetchedLeafOrExhaustedIds.has(node.id) && highlightState.hopNodeIds.has(node.id),
 		);
-
-	if (svgSel) {
-		svgSel.classed('fg-svg--has-highlights', hasHighlights);
-	}
 
 	nodeSel
 		.classed('fg-node--active-connected', (d) => activeConnectedIds.has(String(d.id)))
@@ -12705,15 +12688,15 @@ function appendFetchedImpl(newNodes, newLinks) {
 	}
 
 	const impactedIds = getImpactedNodeIds(uniqNodes, newLinks);
-	
+
 	if (!canvasModeActive && nodeGroup && linkGroup) {
 		const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 		const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
-	
+
 		// Apply initial transform so new nodes appear at their placed position
 		// immediately (the renderGraph tick handler only covers old nodes).
 		enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
-	
+
 		enteredNodes.transition().duration(520).ease(d3.easeCubicOut).attr('opacity', 1);
 		nodeSel = nodeGroup.selectAll('g.fg-node');
 		linkSel = selectRenderedLinkLines();
@@ -12769,7 +12752,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 		spreadReleaseTimer = null;
 	}
 	spreadReleaseTimer = setTimeout(() => {
-		if (simulation && typeof simulation.stop === 'function') simulation.stop();
+		simulation?.alphaTarget?.(0);
 		releaseFrozenNodes(activeSpreadFrozenNodes);
 		activeSpreadFrozenNodes = [];
 		spreadReleaseTimer = null;
@@ -12799,15 +12782,11 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 		releaseFrozenNodes(activeSpreadFrozenNodes);
 		activeSpreadFrozenNodes = [];
 	}
-	const svg = canvasModeActive ? d3.select('#fg-main') : d3.select('#fg-svg');
-	if (!canvasModeActive) d3.select('#fg-svg').selectAll('*').remove();
-	
+	const svg = d3.select('#fg-main');
 
 	const main = document.getElementById('fg-main');
 	const W = main.clientWidth;
 	const H = main.clientHeight;
-
-	svg.attr('viewBox', `0 0 ${W} ${H}`);
 
 	// Deep-copy so D3 mutation doesn't corrupt the original
 	const nodes: GraphSimulationNode[] = data.nodes.map((n) => ({ ...n }) as GraphSimulationNode);
@@ -12884,7 +12863,10 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 
 	// ── Zoom ──────────────────────────────────────────────────────────────────
 	// LOD threshold: hide labels when zoomed out (less DOM paint, higher props)
-	const labelZoomThreshold = isHuge ? 0.45 : isLarge ? 0.35 : 0.3;
+	const labelZoomThreshold =
+		isHuge ? 0.45
+		: isLarge ? 0.35
+		: 0.3;
 	activeLabelZoomThreshold = labelZoomThreshold;
 	inactiveLabelCompactZoomThreshold = labelZoomThreshold * 1.35;
 	inactiveLabelCompactMode = initialScaleForCompactState(nodeCount) < inactiveLabelCompactZoomThreshold;
@@ -12915,7 +12897,7 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			updateInactiveLinkScale(event.transform.k);
 			refreshRenderedLinkStrokeWidthsForZoom();
 			syncTraceLabelPresentation(event.transform.k);
-			
+
 			if (canvasModeActive) {
 				scheduleGraphTickPositions(null, null, null);
 			}
@@ -13525,9 +13507,9 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	if (!canvasModeActive && nodeGroup && linkGroup) {
 		const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 		const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
-	
+
 		enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
-	
+
 		enteredNodes.transition().duration(400).attr('opacity', 1);
 		nodeSel = nodeGroup.selectAll('g.fg-node');
 		linkSel = selectRenderedLinkLines();
@@ -13556,7 +13538,7 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	simulation.force('link').links(layoutLinks);
 	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
 
-	const allowedMoving = new Set(toAdd.map(n => n.id));
+	const allowedMoving = new Set(toAdd.map((n) => n.id));
 	if (typeof lastExpandOriginNode !== 'undefined' && lastExpandOriginNode?.id) {
 		allowedMoving.add(lastExpandOriginNode.id);
 	}
@@ -13573,7 +13555,7 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 		spreadReleaseTimer = null;
 	}
 	spreadReleaseTimer = setTimeout(() => {
-		if (simulation && typeof simulation.stop === 'function') simulation.stop();
+		simulation?.alphaTarget?.(0);
 		releaseFrozenNodes(activeSpreadFrozenNodes);
 		activeSpreadFrozenNodes = [];
 		spreadReleaseTimer = null;
@@ -14858,26 +14840,6 @@ function anchorNode(node) {
 	if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return;
 	node.fx = node.x;
 	node.fy = node.y;
-	// Soft reheat only after freezing everyone else so settled nodes stay put.
-	if (simulation && Array.isArray(layoutNodes)) {
-		const allowed = new Set([node.id]);
-		if (activeSpreadFrozenNodes.length) {
-			releaseFrozenNodes(activeSpreadFrozenNodes);
-			activeSpreadFrozenNodes = [];
-		}
-		activeSpreadFrozenNodes = freezeSettledNodesExcept(allowed);
-		simulation.alphaTarget(0.05).restart();
-		if (spreadReleaseTimer) {
-			clearTimeout(spreadReleaseTimer);
-			spreadReleaseTimer = null;
-		}
-		spreadReleaseTimer = setTimeout(() => {
-			simulation?.alphaTarget?.(0);
-			releaseFrozenNodes(activeSpreadFrozenNodes);
-			activeSpreadFrozenNodes = [];
-			spreadReleaseTimer = null;
-		}, 300);
-	}
 }
 
 /**
@@ -15861,9 +15823,8 @@ function releaseFrozenNodes(frozenNodes) {
 function pinNodeAndReleaseOthers(pinnedNode) {
 	if (!pinnedNode?.id || !Array.isArray(layoutNodes)) return;
 
-	// Pin only the clicked node. Do NOT unpin the rest of the graph or fire a blanket
-	// simulation reheat — that re-animates every already-settled node on each click.
-	// Neighbor reveal paths freeze settled nodes and allow only the click + new nodes to move.
+	// Keep the clicked node anchored while giving only its immediate neighborhood
+	// enough force energy to separate overlapping nodes.
 	if (Number.isFinite(pinnedNode.x) && Number.isFinite(pinnedNode.y)) {
 		pinnedNode.fx = pinnedNode.x;
 		pinnedNode.fy = pinnedNode.y;
@@ -15872,12 +15833,27 @@ function pinNodeAndReleaseOthers(pinnedNode) {
 		clearTimeout(nodePinReleaseTimer);
 		nodePinReleaseTimer = null;
 	}
+
+	if (!simulation) return;
+	const movingIds = new Set([pinnedNode.id, ...getNeighborIds(pinnedNode.id)]);
+	if (activeSpreadFrozenNodes.length) {
+		releaseFrozenNodes(activeSpreadFrozenNodes);
+		activeSpreadFrozenNodes = [];
+	}
+	activeSpreadFrozenNodes = freezeSettledNodesExcept(movingIds);
+	simulation.alphaTarget(0.035).alpha(Math.max(simulation.alpha(), 0.08)).restart();
+	nodePinReleaseTimer = setTimeout(() => {
+		simulation?.alphaTarget?.(0);
+		releaseFrozenNodes(activeSpreadFrozenNodes);
+		activeSpreadFrozenNodes = [];
+		nodePinReleaseTimer = null;
+	}, 450);
 }
 
 export async function handleNodeOpen(event, d) {
 	if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
 	pinNodeAndReleaseOthers(d);
-	openNodeWithExpansion(d);
+	openNodeWithExpansion(d, { syncRoute: !canvasModeActive });
 }
 
 export function shouldAutoRevealNodeConnections(node) {
@@ -15974,6 +15950,7 @@ function openNodeWithExpansion(
 		focus?: boolean;
 		pulse?: boolean;
 		focusDuration?: number;
+		syncRoute?: boolean;
 	} = {},
 ) {
 	if (!d?.id) return;
@@ -15983,6 +15960,7 @@ function openNodeWithExpansion(
 		focus: options.focus,
 		pulse: options.pulse,
 		focusDuration: options.focusDuration,
+		syncRoute: options.syncRoute,
 	});
 
 	scheduleNodeExpansion(d, options, enqueueNodeExpansion);
@@ -15994,6 +15972,7 @@ async function openNodeWithExpansionTask(
 		focus?: boolean;
 		pulse?: boolean;
 		focusDuration?: number;
+		syncRoute?: boolean;
 	} = {},
 ) {
 	const { focus = false, pulse = false, focusDuration = 300 } = options;
@@ -16008,6 +15987,7 @@ async function openNodeWithExpansionTask(
 			focus,
 			pulse,
 			focusDuration,
+			syncRoute: options.syncRoute,
 		});
 	}
 
@@ -16670,7 +16650,7 @@ function revealNeighbors(
 				spreadReleaseTimer = null;
 			}
 			spreadReleaseTimer = setTimeout(() => {
-				simulation?.stop?.();
+				simulation?.alphaTarget?.(0);
 				releaseFrozenNodes(activeSpreadFrozenNodes);
 				activeSpreadFrozenNodes = [];
 				spreadReleaseTimer = null;
@@ -16974,7 +16954,7 @@ function spreadNeighbors(
 	activeSpreadFrozenNodes = frozen;
 	simulation.alpha(0.1).restart();
 	spreadReleaseTimer = setTimeout(() => {
-		simulation.stop();
+		simulation.alphaTarget(0);
 		releaseFrozenNodes(activeSpreadFrozenNodes);
 		activeSpreadFrozenNodes = [];
 		spreadReleaseTimer = null;
@@ -19581,7 +19561,6 @@ function onResize() {
 	const main = document.getElementById('fg-main');
 	const W = main?.clientWidth || 800;
 	const H = main?.clientHeight || 600;
-	d3.select('#fg-svg').attr('viewBox', `0 0 ${W} ${H}`);
 	try {
 		ensureGraphViewportVisible({ duration: 0 });
 	} catch {

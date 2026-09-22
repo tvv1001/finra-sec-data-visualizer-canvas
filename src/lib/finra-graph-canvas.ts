@@ -3,7 +3,7 @@
  * overlay and is intended for large graphs where SVG DOM painting becomes too slow.
  */
 
-import { DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
+import { DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
 
 type Node = any;
 type Link = any;
@@ -17,19 +17,15 @@ let currentLinks: Link[] = [];
 let currentOpts: any = {};
 let currentTransform = { x: 0, y: 0, k: 1 };
 let hoverNodeId: string | null = null;
-const CANVAS_NODE_SCALE = 1.05;
+let activeCanvasDrag: { node: Node; offsetX: number; offsetY: number; pointerId: number; moved: boolean } | null = null;
+let suppressNextCanvasClick = false;
+const CANVAS_NODE_SCALE = 1.5;
+const CANVAS_DEFAULT_LABEL_SIZE = 20;
+const CANVAS_SELECTED_LABEL_SIZE = 26;
 
-function getCanvasNodeSize(node: Node, transform = currentTransform) {
+function getCanvasNodeSize(node: Node) {
 	const vizHalf = (node && node._vizHalf) || (node.group === 'firm' ? 6 : 4);
-	const scale = transform.k || 1;
-	return Math.max(
-		1,
-		vizHalf *
-			CANVAS_NODE_SCALE *
-			(scale < 0.5 ? 0.6
-			: scale < 1 ? 0.9
-			: 1.2),
-	);
+	return Math.max(1, vizHalf * CANVAS_NODE_SCALE);
 }
 
 function isControlPositionNode(node: Node) {
@@ -55,7 +51,7 @@ function getHitNode(clientX: number, clientY: number) {
 		const dist = Math.sqrt(dx * dx + dy * dy);
 		const size = getCanvasNodeSize(n);
 
-		if (dist <= size + 4 * invK) {
+		if (dist <= (size + 4) * invK) {
 			if (dist < bestDist) {
 				bestDist = dist;
 				bestNode = n;
@@ -66,6 +62,10 @@ function getHitNode(clientX: number, clientY: number) {
 }
 
 function onCanvasClick(e: MouseEvent) {
+	if (suppressNextCanvasClick) {
+		suppressNextCanvasClick = false;
+		return;
+	}
 	const hit = getHitNode(e.clientX, e.clientY);
 	if (hit && onNodeClickCallback) {
 		onNodeClickCallback(e, hit);
@@ -73,6 +73,22 @@ function onCanvasClick(e: MouseEvent) {
 }
 
 function onCanvasPointerMove(e: PointerEvent) {
+	if (activeCanvasDrag) {
+		const rect = canvas?.getBoundingClientRect();
+		if (!rect) return;
+		const invK = 1 / (currentTransform.k || 1);
+		const x = (e.clientX - rect.left - currentTransform.x) * invK - activeCanvasDrag.offsetX;
+		const y = (e.clientY - rect.top - currentTransform.y) * invK - activeCanvasDrag.offsetY;
+		const node = activeCanvasDrag.node;
+		activeCanvasDrag.moved = activeCanvasDrag.moved || Math.hypot(x - (node.x || 0), y - (node.y || 0)) > 1;
+		node.x = x;
+		node.y = y;
+		node.fx = x;
+		node.fy = y;
+		if (canvas) canvas.style.cursor = 'grabbing';
+		drawCanvasFrame(currentNodes, currentLinks, currentTransform, currentOpts);
+		return;
+	}
 	const hit = getHitNode(e.clientX, e.clientY);
 	const newHover = hit ? String(hit.id) : null;
 	if (hoverNodeId !== newHover) {
@@ -82,6 +98,41 @@ function onCanvasPointerMove(e: PointerEvent) {
 		}
 		drawCanvasFrame(currentNodes, currentLinks, currentTransform, currentOpts);
 	}
+}
+
+function onCanvasPointerDown(e: PointerEvent) {
+	const hit = getHitNode(e.clientX, e.clientY);
+	if (!hit || !canvas) return;
+	const rect = canvas.getBoundingClientRect();
+	const invK = 1 / (currentTransform.k || 1);
+	const worldX = (e.clientX - rect.left - currentTransform.x) * invK;
+	const worldY = (e.clientY - rect.top - currentTransform.y) * invK;
+	activeCanvasDrag = {
+		node: hit,
+		offsetX: worldX - (hit.x || 0),
+		offsetY: worldY - (hit.y || 0),
+		pointerId: e.pointerId,
+		moved: false,
+	};
+	hit.fx = hit.x;
+	hit.fy = hit.y;
+	canvas.setPointerCapture?.(e.pointerId);
+	canvas.style.cursor = 'grabbing';
+	e.preventDefault();
+}
+
+function endCanvasDrag(e: PointerEvent) {
+	if (!activeCanvasDrag || activeCanvasDrag.pointerId !== e.pointerId) return;
+	const drag = activeCanvasDrag;
+	activeCanvasDrag = null;
+	if (canvas?.hasPointerCapture?.(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+	if (drag.moved) {
+		suppressNextCanvasClick = true;
+		drag.node.fx = null;
+		drag.node.fy = null;
+		drawCanvasFrame(currentNodes, currentLinks, currentTransform, currentOpts);
+	}
+	if (canvas) canvas.style.cursor = 'default';
 }
 
 export function createCanvasOverlay(parent: HTMLElement) {
@@ -97,6 +148,8 @@ export function createCanvasOverlay(parent: HTMLElement) {
 	canvas.style.height = '100%';
 	canvas.style.zIndex = '1';
 	canvas.style.pointerEvents = 'auto';
+	canvas.style.transform = 'none';
+	canvas.style.transformOrigin = '0 0';
 	parent.style.position = parent.style.position || 'relative';
 	parent.appendChild(canvas);
 	ctx = canvas.getContext('2d');
@@ -104,7 +157,10 @@ export function createCanvasOverlay(parent: HTMLElement) {
 	resize();
 	window.addEventListener('resize', resize);
 	canvas.addEventListener('click', onCanvasClick);
+	canvas.addEventListener('pointerdown', onCanvasPointerDown);
 	canvas.addEventListener('pointermove', onCanvasPointerMove);
+	canvas.addEventListener('pointerup', endCanvasDrag);
+	canvas.addEventListener('pointercancel', endCanvasDrag);
 	return { drawFrame: drawCanvasFrame, resize, destroy: destroyCanvas };
 }
 
@@ -113,8 +169,13 @@ export function destroyCanvas() {
 	if (window && typeof window !== 'undefined') window.removeEventListener('resize', resize);
 	if (canvas) {
 		canvas.removeEventListener('click', onCanvasClick);
+		canvas.removeEventListener('pointerdown', onCanvasPointerDown);
 		canvas.removeEventListener('pointermove', onCanvasPointerMove);
+		canvas.removeEventListener('pointerup', endCanvasDrag);
+		canvas.removeEventListener('pointercancel', endCanvasDrag);
 	}
+	activeCanvasDrag = null;
+	suppressNextCanvasClick = false;
 	canvas = null;
 	ctx = null;
 	parentEl = null;
@@ -188,7 +249,7 @@ function drawNode(ctx: CanvasRenderingContext2D, n: Node, transform: any, size =
 	ctx.fillStyle = color;
 	ctx.fill();
 	ctx.strokeStyle = stroke;
-	ctx.lineWidth = strokeWidth * Math.max(0.65, transform.k);
+	ctx.lineWidth = strokeWidth;
 	ctx.stroke();
 }
 
@@ -208,6 +269,7 @@ function resolveCachedThemeColors() {
 		defaultLine: computed.getPropertyValue('--color-default-line').trim() || 'rgba(100, 116, 139, 0.72)',
 		employed: computed.getPropertyValue('--color-highlight-employed').trim() || '#1a7af0',
 		controls: computed.getPropertyValue('--color-highlight-controls').trim() || '#ef4444',
+		label: '#cbd5e1',
 		inactive: computed.getPropertyValue('--color-node-inactive').trim() || '#869ab944',
 		inactiveStroke: computed.getPropertyValue('--color-node-inactive-stroke').trim() || '#94a3b899',
 		inactiveLabel: computed.getPropertyValue('--color-node-inactive-label').trim() || '#334155',
@@ -230,12 +292,7 @@ function getColorForGroup(g: string) {
 	return colors.defaultText;
 }
 
-function getLinkStyle(
-	link: Link,
-	selectedId: string | number | undefined,
-	selectedNodeIds: Set<string>,
-	selectedPersonSelected: boolean,
-) {
+function getLinkStyle(link: Link, selectedId: string | number | undefined, selectedNodeIds: Set<string>, selectedPersonSelected: boolean) {
 	const colors = resolveCachedThemeColors();
 	const source = endpointNode(link?.source);
 	const target = endpointNode(link?.target);
@@ -281,15 +338,14 @@ export function drawCanvasFrame(
 	currentOpts = opts;
 	currentTransform = transform;
 	const selectedNodeIds = new Set((opts.selectedNodeIds || []).map((id) => String(id)));
-	const selectedPersonSelected = nodes.some(
-		(node) =>
-			node?.group === 'individual' &&
-			(selectedNodeIds.has(String(node.id)) || String(node.id) === String(opts.selectedId)),
-	);
+	const selectedPersonSelected = nodes.some((node) => node?.group === 'individual' && (selectedNodeIds.has(String(node.id)) || String(node.id) === String(opts.selectedId)));
 	if (!canvas || !ctx || !parentEl) return;
 	const rect = parentEl.getBoundingClientRect();
 	const w = rect.width;
 	const h = rect.height;
+	// Draw in device pixels while positioning labels in CSS-pixel screen space.
+	// The zoom transform is applied only by worldToScreen, never to the font.
+	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 	// clear canvas
 	ctx.clearRect(0, 0, w, h);
 
@@ -333,8 +389,8 @@ export function drawCanvasFrame(
 
 	// node LOD: if zoomed out, draw small dots; zoomed in show larger and highlight selected
 	const scale = transform.k || 1;
-	const globalCanvasLabelZoomThreshold = 2.4;
-	const selectedCanvasLabelZoomThreshold = 1.4;
+	const globalCanvasLabelZoomThreshold = 0.45;
+	const selectedCanvasLabelZoomThreshold = globalCanvasLabelZoomThreshold;
 	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
 
 	for (const n of visibleNodes) {
@@ -346,7 +402,7 @@ export function drawCanvasFrame(
 		const isHovered = hoverNodeId === String(n.id);
 		const isForcedLabel = forcedLabelIds.has(String(n.id));
 		const isControlPosition = isControlPositionNode(n);
-		const size = getCanvasNodeSize(n, transform);
+		const size = getCanvasNodeSize(n);
 		const col =
 			isNodeSelected ?
 				inactive ? colors.selectedInactive
@@ -373,7 +429,6 @@ export function drawCanvasFrame(
 			: n.group === 'firm' ? 0.9
 			: 1.5;
 		const shouldShowLabel = isForcedLabel || isNodeSelected || scale >= globalCanvasLabelZoomThreshold;
-		const focusLabelScale = isNodeSelected || isForcedLabel ? Math.max(1, Number(opts.labelScale) || 1) : 1;
 
 		drawNode(ctx, n, transform, size, col, nodeStroke, nodeStrokeWidth);
 
@@ -386,30 +441,25 @@ export function drawCanvasFrame(
 			ctx.stroke();
 		}
 
-		if (shouldShowLabel && scale > 0.4) {
+		if (shouldShowLabel && (isForcedLabel || isNodeSelected || scale >= selectedCanvasLabelZoomThreshold)) {
 			const p = worldToScreen(n.x, n.y, transform);
 
-			if (isForcedLabel || isNodeSelected || scale >= selectedCanvasLabelZoomThreshold) {
-				const zoomBoost = scale < 0.85 ? 1 + (0.85 - scale) * 0.4 : 1;
-				const emphasisBoost =
-					isNodeSelected || isHovered || isForcedLabel ?
-						scale >= 1 ?
-							1.12
-						:	1.04
-					:	1;
-				const labelSize = Math.min(24, Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_SIZE_PX * zoomBoost * emphasisBoost * focusLabelScale));
-				ctx.font = `${isForcedLabel || isNodeSelected ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px var(--font-urbanist, Urbanist, system-ui, sans-serif)`;
-				ctx.fillStyle = inactive ? colors.inactiveLabel : colors.defaultText;
-				ctx.textAlign = 'center';
-				ctx.textBaseline = 'top';
-				ctx.shadowColor = 'transparent';
-				ctx.shadowBlur = 0;
-				const labelText = getNodeLabel(n);
-				const labelOffset = n.group === 'entity' ? size * transform.k * 1.5 : size * transform.k;
-				ctx.fillText(labelText || String(n.id), p.x, p.y + labelOffset + DEFAULT_NODE_LABEL_GAP_PX);
-				ctx.textAlign = 'start';
-				ctx.textBaseline = 'alphabetic';
-			}
+			const labelSize = isNodeSelected || isForcedLabel ? CANVAS_SELECTED_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
+			ctx.save();
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			ctx.font = `${isForcedLabel || isNodeSelected ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;
+			ctx.fillStyle =
+				inactive ? '#64748b'
+				: isNodeSelected || isForcedLabel ? '#f8fafc'
+				: colors.label;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'top';
+			const labelText = getNodeLabel(n);
+			const labelOffset = n.group === 'entity' ? size * 1.5 : size;
+			ctx.fillText(labelText || String(n.id), p.x, p.y + labelOffset + DEFAULT_NODE_LABEL_GAP_PX);
+			ctx.textAlign = 'start';
+			ctx.textBaseline = 'alphabetic';
+			ctx.restore();
 		}
 	}
 }
@@ -444,8 +494,10 @@ let activeDrag: {
 } | null = null;
 let routeNodeListener: ((event: Event) => void) | null = null;
 let stopAnimationListener: ((event: Event) => void) | null = null;
+let clearNewNodeHighlightListener: ((event: MouseEvent) => void) | null = null;
 let PixiCore: any = null;
 let renderRequested = false;
+let renderFrameId: number | null = null;
 let forceWorker: Worker | null = null;
 // Track new nodes for blue ring highlight
 let newNodeIds = new Set<string>();
@@ -489,7 +541,8 @@ export function requestRender() {
 	if (renderRequested) return;
 	renderRequested = true;
 	if (typeof window === 'undefined') return;
-	window.requestAnimationFrame(() => {
+	renderFrameId = window.requestAnimationFrame(() => {
+		renderFrameId = null;
 		renderRequested = false;
 		drawFrame();
 	});
@@ -1121,7 +1174,7 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 	installStopAnimationListener();
 
 	// Add canvas click handler to clear new node highlights
-	const clearNewNodeHighlight = (e: MouseEvent) => {
+	clearNewNodeHighlightListener = (e: MouseEvent) => {
 		// Only clear if click is on canvas, not on a node
 		const canvas = getCanvasElement();
 		if (canvas && e.target === canvas) {
@@ -1131,7 +1184,7 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 			}
 		}
 	};
-	window.addEventListener('click', clearNewNodeHighlight, true);
+	window.addEventListener('click', clearNewNodeHighlightListener, true);
 
 	if (initialRouteNodeId) {
 		selectNode(initialRouteNodeId);
@@ -1139,6 +1192,11 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 }
 
 export function destroy() {
+	if (renderFrameId != null && typeof window !== 'undefined') {
+		window.cancelAnimationFrame(renderFrameId);
+		renderFrameId = null;
+	}
+	renderRequested = false;
 	if (simulation) {
 		simulation.stop();
 		simulation = null;
@@ -1161,6 +1219,10 @@ export function destroy() {
 	graphNeighborIds.clear();
 	graphNodes = [];
 	graphLinks = [];
+	if (clearNewNodeHighlightListener && typeof window !== 'undefined') {
+		window.removeEventListener('click', clearNewNodeHighlightListener, true);
+		clearNewNodeHighlightListener = null;
+	}
 	teardownRouteListener();
 	teardownStopAnimationListener();
 }

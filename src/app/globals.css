@@ -3659,17 +3659,6 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	touch-action: none;
 }
 
-#fg-svg {
-	width: 100%;
-	height: 100%;
-	display: block;
-	touch-action: none;
-	/* Suppress iOS long-press context menu and text selection on graph canvas */
-	-webkit-touch-callout: none;
-	-webkit-user-select: none;
-	user-select: none;
-}
-
 .fg-node .fg-node-shape--circle,
 .fg-node .fg-node-shape--firm,
 .fg-node .fg-node-shape--entity {
@@ -4018,8 +4007,7 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	filter: none;
 	stroke-width: calc(var(--fg-link-width, 1.2px) * clamp(0.4, var(--fg-current-zoom, 1), 1)) !important;
 } */
-.fg-label,
-#fg-svg text.fg-label {
+.fg-label {
 	filter: none !important;
 	text-shadow: none !important;
 	stroke: none !important;
@@ -4040,23 +4028,6 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	display: none;
 }
 
-/* .fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label,
-.fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label,
-.fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label,
-.fg-root.fg-trace-labels .fg-node.trace-longest-connector text.fg-label,
-.fg-root.fg-trace-labels .fg-node.trace-log text.fg-label,
-.fg-root.fg-trace-labels .fg-node.trace-log-connector text.fg-label,
-.fg-root.fg-trace-labels .fg-node.trace-combined text.fg-label,
-.fg-root.fg-trace-labels .fg-node.trace-combined-connector text.fg-label {
-	font-size: calc(11px * var(--fg-trace-label-scale, 1)) !important;
-	font-size: clamp(calc(20px / var(--fg-current-zoom, 1)), 2.2ch, calc(30px / var(--fg-current-zoom, 1))) !important;
-} */
-
-/* .fg-root.fg-selection-log-labels text.fg-label {
-	font-size: clamp(calc(8px / var(--fg-current-zoom, 1)), 1.2ch, calc(12px / var(--fg-current-zoom, 1))) !important;
-	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
-} */
-
 .fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label,
@@ -4066,6 +4037,7 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 .fg-root.fg-trace-labels .fg-node.trace-combined text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-combined-connector text.fg-label {
 	fill: #000000 !important;
+	font-size: 26px !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
 	stroke: none !important;
@@ -5760,21 +5732,6 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 		stroke 0.2s ease;
 }
 
-/* Size increase only applies when there is active highlights */
-.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-shape--circle,
-.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-shape--firm,
-.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-shape--entity,
-.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-overlay,
-.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-selected-ring,
-.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-disclosure-ring {
-	filter: brightness(1.03);
-}
-
-.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected text.fg-label {
-	font-weight: 600 !important;
-	transition: font-weight 0.2s ease;
-}
-
 /* Extracted from scratch_styles.css */
 textarea,
 input,
@@ -6679,23 +6636,9 @@ button[type='submit'],
 /* ── Graph paint budget: never use SVG filters on the live graph ─────────── */
 /* drop-shadow / blur filters force expensive layer promotion and can SIGILL on
    Mesa iGPUs. Selection emphasis uses stroke rings instead. */
-#fg-svg .fg-node circle,
-#fg-svg .fg-node rect,
-#fg-svg .fg-node polygon,
-#fg-svg .fg-node text,
-#fg-svg .fg-node .fg-restore-ring,
-#fg-svg .fg-link,
-#fg-svg path,
-#fg-svg line,
 #fg-main svg * {
 	filter: none !important;
 	text-shadow: none !important;
-}
-
-#fg-svg text.fg-label {
-	stroke: none !important;
-	stroke-width: 0 !important;
-	paint-order: normal !important;
 }
 
 /* Chrome surfaces: skip backdrop-filter blur (GPU composite cost). */
