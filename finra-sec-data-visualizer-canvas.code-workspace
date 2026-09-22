@@ -15,9 +15,14 @@
 			"**/dist": true,
 		},
 		"workbench.colorCustomizations": {
-			"titleBar.activeBackground": "#043769",
-			"titleBar.inactiveBackground": "#022241",
-			// "titleBar.activeForeground": "#FFFFFF",
+			"titleBar.activeBackground": "#622510",
+			"titleBar.activeForeground": "#fffefe",
+			"titleBar.inactiveBackground": "#622510",
+			"titleBar.inactiveForeground": "#fffefe99",
+			"statusBar.background": "#622510",
+			"statusBar.foreground": "#fffefe",
+			"statusBar.debuggingBackground": "#622510",
+			"statusBar.debuggingForeground": "#fffefe",
 		},
 	},
 }

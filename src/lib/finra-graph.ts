@@ -15176,11 +15176,7 @@ function revealIncidentRenderedLinks(clickedNode, linkFilter: ((link: any) => bo
 		if (sourceId !== clickedId && targetId !== clickedId) continue;
 		if (!renderedIds.has(sourceId) || !renderedIds.has(targetId)) continue;
 		if (layoutHasLinkIdentity(link)) continue;
-		const endpointAlreadyConnected = (layoutLinksByNodeId.get(String(sourceId)) || []).some((existing) => {
-			const existingSourceId = existing.source?.id ?? existing.source;
-			const existingTargetId = existing.target?.id ?? existing.target;
-			return (existingSourceId === sourceId && existingTargetId === targetId) || (existingSourceId === targetId && existingTargetId === sourceId);
-		});
+		const endpointAlreadyConnected = (neighborMap?.get(String(sourceId)) || new Set()).has(String(targetId));
 		if (endpointAlreadyConnected) continue;
 		nextLinks.push({ ...link });
 	}
@@ -16618,6 +16614,17 @@ function revealNeighbors(
 			layoutNodes = mergeResult.nodes;
 			activeRenderedIds = new Set(layoutNodes.map((node) => node.id));
 			const batchNodeIds = new Set(newRenderNodes.map((n) => n.id));
+			
+			// Precompute existing directed edges to avoid O(E * D) complexity
+			const renderedDirectedEdges = new Set();
+			if (layoutLinks) {
+				for (const ll of layoutLinks) {
+					const es = ll.source?.id ?? ll.source;
+					const et = ll.target?.id ?? ll.target;
+					if (es && et) renderedDirectedEdges.add(`${es}::${et}`);
+				}
+			}
+
 			const batchLinks = rewriteLinksForNodeIdMap(
 				candidateLinks
 					.filter((link) => {
@@ -16629,12 +16636,12 @@ function revealNeighbors(
 						if (!srcRendered && !batchNodeIds.has(srcId)) return false;
 						if (!tgtRendered && !batchNodeIds.has(tgtId)) return false;
 						if (layoutHasLinkIdentity(link)) return false;
-						const alreadyHas = (layoutLinksByNodeId.get(String(srcId)) || []).some((el) => {
-							const es = el.source?.id ?? el.source;
-							const et = el.target?.id ?? el.target;
-							return es === srcId && et === tgtId;
-						});
-						return !alreadyHas;
+						
+						if (renderedDirectedEdges.has(`${srcId}::${tgtId}`)) return false;
+						
+						// Prevent adding duplicate directed edges in the same batch
+						renderedDirectedEdges.add(`${srcId}::${tgtId}`);
+						return true;
 					})
 					.map((link) => ({ ...link })),
 				mergeResult.idRewriteMap,
