@@ -1,6 +1,126 @@
 {
   "firms": [
     {
+      "id": 8158,
+      "name": "ROBERT W. BAIRD & CO. INCORPORATED"
+    },
+    {
+      "id": 4,
+      "name": "A. G. EDWARDS & SONS, INC."
+    },
+    {
+      "id": 19616,
+      "name": "WACHOVIA SECURITIES, LLC"
+    },
+    {
+      "id": 146936,
+      "name": "BENJAMIN F. EDWARDS & COMPANY, INC."
+    },
+    {
+      "id": 110518,
+      "name": "SECURITIES AMERICA ADVISORS, INC."
+    },
+    {
+      "id": 3866,
+      "name": "KMS FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 10205,
+      "name": "SECURITIES AMERICA, INC."
+    },
+    {
+      "id": 23131,
+      "name": "OSAIC WEALTH, INC."
+    },
+    {
+      "id": 104204,
+      "name": "MACQUARIE PRIVATE WEALTH CORP"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 16139,
+      "name": "MERRILL LYNCH PROFESSIONAL CLEARING CORP."
+    },
+    {
+      "id": 283942,
+      "name": "BOFA SECURITIES, INC."
+    },
+    {
+      "id": 316331,
+      "name": "BOFA SECURITIES PRIME, INC."
+    },
+    {
+      "id": 7242,
+      "name": "LEHMAN SPECIAL SECURITIES INC."
+    },
+    {
+      "id": 19655,
+      "name": "LEHMAN GOVERNMENT SECURITIES INC."
+    },
+    {
+      "id": 7506,
+      "name": "LEHMAN BROTHERS INC."
+    },
+    {
+      "id": 19714,
+      "name": "BARCLAYS CAPITAL INC."
+    },
+    {
+      "id": 4297,
+      "name": "NOMURA SECURITIES INTERNATIONAL, INC."
+    },
+    {
+      "id": 19662,
+      "name": "HILLIARD FARBER & CO., INC."
+    },
+    {
+      "id": 816,
+      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
+    },
+    {
+      "id": 7897,
+      "name": "INSTINET, LLC"
+    },
+    {
+      "id": 19660,
+      "name": "CANTOR FITZGERALD SECURITIES"
+    },
+    {
+      "id": 23745,
+      "name": "SBC CAPITAL MARKETS, INC."
+    },
+    {
+      "id": 5285,
+      "name": "ING BARING (U.S.) SECURITIES, INC."
+    },
+    {
+      "id": 6540,
+      "name": "ABN AMRO SECURITIES LLC"
+    },
+    {
+      "id": 15776,
+      "name": "ABN AMRO INCORPORATED"
+    },
+    {
+      "id": 754,
+      "name": "SCUDDER INVESTOR SERVICES, INC."
+    },
+    {
+      "id": 37306,
+      "name": "SCUDDER DISTRIBUTORS, INC."
+    },
+    {
+      "id": 2525,
+      "name": "DEUTSCHE BANK SECURITIES INC."
+    },
+    {
+      "id": 142775,
+      "name": "DB SECURITIES SERVICES NJ INC."
+    },
+    {
       "id": 7654,
       "name": "UBS SECURITIES LLC"
     },
@@ -9,12 +129,8 @@
       "name": "UBS FINANCIAL SERVICES INC."
     },
     {
-      "id": 816,
-      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
-    },
-    {
-      "id": 19714,
-      "name": "BARCLAYS CAPITAL INC."
+      "id": 361,
+      "name": "GOLDMAN, SACHS & CO."
     },
     {
       "id": 5685,
@@ -141,14 +257,6 @@
       "name": "CETERA ADVISORS LLC"
     },
     {
-      "id": 10205,
-      "name": "SECURITIES AMERICA, INC."
-    },
-    {
-      "id": 3866,
-      "name": "KMS FINANCIAL SERVICES, INC."
-    },
-    {
       "id": 25803,
       "name": "TRIAD ADVISORS LLC"
     },
@@ -179,10 +287,6 @@
     {
       "id": 133763,
       "name": "OSAIC SERVICES, INC."
-    },
-    {
-      "id": 23131,
-      "name": "OSAIC WEALTH, INC."
     },
     {
       "id": 505,
@@ -233,20 +337,12 @@
       "name": "FIDELITY BROKERAGE SERVICES LLC"
     },
     {
-      "id": 361,
-      "name": "GOLDMAN, SACHS & CO."
-    },
-    {
       "id": 40881,
       "name": "BLOOMBERG TRADEBOOK LLC"
     },
     {
       "id": 1137,
       "name": "PRINCOR FINANCIAL SERVICES CORPORATION"
-    },
-    {
-      "id": 19616,
-      "name": "WELLS FARGO CLEARING SERVICES, LLC"
     },
     {
       "id": 463,
@@ -391,10 +487,6 @@
     {
       "id": 45646,
       "name": "GREENWOOD INVESTMENTS, LLC"
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
     {
       "id": 2882,
@@ -829,10 +921,6 @@
       "name": "THE LEADERS GROUP, INC."
     },
     {
-      "id": 19662,
-      "name": "DEALERWEB LLC"
-    },
-    {
       "id": 26091,
       "name": "BANC OF AMERICA SECURITIES LLC"
     },
@@ -925,14 +1013,6 @@
       "name": "TEACHERS PERSONAL INVESTORS SERVICES, INC."
     },
     {
-      "id": 754,
-      "name": "DEAM INVESTOR SERVICES, INC."
-    },
-    {
-      "id": 37306,
-      "name": "DWS DISTRIBUTORS, INC."
-    },
-    {
       "id": 5167,
       "name": "NYLIFE SECURITIES INC."
     },
@@ -965,10 +1045,6 @@
       "name": "MORGAN STANLEY MARKET PRODUCTS INC."
     },
     {
-      "id": 19660,
-      "name": "CANTOR FITZGERALD SECURITIES"
-    },
-    {
       "id": 134,
       "name": "CANTOR FITZGERALD & CO."
     },
@@ -983,10 +1059,6 @@
     {
       "id": 18472,
       "name": "CHASE FUTURES & OPTIONS, INC."
-    },
-    {
-      "id": 7506,
-      "name": "LEHMAN BROTHERS INC."
     },
     {
       "id": 35693,
@@ -1119,10 +1191,6 @@
     {
       "id": 15609,
       "name": "THOMAS JAMES ASSOCIATES, INC."
-    },
-    {
-      "id": 4,
-      "name": "A. G. EDWARDS & SONS, INC."
     },
     {
       "id": 7471,
@@ -1429,10 +1497,6 @@
       "name": "LOWRY FINANCIAL SERVICES CORPORATION"
     },
     {
-      "id": 8158,
-      "name": "ROBERT W. BAIRD & CO. INCORPORATED"
-    },
-    {
       "id": 14035,
       "name": "THE ADVISORS GROUP, INC."
     },
@@ -1561,10 +1625,6 @@
       "name": "TRUIST SECURITIES, INC."
     },
     {
-      "id": 283942,
-      "name": "BOFA SECURITIES, INC."
-    },
-    {
       "id": 53,
       "name": "HEFREN-TILLOTSON, INC."
     },
@@ -1611,10 +1671,6 @@
     {
       "id": 291902,
       "name": "APOLLON WEALTH MANAGEMENT, LLC"
-    },
-    {
-      "id": 2525,
-      "name": "DEUTSCHE BANK SECURITIES INC."
     },
     {
       "id": 126041,
@@ -1711,10 +1767,6 @@
     {
       "id": 159035,
       "name": "SCHWAB WEALTH ADVISORY, INC."
-    },
-    {
-      "id": 4297,
-      "name": "NOMURA SECURITIES INTERNATIONAL, INC."
     },
     {
       "id": 19801,
@@ -2029,10 +2081,6 @@
       "name": "EPLANNING ADVISORS INC"
     },
     {
-      "id": 110518,
-      "name": "SECURITIES AMERICA ADVISORS, INC."
-    },
-    {
       "id": 111167,
       "name": "HANSON MCCLAIN ADVISORS"
     },
@@ -2154,6 +2202,42 @@
     }
   ],
   "individuals": [
+    {
+      "id": 722143,
+      "name": "PETER ALAN BIEBEL"
+    },
+    {
+      "id": 863962,
+      "name": "MARY MARGARET ATKIN"
+    },
+    {
+      "id": 2853977,
+      "name": "MARK CHRISTOPHER ZELLERHOFF"
+    },
+    {
+      "id": 2494318,
+      "name": "ERIC A SCHIMPF"
+    },
+    {
+      "id": 5290525,
+      "name": "Vincent C. Santanna"
+    },
+    {
+      "id": 2123603,
+      "name": "VINCENT ANTHONY PRIMIANO"
+    },
+    {
+      "id": 1666328,
+      "name": "WILLIAM FRANCIS HUGHES"
+    },
+    {
+      "id": 1840894,
+      "name": "RALPH MATTONE"
+    },
+    {
+      "id": 4556059,
+      "name": "Michael J Ebert"
+    },
     {
       "id": 2219496,
       "name": "JOSEPH SOMMA"

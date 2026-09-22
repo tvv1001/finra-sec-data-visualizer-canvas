@@ -120,21 +120,60 @@ function worldToScreen(x: number, y: number, transform: { x: number; y: number; 
 	return { x: transform.x + x * transform.k, y: transform.y + y * transform.k };
 }
 
-function drawLink(ctx: CanvasRenderingContext2D, a: Node, b: Node, transform: any) {
-	const sa = worldToScreen(a.x, a.y, transform);
-	const sb = worldToScreen(b.x, b.y, transform);
-	ctx.beginPath();
-	ctx.moveTo(sa.x, sa.y);
-	ctx.lineTo(sb.x, sb.y);
-	ctx.stroke();
+function endpointNode(endpoint: Node) {
+	return endpoint && typeof endpoint === 'object' ? endpoint : currentNodes.find((node) => String(node.id) === String(endpoint));
 }
 
-function drawNode(ctx: CanvasRenderingContext2D, n: Node, transform: any, size = 4, color = '#888') {
+function isControlLink(link: Link) {
+	return ['controls', 'controlled_by', 'owner', 'officer', 'associated_with'].includes(String(link?.relationship || '').toLowerCase());
+}
+
+function isPreviousLink(link: Link) {
+	const relationship = String(link?.relationship || '').toLowerCase();
+	return (
+		link?.forceGray === true ||
+		link?.isForcedGray === true ||
+		link?.isCurrent === false ||
+		relationship === 'previous_employed_by' ||
+		relationship === 'previous_registered_by' ||
+		Boolean(link?.endDate)
+	);
+}
+
+function isInactiveNode(node: Node) {
+	if (!node) return false;
+	if (node.inactive === true || node.isInactive === true) return true;
+	const status = String(node.status || node.firmStatus || node.bcScope || node.iaScope || '').toLowerCase();
+	return ['inactive', 'terminated', 'withdrawn', 'not active'].includes(status);
+}
+
+function drawNode(ctx: CanvasRenderingContext2D, n: Node, transform: any, size = 4, color = '#888', stroke = '#fff', strokeWidth = 1) {
 	const p = worldToScreen(n.x, n.y, transform);
+	const radius = Math.max(1, size * transform.k);
 	ctx.beginPath();
-	ctx.arc(p.x, p.y, Math.max(1, size * transform.k), 0, Math.PI * 2);
+	if (n.group === 'firm') {
+		for (let i = 0; i < 6; i += 1) {
+			const angle = Math.PI / 3 * i - Math.PI / 6;
+			const x = p.x + radius * Math.cos(angle);
+			const y = p.y + radius * Math.sin(angle);
+			if (i === 0) ctx.moveTo(x, y);
+			else ctx.lineTo(x, y);
+		}
+		ctx.closePath();
+	} else if (n.group === 'entity') {
+		ctx.moveTo(p.x, p.y - radius * 1.5);
+		ctx.lineTo(p.x + radius * 1.5, p.y);
+		ctx.lineTo(p.x, p.y + radius * 1.5);
+		ctx.lineTo(p.x - radius * 1.5, p.y);
+		ctx.closePath();
+	} else {
+		ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+	}
 	ctx.fillStyle = color;
 	ctx.fill();
+	ctx.strokeStyle = stroke;
+	ctx.lineWidth = strokeWidth * Math.max(0.65, transform.k);
+	ctx.stroke();
 }
 
 let cachedThemeColors: Record<string, string> | null = null;
@@ -145,9 +184,17 @@ function resolveCachedThemeColors() {
 	const computed = window.getComputedStyle(root);
 	cachedThemeColors = {
 		individual: computed.getPropertyValue('--color-highlight-individual').trim() || '#0ea5a4',
+		stub: computed.getPropertyValue('--color-node-stub').trim() || '#8ab7ee',
 		firm: computed.getPropertyValue('--color-highlight-firm').trim() || '#7c3aed',
 		entity: computed.getPropertyValue('--color-highlight-entity').trim() || '#fb923c',
 		defaultText: computed.getPropertyValue('--color-default-text').trim() || '#94a3b8',
+		defaultLine: computed.getPropertyValue('--color-default-line').trim() || 'rgba(100, 116, 139, 0.72)',
+		employed: computed.getPropertyValue('--color-highlight-employed').trim() || '#1a7af0',
+		controls: computed.getPropertyValue('--color-highlight-controls').trim() || '#ef4444',
+		inactive: computed.getPropertyValue('--color-node-inactive').trim() || '#869ab944',
+		inactiveStroke: computed.getPropertyValue('--color-node-inactive-stroke').trim() || '#94a3b899',
+		inactiveLabel: computed.getPropertyValue('--color-node-inactive-label').trim() || '#334155',
+		border: computed.getPropertyValue('--color-node-border').trim() || '#ffffff',
 	};
 	return cachedThemeColors;
 }
@@ -158,6 +205,22 @@ function getColorForGroup(g: string) {
 	if (g === 'firm') return colors.firm;
 	if (g === 'entity') return colors.entity;
 	return colors.defaultText;
+}
+
+function getLinkStyle(link: Link, selectedId: string | number | undefined) {
+	const colors = resolveCachedThemeColors();
+	const source = endpointNode(link?.source);
+	const target = endpointNode(link?.target);
+	const inactive = isInactiveNode(source) || isInactiveNode(target);
+	const previous = isPreviousLink(link);
+	const control = isControlLink(link);
+	const selected = selectedId != null && (String(source?.id) === String(selectedId) || String(target?.id) === String(selectedId));
+	return {
+		color: inactive || previous ? colors.inactiveStroke : control ? colors.controls : colors.employed,
+		width: control ? 2.35 : previous || inactive ? 1.65 : 1.95,
+		opacity: selected ? 1 : inactive ? 0.92 : control ? 1 : previous ? 0.92 : 0.98,
+		dash: previous || inactive ? [2, 3] : [],
+	};
 }
 
 // Margin in world units to draw slightly outside viewport for smooth panning
@@ -190,10 +253,7 @@ export function drawCanvasFrame(
 	// cull nodes
 	const visibleNodes = nodes.filter((n) => n && Number.isFinite(n.x) && Number.isFinite(n.y) && n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY);
 
-	// draw links (lightweight) — only links with at least one visible endpoint
-	ctx.lineWidth = 1.2 * Math.max(0.4, Math.min(1, transform.k || 1));
-	ctx.strokeStyle = 'rgba(90, 105, 120, 0.45)';
-	ctx.beginPath();
+	// Draw links in the same role-specific palette as the SVG renderer.
 	for (const l of links) {
 		const a = l.source;
 		const b = l.target;
@@ -205,10 +265,18 @@ export function drawCanvasFrame(
 		if (a.y > maxY && b.y > maxY) continue;
 		const sa = worldToScreen(a.x, a.y, transform);
 		const sb = worldToScreen(b.x, b.y, transform);
+		const style = getLinkStyle(l, opts.selectedId);
+		ctx.beginPath();
+		ctx.setLineDash(style.dash);
+		ctx.lineWidth = style.width * Math.max(0.55, Math.min(2.15, 1 / Math.max(0.35, transform.k)));
+		ctx.strokeStyle = style.color;
+		ctx.globalAlpha = style.opacity;
 		ctx.moveTo(sa.x, sa.y);
 		ctx.lineTo(sb.x, sb.y);
+		ctx.stroke();
 	}
-	ctx.stroke();
+	ctx.setLineDash([]);
+	ctx.globalAlpha = 1;
 
 	// node LOD: if zoomed out, draw small dots; zoomed in show larger and highlight selected
 	const scale = transform.k || 1;
@@ -217,7 +285,9 @@ export function drawCanvasFrame(
 	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
 
 	for (const n of visibleNodes) {
-		const col = getColorForGroup(n.group);
+		const colors = resolveCachedThemeColors();
+		const inactive = isInactiveNode(n);
+		const col = inactive ? colors.inactive : n.group === 'individual' && n.stub ? colors.stub : getColorForGroup(n.group);
 		// Prefer any precomputed viz half-radius (from D3 renderer); otherwise
 		// fall back to defaults. _vizHalf stores a half-radius used by SVG, so
 		// use it directly for canvas sizing when available.
@@ -229,38 +299,40 @@ export function drawCanvasFrame(
 				: scale < 1 ? 0.9
 				: 1.2),
 		);
-		ctx.fillStyle = col;
-		drawNode(ctx, n, transform, size, col);
 		const isSelected = opts.selectedId && String(opts.selectedId) === String(n.id);
 		const isHovered = hoverNodeId === String(n.id);
 		const isForcedLabel = forcedLabelIds.has(String(n.id));
+		const nodeStroke = inactive ? colors.inactiveStroke : isSelected ? '#16053f' : colors.border;
+		const nodeStrokeWidth = isSelected ? (n.group === 'firm' ? 3.4 : 3.2) : n.group === 'firm' ? 0.9 : 1.5;
 		const shouldShowLabel = isForcedLabel || isSelected || scale >= globalCanvasLabelZoomThreshold;
 		const focusLabelScale = isSelected || isForcedLabel ? Math.max(1, Number(opts.labelScale) || 1) : 1;
+
+		drawNode(ctx, n, transform, size, col, nodeStroke, nodeStrokeWidth);
 
 		if (shouldShowLabel && scale > 0.4) {
 			const p = worldToScreen(n.x, n.y, transform);
 
-			// Selection cue: thin stroke only — no soft glow fill (expensive over many nodes).
 			if (isSelected || isHovered) {
 				ctx.beginPath();
-				ctx.arc(p.x, p.y, Math.max(6, size * 1.8), 0, Math.PI * 2);
-				ctx.strokeStyle = isHovered ? 'rgba(100, 180, 255, 0.85)' : 'rgba(255,200,60,0.85)';
-				ctx.lineWidth = 1.5;
+				ctx.arc(p.x, p.y, Math.max(6, size * transform.k + 4), 0, Math.PI * 2);
+				ctx.strokeStyle = isHovered ? '#18a0fb' : '#24115f';
+				ctx.lineWidth = isHovered ? 2 : 3;
 				ctx.stroke();
 			}
 
-
-
 			if (isForcedLabel || isSelected || scale >= selectedCanvasLabelZoomThreshold) {
-				// label — solid fill only (no shadow / stroke halo)
-				ctx.font = `${DEFAULT_NODE_LABEL_FONT_WEIGHT} ${DEFAULT_NODE_LABEL_FONT_SIZE_PX * Math.min(2.6, Math.max(0.9, scale) * focusLabelScale)}px Inter, system-ui, sans-serif`;
-				ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
+				const zoomBoost = scale < 0.85 ? 1 + (0.85 - scale) * 0.4 : 1;
+				const emphasisBoost = isSelected || isHovered || isForcedLabel ? (scale >= 1 ? 1.12 : 1.04) : 1;
+				const labelSize = Math.min(24, Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_SIZE_PX * zoomBoost * emphasisBoost * focusLabelScale));
+				ctx.font = `${isForcedLabel || isSelected ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px var(--font-urbanist, Urbanist, system-ui, sans-serif)`;
+				ctx.fillStyle = inactive ? colors.inactiveLabel : colors.defaultText;
 				ctx.textAlign = 'center';
 				ctx.textBaseline = 'top';
 				ctx.shadowColor = 'transparent';
 				ctx.shadowBlur = 0;
 				const labelText = getNodeLabel(n);
-				ctx.fillText(labelText || String(n.id), p.x, p.y + Math.max(1, size * transform.k) + DEFAULT_NODE_LABEL_GAP_PX);
+				const labelOffset = n.group === 'entity' ? size * transform.k * 1.5 : size * transform.k;
+				ctx.fillText(labelText || String(n.id), p.x, p.y + labelOffset + DEFAULT_NODE_LABEL_GAP_PX);
 				ctx.textAlign = 'start';
 				ctx.textBaseline = 'alphabetic';
 			}
