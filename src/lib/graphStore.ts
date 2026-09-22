@@ -625,8 +625,12 @@ async function syncSeedBankFromGraph(graph: any): Promise<SeedBank> {
 export async function getSeedBankFromStore(): Promise<SeedBank> {
 	const redis = getRedis();
 	if (redis) {
-		const raw = await redis.get<string>(REDIS_SEED_BANK_KEY);
-		if (raw) return normalizeSeedBankPayload(typeof raw === 'string' ? JSON.parse(decompressPayload(raw)) : raw);
+		try {
+			const raw = await redis.get<string>(REDIS_SEED_BANK_KEY);
+			if (raw) return normalizeSeedBankPayload(typeof raw === 'string' ? JSON.parse(decompressPayload(raw)) : raw);
+		} catch (err) {
+			console.warn('Failed to fetch/parse seed bank from Redis, falling back:', err);
+		}
 		const graph = await getFullGraph();
 		return syncSeedBankFromGraph(graph);
 	}
@@ -650,8 +654,12 @@ export async function getSeedNameByNumber(kind: SeedLookupKind, id: string): Pro
 export async function getRecentSeedsFromStore(): Promise<RecentSeeds> {
 	const redis = getRedis();
 	if (redis) {
-		const raw = await redis.get<string>(REDIS_RECENT_SEEDS_KEY);
-		if (raw) return normalizeRecentSeedsPayload(typeof raw === 'string' ? JSON.parse(decompressPayload(raw)) : raw);
+		try {
+			const raw = await redis.get<string>(REDIS_RECENT_SEEDS_KEY);
+			if (raw) return normalizeRecentSeedsPayload(typeof raw === 'string' ? JSON.parse(decompressPayload(raw)) : raw);
+		} catch (err) {
+			console.warn('Failed to fetch/parse recent seeds from Redis, falling back:', err);
+		}
 		return createEmptyRecentSeeds();
 	}
 
