@@ -11616,7 +11616,7 @@ export function getNodeLabelFontSize({
 	isEmphasized = false,
 	zoomScale: _zoomScale = getCurrentGraphZoomScale(),
 }: { isSelected?: boolean; isHovered?: boolean; isBolded?: boolean; isEmphasized?: boolean; zoomScale?: number } = {}) {
-	const shouldEmphasize = isSelected || isHovered || isBolded || isEmphasized;
+	const shouldEmphasize = isSelected || isBolded || isEmphasized;
 	const screenSize = shouldEmphasize ? 26 : 20;
 	const graphZoom = Math.max(0.01, Number(_zoomScale) || 1);
 	return screenSize / graphZoom;
@@ -12439,7 +12439,6 @@ function updateNodeVisuals(
 				isSelected: isSelectedNode,
 				isHovered: isHoveredNode,
 				isBolded: isBolded,
-				isEmphasized,
 			})}px`;
 			label
 				.text(labelText)
@@ -12449,7 +12448,7 @@ function updateNodeVisuals(
 				.attr('stroke-width', 0)
 				.attr('opacity', inactive ? 0.86 : 1)
 				.attr('font-size', labelFontSize)
-				.attr('font-weight', isEmphasized ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT);
+				.attr('font-weight', isSelectedNode || isBolded ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT);
 		}
 	});
 }
