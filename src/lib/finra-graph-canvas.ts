@@ -21,6 +21,7 @@ let canvasTooltip: HTMLDivElement | null = null;
 let canvasLabelVisibleIds = new Set<string>();
 let activeCanvasDrag: { node: Node; offsetX: number; offsetY: number; pointerId: number; moved: boolean } | null = null;
 let suppressNextCanvasClick = false;
+
 const CANVAS_NODE_SCALE = 1.5;
 const CANVAS_DEFAULT_LABEL_SIZE = 27;
 const CANVAS_SELECTED_LABEL_SIZE = 65;
@@ -30,12 +31,7 @@ function shouldShowCanvasLabel(node: Node) {
 	const nodeId = String(node?.id);
 	const forcedLabelIds = new Set((currentOpts.logLabelNodeIds || []).map((id: string | number) => String(id)));
 	const selectedIds = new Set((currentOpts.selectedNodeIds || []).map((id: string | number) => String(id)));
-	return (
-		forcedLabelIds.has(nodeId) ||
-		selectedIds.has(nodeId) ||
-		(currentOpts.selectedId != null && String(currentOpts.selectedId) === nodeId) ||
-		scale >= 0.45
-	);
+	return forcedLabelIds.has(nodeId) || selectedIds.has(nodeId) || (currentOpts.selectedId != null && String(currentOpts.selectedId) === nodeId) || scale >= 0.45;
 }
 
 function hideCanvasTooltip() {
@@ -503,7 +499,11 @@ export function drawCanvasFrame(
 	const globalCanvasLabelZoomThreshold = 0.45;
 	const selectedCanvasLabelZoomThreshold = globalCanvasLabelZoomThreshold;
 	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
-	const labelBudget = visibleNodes.length > 1000 ? 160 : visibleNodes.length > 600 ? 240 : visibleNodes.length > 300 ? 400 : Infinity;
+	const labelBudget =
+		visibleNodes.length > 1000 ? 160
+		: visibleNodes.length > 600 ? 240
+		: visibleNodes.length > 300 ? 400
+		: Infinity;
 	const labelCandidates = visibleNodes
 		.filter((node) => {
 			const id = String(node.id);
@@ -559,9 +559,7 @@ export function drawCanvasFrame(
 			: n.group === 'individual' && Number(n?._deg?.total || 0) > 0 ? 1
 			: 1.5;
 		const isPriorityLabel = labelCandidateIds.has(n.id);
-		const shouldShowLabel =
-			isPriorityLabel ||
-			(scale >= globalCanvasLabelZoomThreshold && renderedLabelCount < labelBudget);
+		const shouldShowLabel = isPriorityLabel || (scale >= globalCanvasLabelZoomThreshold && renderedLabelCount < labelBudget);
 
 		drawNode(ctx, n, transform, size, col, nodeStroke, nodeStrokeWidth);
 
