@@ -58,6 +58,46 @@ function getHitNode(clientX: number, clientY: number) {
 			}
 		}
 	}
+
+	// Labels are painted on the same canvas, so include their screen-space
+	// bounds in hit testing instead of requiring clicks to land on the shape.
+	if (ctx) {
+		const scale = currentTransform.k || 1;
+		const forcedLabelIds = new Set((currentOpts.logLabelNodeIds || []).map((id: string | number) => String(id)));
+		const selectedIds = new Set((currentOpts.selectedNodeIds || []).map((id: string | number) => String(id)));
+		const selectedId = currentOpts.selectedId == null ? null : String(currentOpts.selectedId);
+		let bestLabelDistance = Infinity;
+
+		for (const n of currentNodes) {
+			if (!Number.isFinite(n?.x) || !Number.isFinite(n?.y)) continue;
+			const nodeId = String(n.id);
+			const isSelected = selectedId === nodeId || selectedIds.has(nodeId);
+			const isForcedLabel = forcedLabelIds.has(nodeId);
+			const shouldShowLabel = isForcedLabel || isSelected || scale >= 0.45;
+			if (!shouldShowLabel) continue;
+
+			const labelText = getNodeLabel(n) || nodeId;
+			const isBoldLabel = Boolean(selectedId === nodeId || isForcedLabel);
+			const labelSize = (isBoldLabel ? CANVAS_SELECTED_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE) * Math.max(0.01, scale);
+			ctx.save();
+			ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;
+			const labelWidth = ctx.measureText(labelText).width;
+			ctx.restore();
+
+			const p = worldToScreen(n.x, n.y, currentTransform);
+			const nodeScreenRadius = Math.max(1, getCanvasNodeSize(n) * scale);
+			const labelOffset = n.group === 'entity' ? nodeScreenRadius * 1.5 : nodeScreenRadius;
+			const labelY = p.y + labelOffset + DEFAULT_NODE_LABEL_GAP_PX - Math.min(2, labelSize * 0.1);
+			if (x < p.x - labelWidth / 2 || x > p.x + labelWidth / 2 || y < labelY || y > labelY + labelSize * 1.2) continue;
+
+			const distance = Math.abs(x - p.x) + Math.abs(y - labelY);
+			if (distance < bestLabelDistance) {
+				bestLabelDistance = distance;
+				bestNode = n;
+			}
+		}
+	}
+
 	return bestNode;
 }
 
@@ -282,9 +322,11 @@ function resolveCachedThemeColors() {
 		selectedIndividual: computed.getPropertyValue('--color-node-individual-selected-fill').trim() || '#064bb0',
 		selectedStub: computed.getPropertyValue('--color-node-stub-selected-fill').trim() || '#5f98da',
 		selectedFirm: computed.getPropertyValue('--color-node-firm-selected-fill').trim() || '#9a2c00',
+		selectedActiveFirm: computed.getPropertyValue('--color-node-firm-active-selected-fill').trim() || '#0f766e',
 		selectedEntity: computed.getPropertyValue('--color-node-entity-selected-fill').trim() || '#d63384',
 		selectedInactive: computed.getPropertyValue('--color-node-inactive-selected-fill').trim() || '#6f7f97',
 		selectedStroke: computed.getPropertyValue('--color-node-selected-stroke').trim() || '#16053f',
+		selectedActiveFirmStroke: computed.getPropertyValue('--color-node-firm-active-selected-stroke').trim() || '#083b38',
 	};
 	return cachedThemeColors;
 }
@@ -408,10 +450,12 @@ export function drawCanvasFrame(
 		const isForcedLabel = forcedLabelIds.has(String(n.id));
 		const isBoldLabel = Boolean(isSelected || isForcedLabel);
 		const isControlPosition = isControlPositionNode(n);
+		const hasCurrentFirmConnections = n.group === 'firm' && Number(n?._deg?.total || 0) > 0;
 		const size = getCanvasNodeSize(n);
 		const col =
 			isNodeSelected ?
 				inactive ? colors.selectedInactive
+				: n.group === 'firm' && hasCurrentFirmConnections ? colors.selectedActiveFirm
 				: isControlPosition ? '#b91c1c'
 				: n.group === 'individual' ?
 					n.stub ?
@@ -420,19 +464,25 @@ export function drawCanvasFrame(
 				: n.group === 'firm' ? colors.selectedFirm
 				: colors.selectedEntity
 			: inactive ? colors.inactive
+			: n.group === 'firm' && hasCurrentFirmConnections ? '#14c2bb'
 			: isControlPosition ? colors.control
 			: n.group === 'individual' && n.stub ? colors.stub
 			: getColorForGroup(n.group);
 		const nodeStroke =
 			inactive ? colors.inactiveStroke
+			: isNodeSelected && n.group === 'firm' && hasCurrentFirmConnections ? colors.selectedActiveFirmStroke
+			: n.group === 'firm' && hasCurrentFirmConnections ? '#00f5ff'
 			: isNodeSelected ? colors.selectedStroke
+			: n.group === 'individual' && Number(n?._deg?.total || 0) > 0 ? '#0062ff'
 			: colors.border;
 		const nodeStrokeWidth =
 			isNodeSelected ?
 				isControlPosition ? 3
 				: n.group === 'firm' ? 3.4
 				: 3.2
+			: n.group === 'firm' && hasCurrentFirmConnections ? 3.5
 			: n.group === 'firm' ? 0.9
+			: n.group === 'individual' && Number(n?._deg?.total || 0) > 0 ? 1
 			: 1.5;
 		const shouldShowLabel = isForcedLabel || isNodeSelected || scale >= globalCanvasLabelZoomThreshold;
 
@@ -442,8 +492,8 @@ export function drawCanvasFrame(
 			const p = worldToScreen(n.x, n.y, transform);
 			ctx.beginPath();
 			ctx.arc(p.x, p.y, Math.max(6, size * transform.k + 4), 0, Math.PI * 2);
-			ctx.strokeStyle = isNodeSelected ? colors.selectedStroke : '#18a0fb';
-			ctx.lineWidth = isNodeSelected ? 3 : 2;
+			ctx.strokeStyle = '#18a0fb';
+			ctx.lineWidth = 1.5;
 			ctx.stroke();
 		}
 

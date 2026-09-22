@@ -58,11 +58,13 @@
 	--color-node-individual-selected-fill: #064bb0;
 	--color-node-stub-selected-fill: #5f98da;
 	--color-node-firm-selected-fill: #9a2c00;
+	--color-node-firm-active-selected-fill: #0f766e;
 	--color-node-inactive-selected-fill: #6f7f97;
 	--color-node-entity-selected-fill: #d63384;
 	--color-node-selected-stroke: #16053f;
 	--color-node-selected-ring: #24115f;
 	--color-node-firm-selected-stroke: #7c2d12;
+	--color-node-firm-active-selected-stroke: #083b38;
 	--color-node-firm-selected-overlay: rgba(59, 130, 246, 0.22);
 	--color-node-depth-overlay: rgba(255, 255, 255, 0.96);
 	--opacity-node-selected: 1;
@@ -3733,7 +3735,15 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 
 .fg-node.fg-node--individual .fg-node-shape--circle {
 	fill: var(--color-highlight-individual);
+	stroke: var(--color-node-border) !important;
+	stroke-width: 1.5px !important;
 	opacity: var(--opacity-node-default) !important;
+}
+
+.fg-node.fg-node--individual.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--active-parent-connected:not(.fg-node--inactive) .fg-node-shape--circle {
+	stroke: #0062ff !important;
+	stroke-width: 1px !important;
 }
 
 .fg-node.fg-node--individual:hover .fg-node-shape--circle,
@@ -5681,8 +5691,8 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 
 .fg-node.fg-node--firm.selected.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--firm,
 .fg-node.fg-node--firm.selected.fg-node--active-parent-connected:not(.fg-node--inactive) .fg-node-shape--firm {
-	fill: #0f766e !important;
-	stroke: #083b38 !important;
+	fill: var(--color-node-firm-active-selected-fill) !important;
+	stroke: var(--color-node-firm-active-selected-stroke) !important;
 	stroke-width: 3.4px !important;
 }
 
@@ -5690,15 +5700,15 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 .fg-node.selected.fg-node--active-connected .fg-node-selected-ring,
 .fg-node.selected.fg-node--active-parent-connected .fg-node-selected-ring {
 	display: inline;
-	stroke: var(--color-node-pulse) !important;
-	stroke-width: 3.5px;
+	stroke: #18a0fb !important;
+	stroke-width: 1.5px;
 	opacity: 1;
 }
 
 .fg-node.selected.fg-node--active-connected .fg-node-selected-ring,
 .fg-node.selected.fg-node--active-parent-connected .fg-node-selected-ring {
-	stroke: #2dd4bf !important;
-	stroke-width: 5px;
+	stroke: #18a0fb !important;
+	stroke-width: 1.5px;
 }
 
 .fg-node.fg-node--individual.fg-node--control-position.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle,

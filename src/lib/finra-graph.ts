@@ -5205,7 +5205,17 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 
 	if (action === 'toggle-bold') {
 		closeSelectionLogClearLabelsMenu();
-		isSelectionLogBold = !isSelectionLogBold;
+		const enablingLogBold = !isSelectionLogBold;
+		isSelectionLogBold = enablingLogBold;
+		if (!enablingLogBold) {
+			// Preserve per-entry label choices when the global mode is turned off.
+			// Re-enabling the mode must not make the entire existing log large again.
+			selectedNodesLog.forEach((entry) => {
+				const id = String(entry?.id || '').trim();
+				if (id) clearedSelectionLogLabelNodeIds.add(id);
+			});
+			saveClearedSelectionLogLabelsPreference();
+		}
 		// Re-enabling Log Bold after a Clear Highlight should resume highlighting every
 		// selection-log individual again, so lift the suppression here explicitly.
 		if (isSelectionLogBold) logBoldHighlightRootsSuppressed = false;
@@ -7933,7 +7943,6 @@ export function init(
 				let allHits = [];
 				let progressiveAddedTotal = 0;
 				let progressiveExistingTotal = 0;
-				let didScheduleFirstFocus = false;
 				const seenProgressiveHitKeys = new Set<string>();
 
 				const isDirectId = /^\d+$/.test(q) || isCrdList;
@@ -7949,13 +7958,6 @@ export function init(
 					progressiveExistingTotal += existingIds.length;
 
 					if (nodesToFlush.length || linksToFlush.length) {
-						if (!didScheduleFirstFocus) {
-							scheduleFirstFetchFocusIfAvailable(
-								nodesToFlush.map((n) => n.id),
-								{ duration: 700, maxScale: 1.05 },
-							);
-							didScheduleFirstFocus = true;
-						}
 						appendFetched(nodesToFlush, linksToFlush);
 						mergeIntoGraphData(nodesToFlush, linksToFlush);
 					}
@@ -8374,7 +8376,6 @@ export function init(
 						`Added ${progressiveAddedTotal} node${progressiveAddedTotal !== 1 ? 's' : ''} for ${nameListTokens.length} names`
 					:	`Added ${progressiveAddedTotal} node${progressiveAddedTotal !== 1 ? 's' : ''} for "${q}"`;
 				updateFetchStatus(progressiveExistingTotal > 0 ? `${addedLabel}, ${progressiveExistingTotal} already on canvas` : addedLabel);
-				focusExistingNodeMatch(q, { statusPrefix: 'Opened' });
 			} catch (err) {
 				console.error('database search failed', err);
 				updateFetchStatus(`Search error: ${err?.message || err}`);
@@ -12439,6 +12440,7 @@ function updateNodeVisuals(
 			const s = (d._vizHalf ?? r * 0.85) * 2;
 			const deg = d._deg || { total: 0, controls: 0, employed: 0 };
 			const hasConnections = deg.total > 0;
+			const hasCurrentConnections = deg.total > 0;
 			const dominantStroke =
 				inactive ? GRAPH_COLORS.nodeInactiveStroke
 				: deg.controls > deg.employed ? GRAPH_COLORS.nodeFirmControlsStroke
@@ -12449,7 +12451,9 @@ function updateNodeVisuals(
 			if (!firmShape.empty()) {
 				firmShape
 					.attr('fill', color)
-					.attr('stroke', dominantStroke)
+					.attr('fill', hasCurrentConnections ? '#14c2bb' : color)
+					.attr('stroke', hasCurrentConnections ? '#00f5ff' : dominantStroke)
+					.attr('stroke-width', hasCurrentConnections ? 3.5 : null)
 					.attr('opacity', nodeOpacity === 1 ? 0.9 : nodeOpacity)
 					.classed('fg-node-shape--firm-connected', hasConnections)
 					.classed('fg-node-shape--firm-employed', deg.employed > deg.controls)
