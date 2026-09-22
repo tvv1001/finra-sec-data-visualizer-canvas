@@ -1,6 +1,6 @@
 'use client';
 
-import { Analytics } from '@vercel/analytics/react';
+import { Analytics } from '@vercel/analytics/next';
 import { useEffect } from 'react';
 import { isAnalyticsExcluded, persistAnalyticsOptOut } from '@/lib/analyticsExclusion';
 

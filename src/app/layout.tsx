@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
 import { Urbanist } from 'next/font/google';
-import AnalyticsRouteBridge from '@/components/AnalyticsRouteBridge';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import AnalyticsClient from '@/components/AnalyticsClient';
 import SpeedInsightsClient from '@/components/SpeedInsightsClient';
@@ -128,7 +127,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 				<script dangerouslySetInnerHTML={{ __html: safeGpuBootScript }} />
 				<ServiceWorkerRegistration />
 				{children}
-				<AnalyticsRouteBridge />
 				{process.env.NODE_ENV === 'production' ?
 					<AnalyticsClient />
 				:	null}
