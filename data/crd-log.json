@@ -1,12 +1,124 @@
 {
   "firms": [
     {
+      "id": 288811,
+      "name": "FLORIDA FINANCIAL ADVISORS, LLC"
+    },
+    {
+      "id": 104348,
+      "name": "TRINITY WEALTH SECURITIES, L.L.C."
+    },
+    {
+      "id": 149018,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC"
+    },
+    {
+      "id": 6694,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 283390,
+      "name": "TRUIST ADVISORY SERVICES, INC."
+    },
+    {
+      "id": 33856,
+      "name": "BB&T INVESTMENT SERVICES, INC."
+    },
+    {
       "id": 142785,
       "name": "BB&T SECURITIES, LLC"
     },
     {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
+    },
+    {
       "id": 17499,
       "name": "TRUIST INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 705,
+      "name": "RAYMOND JAMES & ASSOCIATES, INC."
+    },
+    {
+      "id": 112894,
+      "name": "CORNERSTONE FINANCIAL MANAGEMENT"
+    },
+    {
+      "id": 127157,
+      "name": "SENIOR CAPITAL GROUP, LLC"
+    },
+    {
+      "id": 335242,
+      "name": "SUMMIT WEALTH GROUP"
+    },
+    {
+      "id": 1398,
+      "name": "R A F FINANCIAL CORPORATION"
+    },
+    {
+      "id": 7425,
+      "name": "NEIDIGER, TUCKER, BRUNER, INC."
+    },
+    {
+      "id": 10205,
+      "name": "SECURITIES AMERICA, INC."
+    },
+    {
+      "id": 23131,
+      "name": "ROYAL ALLIANCE ASSOCIATES, INC."
+    },
+    {
+      "id": 8032,
+      "name": "COMMONWEALTH FINANCIAL NETWORK"
+    },
+    {
+      "id": 110476,
+      "name": "BBVA WEALTH SOLUTIONS INC."
+    },
+    {
+      "id": 27060,
+      "name": "BBVA SECURITIES INC."
+    },
+    {
+      "id": 6363,
+      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 6321,
+      "name": "IDS LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 7556,
+      "name": "DEAN WITTER REYNOLDS INC."
+    },
+    {
+      "id": 13648,
+      "name": "GLENFED BROKERAGE SERVICES"
+    },
+    {
+      "id": 11217,
+      "name": "QUICK & REILLY, INC."
+    },
+    {
+      "id": 14068,
+      "name": "PENSION PLANNERS SECURITIES, INC."
+    },
+    {
+      "id": 11869,
+      "name": "PLANMEMBER SECURITIES CORPORATION"
+    },
+    {
+      "id": 4161,
+      "name": "MORGAN KEEGAN & COMPANY, INC."
+    },
+    {
+      "id": 2543,
+      "name": "B. RILEY WEALTH MANAGEMENT"
     },
     {
       "id": 7059,
@@ -201,10 +313,6 @@
       "name": "UBS FINANCIAL SERVICES INC."
     },
     {
-      "id": 6413,
-      "name": "LPL FINANCIAL LLC"
-    },
-    {
       "id": 104204,
       "name": "MACQUARIE PRIVATE WEALTH CORP"
     },
@@ -247,10 +355,6 @@
     {
       "id": 19616,
       "name": "WELLS FARGO CLEARING SERVICES, LLC"
-    },
-    {
-      "id": 283390,
-      "name": "TRUIST ADVISORY SERVICES, INC."
     },
     {
       "id": 14714,
@@ -425,10 +529,6 @@
       "name": "PRUDENTIAL-BACHE SECURITIES INC."
     },
     {
-      "id": 7556,
-      "name": "DEAN WITTER REYNOLDS INC."
-    },
-    {
       "id": 3949,
       "name": "JOSEPH CHARLES & ASSOC., INC."
     },
@@ -447,10 +547,6 @@
     {
       "id": 36816,
       "name": "HOLD BROTHERS ON-LINE INVESTMENT SERVICES L.L.C."
-    },
-    {
-      "id": 705,
-      "name": "RAYMOND JAMES & ASSOCIATES, INC."
     },
     {
       "id": 594,
@@ -475,10 +571,6 @@
     {
       "id": 18272,
       "name": "ALLSTATE FINANCIAL SERVICES, LLC"
-    },
-    {
-      "id": 33856,
-      "name": "BB&T INVESTMENT SERVICES, INC."
     },
     {
       "id": 288590,
@@ -741,10 +833,6 @@
       "name": "SII INVESTMENTS, INC."
     },
     {
-      "id": 23131,
-      "name": "OSAIC WEALTH, INC."
-    },
-    {
       "id": 5685,
       "name": "PRUCO SECURITIES, LLC."
     },
@@ -767,14 +855,6 @@
     {
       "id": 29604,
       "name": "NATIONAL PLANNING CORPORATION"
-    },
-    {
-      "id": 149777,
-      "name": "MORGAN STANLEY"
-    },
-    {
-      "id": 6363,
-      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
     },
     {
       "id": 42803,
@@ -873,10 +953,6 @@
       "name": "THE O.N. EQUITY SALES COMPANY"
     },
     {
-      "id": 6321,
-      "name": "IDS LIFE INSURANCE COMPANY"
-    },
-    {
       "id": 8158,
       "name": "ROBERT W. BAIRD & CO. INCORPORATED"
     },
@@ -903,14 +979,6 @@
     {
       "id": 104813,
       "name": "HICKOK & BOARDMAN CAPITAL MANAGEMENT"
-    },
-    {
-      "id": 149018,
-      "name": "RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC"
-    },
-    {
-      "id": 6694,
-      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
     },
     {
       "id": 153247,
@@ -2533,10 +2601,6 @@
       "name": "INVESTACORP, INC."
     },
     {
-      "id": 10205,
-      "name": "SECURITIES AMERICA, INC."
-    },
-    {
       "id": 39550,
       "name": "CITIZENS SECURITIES, INC."
     },
@@ -3121,10 +3185,6 @@
       "name": "WACHOVIA SECURITIES, INC."
     },
     {
-      "id": 4161,
-      "name": "MORGAN KEEGAN & COMPANY, INC."
-    },
-    {
       "id": 45993,
       "name": "INTL FCSTONE FINANCIAL INC."
     },
@@ -3621,20 +3681,12 @@
       "name": "EMPOWER FINANCIAL SERVICES, INC."
     },
     {
-      "id": 8032,
-      "name": "COMMONWEALTH FINANCIAL NETWORK"
-    },
-    {
       "id": 19612,
       "name": "U.S.-WORLDWIDE FINANCIAL SERVICES, INC."
     },
     {
       "id": 3960,
       "name": "ALLMERICA INVESTMENTS, INC."
-    },
-    {
-      "id": 11217,
-      "name": "QUICK & REILLY, INC."
     },
     {
       "id": 16361,
@@ -4059,10 +4111,6 @@
     {
       "id": 291773,
       "name": "STARTENGINE PRIMARY LLC"
-    },
-    {
-      "id": 1398,
-      "name": "R A F FINANCIAL CORPORATION"
     },
     {
       "id": 17086,
@@ -5625,10 +5673,6 @@
       "name": "T. J. RANEY & SONS, INC."
     },
     {
-      "id": 2543,
-      "name": "B. RILEY WEALTH MANAGEMENT"
-    },
-    {
       "id": 338713,
       "name": "ALEGRE WEALTH MANAGEMENT, LLC"
     },
@@ -5799,10 +5843,6 @@
     {
       "id": 12963,
       "name": "MONEY CONCEPTS CAPITAL CORP"
-    },
-    {
-      "id": 11869,
-      "name": "PLANMEMBER SECURITIES CORPORATION"
     },
     {
       "id": 145865,
@@ -6258,6 +6298,30 @@
     }
   ],
   "individuals": [
+    {
+      "id": 7666786,
+      "name": "Kevon Khalil Musgrove"
+    },
+    {
+      "id": 6602188,
+      "name": "Marjorie Helen McGee"
+    },
+    {
+      "id": 2633996,
+      "name": "DANIEL HARLAN GILBERTSON"
+    },
+    {
+      "id": 6414237,
+      "name": "Gilbert V Little"
+    },
+    {
+      "id": 1876457,
+      "name": "DAVID TIMOTHY HOPPERS"
+    },
+    {
+      "id": 4130365,
+      "name": "Charles Brett Bryan"
+    },
     {
       "id": 1987448,
       "name": "TONYA TYSON"
