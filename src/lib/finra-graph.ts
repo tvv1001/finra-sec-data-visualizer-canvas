@@ -2344,6 +2344,7 @@ let pendingRouteAutoExpand = false; // optional auto-expand requested with route
 let pendingRouteForceAutoExpand = false; // allow route requests to expand even when the node is already selected
 let pendingSelectedNodeIds: string[] = []; // node ids to hydrate into the selection log
 let pendingCanvasNodeIds: string[] = []; // node ids to fetch and add to canvas (but not log) from a shared `?selected=` link
+let pendingQueueGraphSeed: { anchorFirmId?: string; anchorFirmName?: string; people?: Array<{ crd: string; name?: string; isCurrent?: boolean }> } | null = null;
 let isolateToSharedSelection = false; // when true, skip the baseline/profile graph load and render only the shared `?selected=` + routed nodes
 const SELECTION_LOG_IDB_DB_NAME = 'finra_selection_log_store';
 const SELECTION_LOG_IDB_STORE_NAME = 'selection_log_store';
@@ -7115,6 +7116,7 @@ export function init(
 	pendingSelectedNodeIds =
 		Array.isArray(options?.initialSelectedNodeIds) ? options.initialSelectedNodeIds.map((id) => String(id || '').trim()).filter(Boolean) : pendingSelectedNodeIds;
 	pendingCanvasNodeIds = Array.isArray(options?.initialCanvasNodeIds) ? options.initialCanvasNodeIds.map((id) => String(id || '').trim()).filter(Boolean) : pendingCanvasNodeIds;
+	pendingQueueGraphSeed = options?.queueGraphSeed && typeof options.queueGraphSeed === 'object' ? options.queueGraphSeed : null;
 	isolateToSharedSelection = Boolean(options?.isolateToSelection) && (pendingSelectedNodeIds.length > 0 || pendingCanvasNodeIds.length > 0);
 	if (initialRouteNodeId) {
 		// In isolate mode, don't auto-expand the routed node's neighbors — only the explicitly
@@ -9084,6 +9086,7 @@ function mergeIntoGraphData(newNodes, newLinks) {
 			return true;
 		})
 		.forEach((l) => graphData.links.push(l));
+	ensureQueueGraphSeedLinks(graphData.nodes);
 
 	// Persist session so any changes to graphData that affect rendered nodes
 	// or available server IDs get saved for reloads.
@@ -9101,6 +9104,32 @@ function mergeIntoGraphData(newNodes, newLinks) {
 	if (addedIds.length) {
 		// Expose recent additions for the next render so they can be highlighted.
 		graphData._recentlyAddedNodeIds = addedIds;
+	}
+}
+
+function ensureQueueGraphSeedLinks(nodes: any[] = []) {
+	const seed = pendingQueueGraphSeed;
+	const firmId = String(seed?.anchorFirmId || '').trim().replace(/^firm:/i, '');
+	if (!seed || !/^\d+$/.test(firmId) || !graphData || !Array.isArray(graphData.links)) return;
+	const firmNodeId = `firm:${firmId}`;
+	const nodeIds = new Set(nodes.map((node) => String(node?.id || '')));
+	if (!nodeIds.has(firmNodeId)) return;
+	const existingKeys = new Set(graphData.links.map((link) => getLinkIdentityKey(link)));
+	for (const person of seed.people || []) {
+		const crd = String(person?.crd || '').trim();
+		const personId = `person:${crd}`;
+		if (!/^\d+$/.test(crd) || !nodeIds.has(personId)) continue;
+		const link = {
+			source: personId,
+			target: firmNodeId,
+			relationship: 'employed_by',
+			isCurrent: person?.isCurrent !== false,
+			...(person?.isCurrent === false ? { forceGray: true } : {}),
+		};
+		const key = getLinkIdentityKey(link);
+		if (existingKeys.has(key)) continue;
+		existingKeys.add(key);
+		graphData.links.push(link);
 	}
 }
 
@@ -12645,6 +12674,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 	}
 
 	layoutNodes = mergedNodes;
+	ensureQueueGraphSeedLinks(layoutNodes);
 	scheduleSidecarFirmLabelHydration(mergedNodes);
 	scheduleFirmConnectionCountHydration(mergedNodes);
 	// Rebind any pre-existing links to the merged node objects so the visualization
