@@ -1,6 +1,126 @@
 {
   "firms": [
     {
+      "id": 136356,
+      "name": "MEDALIST SECURITIES INC."
+    },
+    {
+      "id": 150077,
+      "name": "OPUS POINT & CO., LLC"
+    },
+    {
+      "id": 104982,
+      "name": "TRADIER BROKERAGE, INC."
+    },
+    {
+      "id": 159040,
+      "name": "MODERN EQUITY SERVICES LLC"
+    },
+    {
+      "id": 41054,
+      "name": "CROSS BORDER PRIVATE CAPITAL, L.L.C."
+    },
+    {
+      "id": 132475,
+      "name": "WAYPOINT DIRECT INVESTMENTS, LLC"
+    },
+    {
+      "id": 136492,
+      "name": "ALDERMAN & COMPANY CAPITAL, LLC"
+    },
+    {
+      "id": 143174,
+      "name": "TRIPOINT GLOBAL EQUITIES, LLC"
+    },
+    {
+      "id": 142339,
+      "name": "CRYSTAL BAY SECURITIES INC."
+    },
+    {
+      "id": 25005,
+      "name": "LAKERIDGE CAPITAL INC."
+    },
+    {
+      "id": 154670,
+      "name": "BMI CAPITAL INTERNATIONAL LLC"
+    },
+    {
+      "id": 146671,
+      "name": "EASTGATE SECURITIES, LLC"
+    },
+    {
+      "id": 13645,
+      "name": "WRIGHT INVESTORS' SERVICE DISTRIBUTORS, INC."
+    },
+    {
+      "id": 309073,
+      "name": "ROW ASSOCIATES, LLC"
+    },
+    {
+      "id": 309026,
+      "name": "AVIDITI FINANCIAL, LLC"
+    },
+    {
+      "id": 306011,
+      "name": "GREENTIGER SECURITIES LLC"
+    },
+    {
+      "id": 104386,
+      "name": "ALLIANT EQUITY INVESTMENTS, LLC"
+    },
+    {
+      "id": 299874,
+      "name": "PASSFOLIO SECURITIES, LLC"
+    },
+    {
+      "id": 314544,
+      "name": "VCEXPRESS FINANCIAL LTD"
+    },
+    {
+      "id": 298008,
+      "name": "OPTIONS AI FINANCIAL LLC"
+    },
+    {
+      "id": 286531,
+      "name": "MMX GLOBAL PARTNERS, LLC"
+    },
+    {
+      "id": 4038,
+      "name": "BALANCED SECURITY PLANNING, INC."
+    },
+    {
+      "id": 317194,
+      "name": "ATOMIC VAULTS SECURITIES, LLC"
+    },
+    {
+      "id": 329978,
+      "name": "AMVEST CAPITAL SECURITIES LLC"
+    },
+    {
+      "id": 158399,
+      "name": "FGC SECURITIES, LLC"
+    },
+    {
+      "id": 311852,
+      "name": "VIENNA CAPITAL PARTNERS LLC"
+    },
+    {
+      "id": 340041,
+      "name": "MACCABEES SECURITIES LLC"
+    },
+    {
+      "id": 168883,
+      "name": "BHA SELECT NETWORK, LLC"
+    },
+    {
+      "id": 17486,
+      "name": "G. A. REPPLE & COMPANY"
+    },
+    {
+      "id": 335764,
+      "name": "EVANS FINANCIAL SERVICES GROUP, INC."
+    },
+    {
       "id": 38337,
       "name": "GLC SECURITIES CORP."
     },
@@ -1645,10 +1765,6 @@
       "name": "WRIGHT INVESTORS SERVICE INC"
     },
     {
-      "id": 13645,
-      "name": "WRIGHT INVESTORS' SERVICE DISTRIBUTORS, INC."
-    },
-    {
       "id": 170914,
       "name": "MCADAM LLC"
     },
@@ -1999,10 +2115,6 @@
     {
       "id": 172778,
       "name": "MOGUL SECURITIES, LLC"
-    },
-    {
-      "id": 168883,
-      "name": "BHA SELECT NETWORK, LLC"
     },
     {
       "id": 147316,
@@ -4557,10 +4669,6 @@
       "name": "ALPHASOURCE CAPITAL SECURITIES LLC"
     },
     {
-      "id": 41054,
-      "name": "CROSS BORDER PRIVATE CAPITAL, L.L.C."
-    },
-    {
       "id": 150521,
       "name": "TIGER SECURITIES, LLC"
     },
@@ -6410,6 +6518,10 @@
     }
   ],
   "individuals": [
+    {
+      "id": 5924814,
+      "name": "TRACIE ERIN OKEEFE"
+    },
     {
       "id": 2856326,
       "name": "SUSAN HAYES"

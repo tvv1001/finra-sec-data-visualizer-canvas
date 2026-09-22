@@ -1,3 +1,4 @@
+import { globalState } from './finra-graph-core/state';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * finra.ts  –  FINRA BrokerCheck Network Graph
@@ -338,68 +339,68 @@ type GraphSimulationLink = {
 };
 
 // ── State ──────────────────────────────────────────────────────────────────
-let graphData = null; // { nodes, links, meta } — full dataset
-let simulation = null;
-let selectedId = null;
-let hoveredNodeId = null;
-let focusedNodeId = null;
-let highlightedSelections = []; // [{ id, hops }] — hop/line highlight roots (cleared by Clear Highlight)
+// moved graphData to globalState
+// moved simulation to globalState
+// moved selectedId to globalState
+// moved hoveredNodeId to globalState
+// moved focusedNodeId to globalState
+// moved highlightedSelections to globalState
 /** Nodes the user has selected/expanded — keep `.selected` chrome even after Clear Highlight (lines only). */
-let persistentSelectedIds = new Set<string>();
-let visitedNodeIds = new Set();
-let linkSel = null; // current <line> selection
-let nodeSel = null; // current <g.fg-node> selection
-let arrowSel = null; // current top-line marker selection
-let layoutNodes: GraphSimulationNode[] | null = null; // node objects with x/y positions
-let layoutLinks: GraphSimulationLink[] | null = null; // link objects (source/target resolved to objects)
-let fullAdjacencyMap = null; // Map<nodeId, Array<{ nodeId, link }>> — cached full graph adjacency
-let layoutLinkIdentityKeys = new Set<string>(); // O(1) identity membership for rendered links
-let layoutLinksByNodeId = new Map<string, any[]>(); // nodeId → incident layout links
-let layoutLinkIndexLinkCount = 0; // layoutLinks.length last indexed (detects stale indexes)
-let selectionPredicateCacheGen = 0; // bumped when layout link topology changes
+// moved persistentSelectedIds to globalState
+// moved visitedNodeIds to globalState
+// moved linkSel to globalState
+// moved nodeSel to globalState
+// moved arrowSel to globalState
+// moved layoutNodes to globalState
+// moved layoutLinks to globalState
+// moved fullAdjacencyMap to globalState
+// moved layoutLinkIdentityKeys to globalState
+// moved layoutLinksByNodeId to globalState
+// moved layoutLinkIndexLinkCount to globalState
+// moved selectionPredicateCacheGen to globalState
 /** Cap hop/line BFS roots. Keep this high so multi-select keeps earlier highlighted lines lit. */
 export const MAX_HOP_HIGHLIGHT_ROOTS = 500;
 /** Cap selection-log-bold entries that also act as hop highlight roots. */
 export const MAX_LOG_BOLD_HIGHLIGHT_ROOTS = 128;
-let spreadAnimId = null; // rAF handle for neighbor spread animation
-let spreadReleaseTimer = null; // timeout released when reheat freeze animation expires
-let activeSpreadFrozenNodes = []; // nodes frozen during click spread/reveal reheat
-let nodePinReleaseTimer = null; // timeout for pinned-node reheat decay
-let isSubsetMode = false; // true when only a random sample is rendered
-let neighborMap = null; // Map<nodeId, Set<nodeId>> — rebuilt each renderGraph
-let nodeGroup = null; // <g.fg-nodes> selection — for live node injection
-let linkGroup = null; // <g.fg-links> selection — for live link injection
-let arrowGroup = null; // <g.fg-arrowheads> selection — for top-layer arrowheads
-let linkBottomGroup = null;
-let linkMidGroup = null;
-let linkTopGroup = null;
-let arrowBottomGroup = null;
-let arrowMidGroup = null;
-let arrowTopGroup = null;
-let rootGroup = null; // <g.fg-root> selection — for zoom/state-driven graph styling
-let allowFirstFetchZoom = false; // only auto-zoom on the first user fetch into an empty graph
+// moved spreadAnimId to globalState
+// moved spreadReleaseTimer to globalState
+// moved activeSpreadFrozenNodes to globalState
+// moved nodePinReleaseTimer to globalState
+// moved isSubsetMode to globalState
+// moved neighborMap to globalState
+// moved nodeGroup to globalState
+// moved linkGroup to globalState
+// moved arrowGroup to globalState
+// moved linkBottomGroup to globalState
+// moved linkMidGroup to globalState
+// moved linkTopGroup to globalState
+// moved arrowBottomGroup to globalState
+// moved arrowMidGroup to globalState
+// moved arrowTopGroup to globalState
+// moved rootGroup to globalState
+// moved allowFirstFetchZoom to globalState
 // D3 references needed for restoring zoom state
-let svgSel = null; // d3 selection for the Canvas interaction surface (#fg-main)
-let zoomBehavior = null; // d3.zoom() instance
-let zoomSaveTimer = null; // debounce timer for zoom-state persistence
-let refreshLayoutStopTimer = null; // timer used to stop refresh-layout sooner
-let refreshFinalizeLayoutFn: (() => void) | null = null; // referenced finalize function for refresh layout
-let selectionRestoreTimer = null; // timer used when restoring a saved selection after reload
-let traceRefreshTimer: ReturnType<typeof setTimeout> | null = null; // trailing trace refresh when async reveals land after selection
-let nodePulseTimer = null; // timer used to pulse the restored node after focus animation
-let nodePulseInterval = null; // interval used to keep the restored node pulsing until interaction
-let sessionSaveTimer: number | null = null;
-let nodePulseInteractionCleanup: (() => void) | null = null; // removes reload pulse interaction listeners once the user interacts
-let searchPulseInterval: number | null = null; // interval used to keep the current find-match pulsing until enter
-let lastArrowNavCoord: { x: number; y: number } | null = null; // track last whitespace click for arrow nav origin
-let activeLabelZoomThreshold = 0.3;
-let inactiveLabelCompactZoomThreshold = 0.42;
-let inactiveLabelCompactMode = false;
-let graphTickFrameId: number | null = null;
-let networkStatusListenerBound = false;
-let resizeListenerBound = false;
-let metaPollId: ReturnType<typeof setInterval> | null = null;
-let networkStatusListeners: Array<[string, EventListener]> = [];
+// moved svgSel to globalState
+// moved zoomBehavior to globalState
+// moved zoomSaveTimer to globalState
+// moved refreshLayoutStopTimer to globalState
+// moved refreshFinalizeLayoutFn to globalState
+// moved selectionRestoreTimer to globalState
+// moved traceRefreshTimer to globalState
+// moved nodePulseTimer to globalState
+// moved nodePulseInterval to globalState
+// moved sessionSaveTimer to globalState
+// moved nodePulseInteractionCleanup to globalState
+// moved searchPulseInterval to globalState
+// moved lastArrowNavCoord to globalState
+// moved activeLabelZoomThreshold to globalState
+// moved inactiveLabelCompactZoomThreshold to globalState
+// moved inactiveLabelCompactMode to globalState
+// moved graphTickFrameId to globalState
+// moved networkStatusListenerBound to globalState
+// moved resizeListenerBound to globalState
+// moved metaPollId to globalState
+// moved networkStatusListeners to globalState
 const OFFLINE_FETCH_STATUS_MESSAGE = 'Offline — reconnect to load graph data.';
 const FIND_NODE_MIN_SCALE = 1.35;
 
@@ -408,27 +409,27 @@ function isBrowserOffline() {
 }
 
 function showOfflineFetchStatus() {
-	if (activeFetchStatusMessage === OFFLINE_FETCH_STATUS_MESSAGE) return;
-	activeFetchStatusMessage = OFFLINE_FETCH_STATUS_MESSAGE;
-	applyStatusPresentation(OFFLINE_FETCH_STATUS_MESSAGE, { transient: true, dismissible: true, pinned: activeFetchStatusPinned });
+	if (globalState.activeFetchStatusMessage === OFFLINE_FETCH_STATUS_MESSAGE) return;
+	globalState.activeFetchStatusMessage = OFFLINE_FETCH_STATUS_MESSAGE;
+	applyStatusPresentation(OFFLINE_FETCH_STATUS_MESSAGE, { transient: true, dismissible: true, pinned: globalState.activeFetchStatusPinned });
 }
 
 function clearOfflineFetchStatus() {
-	if (activeFetchStatusMessage !== OFFLINE_FETCH_STATUS_MESSAGE) return;
+	if (globalState.activeFetchStatusMessage !== OFFLINE_FETCH_STATUS_MESSAGE) return;
 	clearFetchStatus();
 }
 // Render modes for node labels. compact mode still uses text, but without disabling labels entirely.
-let nodeLabelRenderMode: 'full' | 'compact' = 'full';
+// moved nodeLabelRenderMode to globalState
 // Canvas renderer mode for very large graphs
-let canvasModeActive = true;
-let canvasApi: any = null;
-let pixiModeActive = false;
-let pixiApi: any = null;
-let overlayApi: any = null;
-let wasmLayoutWorker: ReturnType<typeof createGraphLayoutWorker> | null = null;
-let wasmLayoutRunId = 0;
-let overlayRefreshFrameCounter = 0;
-let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
+// moved canvasModeActive to globalState
+// moved canvasApi to globalState
+// moved pixiModeActive to globalState
+// moved pixiApi to globalState
+// moved overlayApi to globalState
+// moved wasmLayoutWorker to globalState
+// moved wasmLayoutRunId to globalState
+// moved overlayRefreshFrameCounter to globalState
+// moved sessionPersistenceMode to globalState
 
 function isAnyTraceModeActive() {
 	return isTraceMode || isTraceLogMode;
@@ -436,8 +437,8 @@ function isAnyTraceModeActive() {
 
 function getCurrentGraphZoomScale() {
 	try {
-		if (!svgSel?.node || !d3?.zoomTransform) return 1;
-		return d3.zoomTransform(svgSel.node()).k || 1;
+		if (!globalState.svgSel?.node || !d3?.zoomTransform) return 1;
+		return d3.zoomTransform(globalState.svgSel.node()).k || 1;
 	} catch {
 		return 1;
 	}
@@ -445,8 +446,8 @@ function getCurrentGraphZoomScale() {
 
 function getCurrentZoomTransform() {
 	try {
-		if (!svgSel?.node || !d3?.zoomTransform) return { x: 0, y: 0, k: 1 };
-		const t = d3.zoomTransform(svgSel.node());
+		if (!globalState.svgSel?.node || !d3?.zoomTransform) return { x: 0, y: 0, k: 1 };
+		const t = d3.zoomTransform(globalState.svgSel.node());
 		return { x: t.x || 0, y: t.y || 0, k: t.k || 1 };
 	} catch {
 		return { x: 0, y: 0, k: 1 };
@@ -456,7 +457,7 @@ function getCurrentZoomTransform() {
 function getFocusedLabelScale(zoomScale: number | string | null | undefined): number {
 	const normalizedScale = Math.max(0.01, Number(zoomScale) || 1);
 	const baseScale = 1.6;
-	const dynamicScale = normalizedScale < activeLabelZoomThreshold ? baseScale * (activeLabelZoomThreshold / normalizedScale) : baseScale;
+	const dynamicScale = normalizedScale < globalState.activeLabelZoomThreshold ? baseScale * (globalState.activeLabelZoomThreshold / normalizedScale) : baseScale;
 	return Math.min(dynamicScale, 15.0);
 }
 
@@ -493,7 +494,7 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 		document.documentElement.style.setProperty('--fg-node-label-font-weight', DEFAULT_NODE_LABEL_FONT_WEIGHT);
 	}
 
-	if (!rootGroup) return;
+	if (!globalState.rootGroup) return;
 	const traceActive = isAnyTraceModeActive();
 	const normalizedScale = Math.max(0.1, Number(zoomScale) || 1);
 	const dynamicScale = getFocusedLabelScale(normalizedScale);
@@ -501,10 +502,10 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 	const traceLabelScale = traceActive ? dynamicScale : 1;
 	const selectionLogLabelScale = isSelectionLogBold || forceFirmsBold ? dynamicScale : 1;
 
-	rootGroup
+	globalState.rootGroup
 		.classed('fg-trace-labels', traceActive)
 		.classed('fg-selection-log-labels', isSelectionLogBold || forceFirmsBold)
-		.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold)
+		.classed('fg-labels-hidden', normalizedScale < globalState.activeLabelZoomThreshold)
 		.style('--fg-node-label-font-size', DEFAULT_NODE_LABEL_FONT_SIZE)
 		.style('--fg-node-label-font-weight', DEFAULT_NODE_LABEL_FONT_WEIGHT)
 		.style('--fg-global-label-scale', String(globalLabelScale))
@@ -513,36 +514,36 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 		.style('--fg-current-zoom', String(normalizedScale));
 
 	// Hide all node labels when zoomed out below threshold.
-	const labelGroup = rootGroup.select('.fg-label-group');
+	const labelGroup = globalState.rootGroup.select('.fg-label-group');
 	if (labelGroup && labelGroup.size()) {
-		labelGroup.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold);
+		labelGroup.classed('fg-labels-hidden', normalizedScale < globalState.activeLabelZoomThreshold);
 	}
 
-	updateInactiveLabelZoomState(rootGroup, normalizedScale);
+	updateInactiveLabelZoomState(globalState.rootGroup, normalizedScale);
 }
 
-export function setGraphLabelRenderMode(_nodeCount = layoutNodes?.length || 0) {
+export function setGraphLabelRenderMode(_nodeCount = globalState.layoutNodes?.length || 0) {
 	// The reduced-detail graph presentation is now the default experience: it keeps
 	// the layout responsive while preserving readable node labels and selected-node
 	// focus states.
-	nodeLabelRenderMode = 'compact';
+	globalState.nodeLabelRenderMode = 'compact';
 }
 
 function animateToWasmPositions(duration = 2500) {
-	if (simulation) simulation.stop();
-	if (graphTickFrameId != null) {
-		cancelAnimationFrame(graphTickFrameId);
-		graphTickFrameId = null;
+	if (globalState.simulation) globalState.simulation.stop();
+	if (globalState.graphTickFrameId != null) {
+		cancelAnimationFrame(globalState.graphTickFrameId);
+		globalState.graphTickFrameId = null;
 	}
-	if (nodeSel) {
-		nodeSel
+	if (globalState.nodeSel) {
+		globalState.nodeSel
 			.transition()
 			.duration(duration)
 			.ease(d3.easeCubicOut)
 			.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	}
-	if (linkSel) {
-		linkSel
+	if (globalState.linkSel) {
+		globalState.linkSel
 			.transition()
 			.duration(duration)
 			.ease(d3.easeCubicOut)
@@ -551,8 +552,8 @@ function animateToWasmPositions(duration = 2500) {
 			.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
 			.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
 	}
-	if (arrowSel) {
-		arrowSel
+	if (globalState.arrowSel) {
+		globalState.arrowSel
 			.transition()
 			.duration(duration)
 			.ease(d3.easeCubicOut)
@@ -580,21 +581,21 @@ function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) 
 	nodeSelection.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 }
 
-function shouldRefreshOverlayLabels(nodeCount = layoutNodes?.length || 0) {
+function shouldRefreshOverlayLabels(nodeCount = globalState.layoutNodes?.length || 0) {
 	if (nodeCount <= 1200) return true;
 	const interval = 2;
-	const shouldUpdate = overlayRefreshFrameCounter % interval === 0;
-	overlayRefreshFrameCounter += 1;
+	const shouldUpdate = globalState.overlayRefreshFrameCounter % interval === 0;
+	globalState.overlayRefreshFrameCounter += 1;
 	return shouldUpdate;
 }
 
 function scheduleWasmLayoutSnapshot(nodes: any[], links: any[], width: number, height: number) {
 	if (nodes.length < 1000 || typeof window === 'undefined' || typeof Worker !== 'function') return;
-	const runId = ++wasmLayoutRunId;
+	const runId = ++globalState.wasmLayoutRunId;
 	try {
-		wasmLayoutWorker?.dispose();
-		wasmLayoutWorker = createGraphLayoutWorker();
-		const worker = wasmLayoutWorker;
+		globalState.wasmLayoutWorker?.dispose();
+		globalState.wasmLayoutWorker = createGraphLayoutWorker();
+		const worker = globalState.wasmLayoutWorker;
 		void worker
 			.compute(
 				nodes.map((node) => ({
@@ -614,7 +615,7 @@ function scheduleWasmLayoutSnapshot(nodes: any[], links: any[], width: number, h
 				height,
 			)
 			.then((positions) => {
-				if (runId !== wasmLayoutRunId || !simulation || !Array.isArray(positions)) return;
+				if (runId !== globalState.wasmLayoutRunId || !globalState.simulation || !Array.isArray(positions)) return;
 				const positionsById = new Map(positions.map((position) => [String(position.id), position]));
 				for (const node of nodes) {
 					const position = positionsById.get(String(node.id));
@@ -622,20 +623,20 @@ function scheduleWasmLayoutSnapshot(nodes: any[], links: any[], width: number, h
 					if (Number.isFinite(position.x)) node.x = position.x;
 					if (Number.isFinite(position.y)) node.y = position.y;
 				}
-				simulation.alpha(Math.min(0.16, Math.max(0.06, getIncrementalRestartAlpha(nodes.length, nodes.length)))).restart();
+				globalState.simulation.alpha(Math.min(0.16, Math.max(0.06, getIncrementalRestartAlpha(nodes.length, nodes.length)))).restart();
 				scheduleGraphTickPositions(null, null, null);
 			})
 			.catch(() => {
 				// The existing D3 simulation remains the fallback if WASM is unavailable.
 			})
 			.finally(() => {
-				if (runId === wasmLayoutRunId) {
+				if (runId === globalState.wasmLayoutRunId) {
 					worker.dispose();
-					wasmLayoutWorker = null;
+					globalState.wasmLayoutWorker = null;
 				}
 			});
 	} catch {
-		wasmLayoutWorker = null;
+		globalState.wasmLayoutWorker = null;
 	}
 }
 
@@ -643,22 +644,22 @@ function resetProgressiveRevealState() {
 	// SVG rendering stays on the main DOM path; progressive reveal is no longer needed.
 }
 
-function startProgressiveRevealForGraph(_nodeCount = layoutNodes?.length || 0) {
+function startProgressiveRevealForGraph(_nodeCount = globalState.layoutNodes?.length || 0) {
 	// Intentionally left as a no-op so large graphs stay on the SVG renderer.
 }
 
 function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
-	if (graphTickFrameId != null) return;
-	graphTickFrameId = requestAnimationFrame(() => {
-		graphTickFrameId = null;
-		if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
+	if (globalState.graphTickFrameId != null) return;
+	globalState.graphTickFrameId = requestAnimationFrame(() => {
+		globalState.graphTickFrameId = null;
+		if (globalState.pixiModeActive && globalState.pixiApi && typeof globalState.pixiApi.drawFrame === 'function') {
 			try {
 				const transform = getCurrentZoomTransform();
-				const labelScale = selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
-				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
-				if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
+				const labelScale = globalState.selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
+				globalState.pixiApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, { selectedId: globalState.selectedId, labelScale });
+				if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 					try {
-						overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale });
+						globalState.overlayApi.update(globalState.layoutNodes || [], transform, { selectedId: globalState.selectedId, labelScale });
 					} catch (e) {}
 				}
 			} catch (e) {
@@ -666,18 +667,18 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 			}
 			return;
 		}
-		if (canvasModeActive && canvasApi) {
+		if (globalState.canvasModeActive && globalState.canvasApi) {
 			try {
 				const transform = getCurrentZoomTransform();
-				const labelScale = selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
-				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, {
-					selectedId,
-					selectedNodeIds: Array.from(new Set([selectedId, ...Array.from(persistentSelectedIds)].filter(Boolean))),
+				const labelScale = globalState.selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
+				globalState.canvasApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
+					selectedId: globalState.selectedId,
+					selectedNodeIds: Array.from(new Set([globalState.selectedId, ...Array.from(globalState.persistentSelectedIds)].filter(Boolean))),
 					labelScale,
 				});
-				if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
+				if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 					try {
-						overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale });
+						globalState.overlayApi.update(globalState.layoutNodes || [], transform, { selectedId: globalState.selectedId, labelScale });
 					} catch (e) {}
 				}
 			} catch (e) {
@@ -690,9 +691,9 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 }
 
 function cancelGraphTickPositions() {
-	if (graphTickFrameId == null) return;
-	cancelAnimationFrame(graphTickFrameId);
-	graphTickFrameId = null;
+	if (globalState.graphTickFrameId == null) return;
+	cancelAnimationFrame(globalState.graphTickFrameId);
+	globalState.graphTickFrameId = null;
 }
 
 function applyStatusPresentation(text: string, options: { transient?: boolean; dismissible?: boolean; pinned?: boolean; loading?: boolean } = {}) {
@@ -729,8 +730,8 @@ function hasLockedFetchStatus() {
 }
 
 function clearFetchStatus() {
-	activeFetchStatusMessage = null;
-	activeFetchStatusPinned = false;
+	globalState.activeFetchStatusMessage = null;
+	globalState.activeFetchStatusPinned = false;
 	applyStatusPresentation('', { transient: false, dismissible: false, pinned: false, loading: false });
 	const pinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
 	if (pinBtn) {
@@ -742,12 +743,12 @@ function clearFetchStatus() {
 }
 
 function updateFetchStatus(msg: string, loading = false) {
-	activeFetchStatusMessage = msg;
-	applyStatusPresentation(msg, { transient: true, dismissible: true, pinned: activeFetchStatusPinned, loading });
+	globalState.activeFetchStatusMessage = msg;
+	applyStatusPresentation(msg, { transient: true, dismissible: true, pinned: globalState.activeFetchStatusPinned, loading });
 }
 
 function setFetchStatusPinned(pinned: boolean) {
-	activeFetchStatusPinned = pinned;
+	globalState.activeFetchStatusPinned = pinned;
 	const pinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
 	if (pinBtn) {
 		pinBtn.classList.toggle('is-active', pinned);
@@ -760,27 +761,27 @@ function setFetchStatusPinned(pinned: boolean) {
 	} catch {
 		/* ignore storage errors */
 	}
-	if (!activeFetchStatusMessage) return;
-	applyStatusPresentation(activeFetchStatusMessage, {
+	if (!globalState.activeFetchStatusMessage) return;
+	applyStatusPresentation(globalState.activeFetchStatusMessage, {
 		transient: true,
 		dismissible: true,
-		pinned: activeFetchStatusPinned,
+		pinned: globalState.activeFetchStatusPinned,
 	});
 }
 
 type SessionPersistenceMode = 'full' | 'compact' | 'reduced' | 'minimal';
 // Baseline snapshot from the initial server response for this page load.
 // Used to identify which rendered nodes/links are truly "added" extras.
-let initialServerNodeIds = null; // Set<id>
-let initialServerLinkKeys = null; // Set<"source|target">
+// moved initialServerNodeIds to globalState
+// moved initialServerLinkKeys to globalState
 // Shared appender used by both UI actions and load-time session restore.
-let appendFetched = appendFetchedImpl;
+globalState.appendFetched = appendFetchedImpl;
 // The node that most recently triggered an expand/reveal action.
 // Used to bias placement of newly injected nodes near their parent.
-let lastExpandOriginNode = null;
-let nonGrayExpandRunId = 0;
-let hasUserInitiatedGraphExpansion = false;
-let activeFetchStatusMessage: string | null = null;
+// moved lastExpandOriginNode to globalState
+// moved nonGrayExpandRunId to globalState
+// moved hasUserInitiatedGraphExpansion to globalState
+// moved activeFetchStatusMessage to globalState
 const FETCH_STATUS_PIN_STORAGE_KEY = 'finra_fetch_status_pinned';
 
 function getPersistedFetchStatusPinned() {
@@ -791,7 +792,7 @@ function getPersistedFetchStatusPinned() {
 	}
 }
 
-let activeFetchStatusPinned = getPersistedFetchStatusPinned();
+globalState.activeFetchStatusPinned = getPersistedFetchStatusPinned();
 
 const INITIAL_SEED_COUNT = 0; // random seed nodes on first load (default select)
 const FILTER_MATCH_LIMIT = 100; // maximum number of direct matches to show when filtering
@@ -934,10 +935,10 @@ function getKnownCurrentFirmConnectionIds(node) {
 
 	// Prefer O(degree) indexed layout links + cached full-graph adjacency over scanning every link.
 	ensureLayoutLinkIndexes();
-	for (const link of layoutLinksByNodeId.get(firmNodeId) || []) {
+	for (const link of globalState.layoutLinksByNodeId.get(firmNodeId) || []) {
 		considerLink(link);
 	}
-	const adjacency = graphData ? getFullAdjacencyMap() : null;
+	const adjacency = globalState.graphData ? getFullAdjacencyMap() : null;
 	if (adjacency) {
 		for (const entry of adjacency.get(firmNodeId) || []) {
 			considerLink(entry?.link);
@@ -949,11 +950,11 @@ function getKnownCurrentFirmConnectionIds(node) {
 
 function isFetchedLeafNode(node) {
 	if (!node?.id) return false;
-	if (node._leafPredGen === selectionPredicateCacheGen && typeof node._leafPredCached === 'boolean') {
+	if (node._leafPredGen === globalState.selectionPredicateCacheGen && typeof node._leafPredCached === 'boolean') {
 		return node._leafPredCached;
 	}
 	let result = false;
-	if (initialServerNodeIds instanceof Set && initialServerNodeIds.has(node.id)) {
+	if (globalState.initialServerNodeIds instanceof Set && globalState.initialServerNodeIds.has(node.id)) {
 		result = false;
 	} else if (!hasTrustedCurrentRelationshipData(node)) {
 		result = false;
@@ -962,15 +963,15 @@ function isFetchedLeafNode(node) {
 	} else if (getExpectedRevealableNeighborIds(node).size > 0) {
 		result = false;
 	} else {
-		const neighborCount = neighborMap?.get(node.id)?.size;
+		const neighborCount = globalState.neighborMap?.get(node.id)?.size;
 		if (typeof neighborCount === 'number') {
 			result = neighborCount === 0;
 		} else {
 			ensureLayoutLinkIndexes();
-			result = (layoutLinksByNodeId.get(String(node.id)) || []).length === 0;
+			result = (globalState.layoutLinksByNodeId.get(String(node.id)) || []).length === 0;
 		}
 	}
-	node._leafPredGen = selectionPredicateCacheGen;
+	node._leafPredGen = globalState.selectionPredicateCacheGen;
 	node._leafPredCached = result;
 	return result;
 }
@@ -979,7 +980,7 @@ function getVisibleRevealableNeighborIds(nodeId) {
 	const visibleNeighborIds = new Set<string>();
 	if (!nodeId) return visibleNeighborIds;
 	ensureLayoutLinkIndexes();
-	for (const link of layoutLinksByNodeId.get(String(nodeId)) || []) {
+	for (const link of globalState.layoutLinksByNodeId.get(String(nodeId)) || []) {
 		if (!isNonGrayExpansionLink(link)) continue;
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
@@ -1065,18 +1066,18 @@ export function isRevealableChainExhausted(
 
 function isFetchedExhaustedConnectedNode(node) {
 	if (!node?.id) return false;
-	if (node._exhaustedPredGen === selectionPredicateCacheGen && typeof node._exhaustedPredCached === 'boolean') {
+	if (node._exhaustedPredGen === globalState.selectionPredicateCacheGen && typeof node._exhaustedPredCached === 'boolean') {
 		return node._exhaustedPredCached;
 	}
 	let result = false;
-	if (initialServerNodeIds instanceof Set && initialServerNodeIds.has(node.id)) {
+	if (globalState.initialServerNodeIds instanceof Set && globalState.initialServerNodeIds.has(node.id)) {
 		result = false;
 	} else if (!hasTrustedCurrentRelationshipData(node)) {
 		result = false;
 	} else if (!hasKnownRevealableChildCount(node)) {
 		result = false;
 	} else {
-		const neighborCount = neighborMap?.get(node.id)?.size;
+		const neighborCount = globalState.neighborMap?.get(node.id)?.size;
 		const hasNeighbors = typeof neighborCount === 'number' ? neighborCount > 0 : getNeighborIds(node.id).size > 0;
 		if (!hasNeighbors) {
 			result = false;
@@ -1091,7 +1092,7 @@ function isFetchedExhaustedConnectedNode(node) {
 				} else {
 					result = isRevealableChainExhausted(
 						node.id,
-						(nodeId) => layoutNodes?.find((entry) => entry.id === nodeId) || graphData?.nodes?.find((entry) => entry.id === nodeId) || null,
+						(nodeId) => globalState.layoutNodes?.find((entry) => entry.id === nodeId) || globalState.graphData?.nodes?.find((entry) => entry.id === nodeId) || null,
 						getExpectedRevealableNeighborIds,
 						getVisibleRevealableNeighborIds,
 						(candidateNode) => hasTrustedCurrentRelationshipData(candidateNode) && hasKnownRevealableChildCount(candidateNode),
@@ -1100,13 +1101,13 @@ function isFetchedExhaustedConnectedNode(node) {
 			}
 		}
 	}
-	node._exhaustedPredGen = selectionPredicateCacheGen;
+	node._exhaustedPredGen = globalState.selectionPredicateCacheGen;
 	node._exhaustedPredCached = result;
 	return result;
 }
 
 function markUserInitiatedGraphExpansion() {
-	hasUserInitiatedGraphExpansion = true;
+	globalState.hasUserInitiatedGraphExpansion = true;
 }
 
 // ── Session persistence helpers ────────────────────────────────────────────
@@ -1124,31 +1125,31 @@ function buildPersistedNodePosition(node) {
 }
 
 function getPersistedNodePositions({ compact = false } = {}) {
-	if (!Array.isArray(layoutNodes) || !layoutNodes.length) return [];
-	if (!compact) return layoutNodes.map((node) => buildPersistedNodePosition(node));
+	if (!Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length) return [];
+	if (!compact) return globalState.layoutNodes.map((node) => buildPersistedNodePosition(node));
 
 	const focusIds = new Set(
-		[selectedId, ...highlightedSelections.map((entry) => entry?.id), ...Array.from(persistentSelectedIds)].map((value) => String(value || '').trim()).filter(Boolean),
+		[globalState.selectedId, ...globalState.highlightedSelections.map((entry) => entry?.id), ...Array.from(globalState.persistentSelectedIds)].map((value) => String(value || '').trim()).filter(Boolean),
 	);
 	if (!focusIds.size) return [];
-	return layoutNodes.filter((node) => focusIds.has(String(node.id))).map((node) => buildPersistedNodePosition(node));
+	return globalState.layoutNodes.filter((node) => focusIds.has(String(node.id))).map((node) => buildPersistedNodePosition(node));
 }
 
 function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { compact?: boolean; extraNodeMode?: 'full' | 'ids' | 'none' } = {}) {
-	const serverIds = initialServerNodeIds || new Set(graphData.nodes.map((n) => n.id));
-	const extraNodes = layoutNodes.filter((n) => !serverIds.has(n.id));
+	const serverIds = globalState.initialServerNodeIds || new Set(globalState.graphData.nodes.map((n) => n.id));
+	const extraNodes = globalState.layoutNodes.filter((n) => !serverIds.has(n.id));
 	const extraNodeIds = extraNodes.map((node) => node.id).filter(Boolean);
-	const renderedServerIds = layoutNodes.filter((n) => serverIds.has(n.id)).map((n) => n.id);
+	const renderedServerIds = globalState.layoutNodes.filter((n) => serverIds.has(n.id)).map((n) => n.id);
 	const baseLinkKeys =
-		initialServerLinkKeys ||
+		globalState.initialServerLinkKeys ||
 		new Set(
-			graphData.links.map((l) => {
+			globalState.graphData.links.map((l) => {
 				const s = l.source?.id ?? l.source;
 				const t = l.target?.id ?? l.target;
 				return `${s}|${t}`;
 			}),
 		);
-	const shouldCompactLayout = compact || layoutNodes.length > SESSION_FULL_LAYOUT_NODE_LIMIT;
+	const shouldCompactLayout = compact || globalState.layoutNodes.length > SESSION_FULL_LAYOUT_NODE_LIMIT;
 	const includeExtraNodeObjects = extraNodeMode === 'full';
 	const includeExtraNodeIds = extraNodeMode === 'ids';
 	const includeExtraLinks = extraNodeMode !== 'none';
@@ -1156,24 +1157,24 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 		isSessionCleared &&
 		renderedServerIds.length === 0 &&
 		extraNodes.length === 0 &&
-		(!Array.isArray(layoutLinks) || layoutLinks.length === 0) &&
-		!selectedId &&
-		highlightedSelections.length === 0 &&
-		persistentSelectedIds.size === 0;
+		(!Array.isArray(globalState.layoutLinks) || globalState.layoutLinks.length === 0) &&
+		!globalState.selectedId &&
+		globalState.highlightedSelections.length === 0 &&
+		globalState.persistentSelectedIds.size === 0;
 
 	return {
 		cleared: effectiveCleared,
 		hopDefaults: getCurrentHopDefaultsSnapshot(),
 		renderedServerIds,
-		selectedNodeId: selectedId || null,
+		selectedNodeId: globalState.selectedId || null,
 		sidebarViewMode: sidebarViewMode,
-		highlightedNodes: highlightedSelections.map((entry) => ({
+		highlightedNodes: globalState.highlightedSelections.map((entry) => ({
 			id: entry.id,
 			hops: entry.hops === 'all' ? 'all' : Number(entry.hops) || 1,
 		})),
 		// Node selected chrome that survives Clear Highlight (line emphasis only).
-		selectedNodeIds: Array.from(persistentSelectedIds),
-		visitedNodeIds: Array.from(visitedNodeIds),
+		selectedNodeIds: Array.from(globalState.persistentSelectedIds),
+		visitedNodeIds: Array.from(globalState.visitedNodeIds),
 		nodePositions: getPersistedNodePositions({ compact: shouldCompactLayout }),
 		extraNodes:
 			includeExtraNodeObjects ?
@@ -1185,7 +1186,7 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 		extraNodeIds: includeExtraNodeIds ? extraNodeIds : [],
 		extraLinks:
 			includeExtraLinks ?
-				layoutLinks
+				globalState.layoutLinks
 					.filter((l) => {
 						const s = l.source?.id ?? l.source;
 						const t = l.target?.id ?? l.target;
@@ -1203,8 +1204,8 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 			:	[],
 		zoomTransform: (() => {
 			try {
-				if (svgSel && typeof svgSel.node === 'function') {
-					const z = d3.zoomTransform(svgSel.node());
+				if (globalState.svgSel && typeof globalState.svgSel.node === 'function') {
+					const z = d3.zoomTransform(globalState.svgSel.node());
 					return { x: z.x, y: z.y, k: z.k };
 				}
 			} catch {
@@ -1574,7 +1575,7 @@ export function saveCurrentGraphTemplate(customName?: string) {
 	// Prefer a live session snapshot. If the graph is empty/not ready, still allow
 	// saving the current selection-log bookmark so templates remain useful after
 	// reset/clear flows.
-	const canSnapshotLiveGraph = Boolean(graphData && Array.isArray(layoutNodes));
+	const canSnapshotLiveGraph = Boolean(globalState.graphData && Array.isArray(globalState.layoutNodes));
 	const snapshot =
 		canSnapshotLiveGraph ? buildGraphTemplateSnapshot() : (
 			{
@@ -1666,27 +1667,27 @@ async function applyGraphTemplateSession(session: Record<string, any>) {
 	}
 
 	const profileName = currentProfileName || 'custom';
-	if (!graphData || !Array.isArray(graphData.nodes) || graphData.nodes.length === 0) {
+	if (!globalState.graphData || !Array.isArray(globalState.graphData.nodes) || globalState.graphData.nodes.length === 0) {
 		try {
 			await loadBaselineGraph(profileName, { suppressRender: true });
 		} catch (error) {
 			console.warn('Failed to load baseline graph while applying template:', error);
-			graphData = { nodes: [], links: [], meta: {} };
-			initialServerNodeIds = new Set();
-			initialServerLinkKeys = new Set();
+			globalState.graphData = { nodes: [], links: [], meta: {} };
+			globalState.initialServerNodeIds = new Set();
+			globalState.initialServerLinkKeys = new Set();
 		}
 	}
 
-	if (!graphData) {
-		graphData = { nodes: [], links: [], meta: {} };
+	if (!globalState.graphData) {
+		globalState.graphData = { nodes: [], links: [], meta: {} };
 	}
 
 	const renderedSavedSession = renderSavedSessionGraph(session);
 	if (!renderedSavedSession) {
 		// Fall back to full restore into whatever graph we currently have.
-		if (!Array.isArray(graphData.nodes) || !graphData.nodes.length) {
-			graphData = { nodes: [], links: [], meta: graphData.meta || {} };
-			renderGraph(graphData);
+		if (!Array.isArray(globalState.graphData.nodes) || !globalState.graphData.nodes.length) {
+			globalState.graphData = { nodes: [], links: [], meta: globalState.graphData.meta || {} };
+			renderGraph(globalState.graphData);
 			showEmpty(true);
 		} else {
 			renderBaselineGraphData();
@@ -1999,11 +2000,11 @@ function getSessionPersistenceAttempts() {
 }
 
 function persistSessionNow() {
-	if (!layoutNodes || !graphData) return;
+	if (!globalState.layoutNodes || !globalState.graphData) return;
 	const attempts = getSessionPersistenceAttempts();
 	const startIndex = Math.max(
 		0,
-		attempts.findIndex((entry) => entry.mode === sessionPersistenceMode),
+		attempts.findIndex((entry) => entry.mode === globalState.sessionPersistenceMode),
 	);
 	let lastError = null;
 
@@ -2013,10 +2014,10 @@ function persistSessionNow() {
 			const payload = buildSessionPayload(attempt.options);
 			isSessionCleared = Boolean(payload.cleared);
 			persistSessionPayload(payload);
-			if (sessionPersistenceMode !== attempt.mode) {
+			if (globalState.sessionPersistenceMode !== attempt.mode) {
 				console.warn(`Graph session persistence downgraded to ${attempt.mode} mode after oversized payload.`, lastError);
 			}
-			sessionPersistenceMode = attempt.mode;
+			globalState.sessionPersistenceMode = attempt.mode;
 			return;
 		} catch (error) {
 			lastError = error;
@@ -2027,11 +2028,11 @@ function persistSessionNow() {
 }
 
 function saveSession() {
-	if (!layoutNodes || !graphData) return;
-	if (sessionSaveTimer) return;
+	if (!globalState.layoutNodes || !globalState.graphData) return;
+	if (globalState.sessionSaveTimer) return;
 	if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
-		sessionSaveTimer = window.setTimeout(() => {
-			sessionSaveTimer = null;
+		globalState.sessionSaveTimer = window.setTimeout(() => {
+			globalState.sessionSaveTimer = null;
 			persistSessionNow();
 		}, 140);
 		return;
@@ -2120,13 +2121,13 @@ function findGraphNodeByRouteId(normalizedNodeId: string) {
 	if (!normalizedNodeId) return null;
 	const liveNode = getNodeById(normalizedNodeId);
 	if (liveNode) return liveNode;
-	if (!Array.isArray(graphData?.nodes)) return null;
+	if (!Array.isArray(globalState.graphData?.nodes)) return null;
 	const stripPrefix = (value: string) =>
 		String(value)
 			.replace(/^person[:_]/, '')
 			.replace(/^firm[:_]/, '');
 	const target = stripPrefix(normalizedNodeId);
-	return graphData.nodes.find((entry) => entry?.id && stripPrefix(String(entry.id)) === target) || null;
+	return globalState.graphData.nodes.find((entry) => entry?.id && stripPrefix(String(entry.id)) === target) || null;
 }
 
 async function ensureRouteNodeAvailable(nodeId: string) {
@@ -2134,7 +2135,7 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	if (!normalizedNodeId) return null;
 
 	let liveNode = findGraphNodeByRouteId(normalizedNodeId);
-	if (liveNode && !layoutNodes?.some((node) => node.id === normalizedNodeId)) {
+	if (liveNode && !globalState.layoutNodes?.some((node) => node.id === normalizedNodeId)) {
 		injectNodesById([normalizedNodeId]);
 		liveNode = getNodeById(normalizedNodeId) || liveNode;
 	}
@@ -2149,8 +2150,8 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 			const fetchedBatch = nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId, null, { includePreviousEmployments: true }) : await fetchFirmBatch(rawNodeId);
 			if (fetchedBatch.nodes.length || fetchedBatch.links.length) {
 				mergeIntoGraphData(fetchedBatch.nodes, fetchedBatch.links);
-				appendFetched?.(fetchedBatch.nodes, fetchedBatch.links);
-				liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
+				globalState.appendFetched?.(fetchedBatch.nodes, fetchedBatch.links);
+				liveNode = globalState.layoutNodes?.find((node) => node.id === normalizedNodeId) || globalState.graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
 			}
 		} catch (error) {
 			console.warn('Failed to hydrate route-selected node directly from detail APIs:', error);
@@ -2203,7 +2204,7 @@ const routeNodeSelectionState = {
 async function applyPendingRouteNodeSelection() {
 	const targetNodeId = String(pendingRouteNodeId || '').trim();
 	if (!targetNodeId) return false;
-	if (!graphData || !layoutNodes) return false;
+	if (!globalState.graphData || !globalState.layoutNodes) return false;
 	if (routeNodeSelectionState.inFlightId === targetNodeId && routeNodeSelectionState.promise) {
 		return routeNodeSelectionState.promise;
 	}
@@ -2243,7 +2244,7 @@ async function applyPendingRouteNodeSelection() {
 			pendingRouteNodeId = null;
 		}
 
-		const targetAlreadySelected = !shouldAutoExpandRouteSelection(targetNodeId, selectedId);
+		const targetAlreadySelected = !shouldAutoExpandRouteSelection(targetNodeId, globalState.selectedId);
 		const shouldExpand = pendingRouteAutoExpand && (!targetAlreadySelected || pendingRouteForceAutoExpand);
 		const hasExplicitRoutePulseDuration = typeof pendingRoutePulseDuration === 'number' && Number.isFinite(pendingRoutePulseDuration);
 		const shouldFocusRouteSelection = hasExplicitRoutePulseDuration || !targetAlreadySelected;
@@ -2728,8 +2729,8 @@ function refreshFindMatches(rawQuery, options: { preserveActiveMatch?: boolean }
 		return [];
 	}
 	const previousActiveId = options.preserveActiveMatch && activeFindMatchIndex >= 0 ? activeFindMatchOrder[activeFindMatchIndex] || null : null;
-	const nodePool = [...(Array.isArray(layoutNodes) ? layoutNodes : []), ...(Array.isArray(graphData?.nodes) ? graphData.nodes : [])];
-	const matches = rankFindNodeMatches(query, nodePool, Array.isArray(layoutLinks) ? layoutLinks : []);
+	const nodePool = [...(Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes : []), ...(Array.isArray(globalState.graphData?.nodes) ? globalState.graphData.nodes : [])];
+	const matches = rankFindNodeMatches(query, nodePool, Array.isArray(globalState.layoutLinks) ? globalState.layoutLinks : []);
 	activeFindQuery = query;
 	activeFindMatchIds = new Set(matches.map((match) => String(match.node.id)));
 	activeFindMatchOrder = matches.map((match) => String(match.node.id));
@@ -2759,7 +2760,7 @@ function cycleToFindMatch(rawQuery = activeFindQuery, direction = 1) {
 		activeFindMatchIndex = (activeFindMatchIndex + direction + nodeIds.length) % nodeIds.length;
 	}
 	const nodeId = nodeIds[activeFindMatchIndex];
-	const liveNode = Array.isArray(layoutNodes) ? layoutNodes.find((node) => node.id === nodeId) : null;
+	const liveNode = Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.find((node) => node.id === nodeId) : null;
 	if (!liveNode) {
 		emitFindState();
 		return false;
@@ -2783,7 +2784,7 @@ function getNearestActiveMatchIndex() {
 	let nearestIndex = 0;
 	for (let index = 0; index < activeFindMatchOrder.length; index += 1) {
 		const nodeId = activeFindMatchOrder[index];
-		const node = Array.isArray(layoutNodes) ? layoutNodes.find((entry) => entry.id === nodeId) : null;
+		const node = Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.find((entry) => entry.id === nodeId) : null;
 		if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) continue;
 		const dx = node.x - centerX;
 		const dy = node.y - centerY;
@@ -2911,11 +2912,11 @@ function getPersistedSessionNodeMap() {
 				map.set(id, { id, x, y });
 			}
 		}
-		if (Array.isArray(session.renderedServerIds) && graphData?.nodes) {
+		if (Array.isArray(session.renderedServerIds) && globalState.graphData?.nodes) {
 			for (const id of session.renderedServerIds) {
 				const normalizedId = String(id || '').trim();
 				if (!normalizedId || map.has(normalizedId)) continue;
-				const node = Array.isArray(graphData.nodes) ? graphData.nodes.find((n) => n.id === normalizedId) : null;
+				const node = Array.isArray(globalState.graphData.nodes) ? globalState.graphData.nodes.find((n) => n.id === normalizedId) : null;
 				if (node && Number.isFinite(node.x) && Number.isFinite(node.y)) {
 					map.set(normalizedId, node);
 				}
@@ -2930,8 +2931,8 @@ function getPersistedSessionNodeMap() {
 
 function getArrowableNodes() {
 	const nodesById = new Map<string, any>();
-	if (Array.isArray(layoutNodes) && layoutNodes.length) {
-		for (const node of layoutNodes) {
+	if (Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.length) {
+		for (const node of globalState.layoutNodes) {
 			if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) continue;
 			nodesById.set(String(node.id), node);
 		}
@@ -2976,15 +2977,15 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 	// point; while that origin is pending, arrow keys should navigate to the
 	// nearest/directional node from the click instead of cycling in-page find
 	// matches, even if a find query is still active.
-	if (!lastArrowNavCoord && query && activeFindMatchOrder.length && (direction === 'ArrowRight' || direction === 'ArrowLeft')) {
+	if (!globalState.lastArrowNavCoord && query && activeFindMatchOrder.length && (direction === 'ArrowRight' || direction === 'ArrowLeft')) {
 		return cycleToFindMatch(rawQuery, direction === 'ArrowLeft' ? -1 : 1);
 	}
 
 	const arrowable = getArrowableNodes();
 	if (!arrowable.length) return false;
 	const currentNode =
-		(activeFindMatchIndex >= 0 && Array.isArray(layoutNodes) ? layoutNodes.find((node) => node.id === activeFindMatchOrder[activeFindMatchIndex]) : null) ||
-		(selectedId ? layoutNodes.find((n) => n.id === selectedId) : null);
+		(activeFindMatchIndex >= 0 && Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.find((node) => node.id === activeFindMatchOrder[activeFindMatchIndex]) : null) ||
+		(globalState.selectedId ? globalState.layoutNodes.find((n) => n.id === globalState.selectedId) : null);
 	let nextNode = getDirectionalVisibleNode(currentNode, direction);
 	if (!nextNode) {
 		nextNode = getNearestArrowableNode(currentNode);
@@ -2994,7 +2995,7 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 	activeFindMatchOrder = nodeIds;
 	activeFindMatchIds = new Set(nodeIds);
 	activeFindMatchIndex = activeFindMatchOrder.indexOf(nextNode.id);
-	lastArrowNavCoord = null; // Resume normal node-to-node nav after starting from whitespace
+	globalState.lastArrowNavCoord = null; // Resume normal node-to-node nav after starting from whitespace
 	focusNodeById(nextNode.id, { duration: 520 });
 	startSearchPulseLoop(nextNode.id, { interval: 1400, immediate: true });
 	updateFocusReadout(nextNode);
@@ -3004,12 +3005,12 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 }
 
 function getVisibleNodeIds() {
-	if (!Array.isArray(layoutNodes) || !layoutNodes.length || !svgSel) return [];
+	if (!Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length || !globalState.svgSel) return [];
 	const metrics = getGraphViewportMetrics();
 	if (!metrics) return [];
 	const { transform, width, height } = metrics;
 	const { x, y, k } = transform;
-	return layoutNodes
+	return globalState.layoutNodes
 		.filter((node) => {
 			if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return false;
 			const radius = (node._vizHalf ?? NODE_R[node.group] ?? 10) * k;
@@ -3021,12 +3022,12 @@ function getVisibleNodeIds() {
 }
 
 function getVisibleNodes() {
-	if (!Array.isArray(layoutNodes) || !layoutNodes.length || !svgSel) return [];
+	if (!Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length || !globalState.svgSel) return [];
 	const metrics = getGraphViewportMetrics();
 	if (!metrics) return [];
 	const { transform, width, height } = metrics;
 	const { x, y, k } = transform;
-	return layoutNodes.filter((node) => {
+	return globalState.layoutNodes.filter((node) => {
 		if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return false;
 		const radius = (node._vizHalf ?? NODE_R[node.group] ?? 10) * k;
 		const sx = node.x * k + x;
@@ -3048,11 +3049,11 @@ function getDirectionalVisibleNode(currentNode, direction) {
 	const metrics = getGraphViewportMetrics();
 	if (!metrics) return null;
 	const refX =
-		lastArrowNavCoord ? lastArrowNavCoord.x
+		globalState.lastArrowNavCoord ? globalState.lastArrowNavCoord.x
 		: currentNode && Number.isFinite(currentNode.x) ? currentNode.x * metrics.transform.k + metrics.transform.x
 		: metrics.width / 2;
 	const refY =
-		lastArrowNavCoord ? lastArrowNavCoord.y
+		globalState.lastArrowNavCoord ? globalState.lastArrowNavCoord.y
 		: currentNode && Number.isFinite(currentNode.y) ? currentNode.y * metrics.transform.k + metrics.transform.y
 		: metrics.height / 2;
 	let best = null;
@@ -3201,26 +3202,26 @@ export function filterSelectionLogLabelNodeIdsByScope(
 
 function syncSelectionLogAuxiliaryRenderers() {
 	const transform = getCurrentZoomTransform();
-	const labelScale = selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
+	const labelScale = globalState.selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
 	const logLabelNodeIds = getSelectionLogLabelNodeIds();
-	if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
+	if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 		try {
-			overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
+			globalState.overlayApi.update(globalState.layoutNodes || [], transform, { selectedId: globalState.selectedId, labelScale, logLabelNodeIds });
 		} catch {}
 	}
-	if (canvasApi && typeof canvasApi.drawFrame === 'function') {
+	if (globalState.canvasApi && typeof globalState.canvasApi.drawFrame === 'function') {
 		try {
-			canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, {
-				selectedId,
-				selectedNodeIds: Array.from(new Set([selectedId, ...Array.from(persistentSelectedIds)].filter(Boolean))),
+			globalState.canvasApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
+				selectedId: globalState.selectedId,
+				selectedNodeIds: Array.from(new Set([globalState.selectedId, ...Array.from(globalState.persistentSelectedIds)].filter(Boolean))),
 				labelScale,
 				logLabelNodeIds,
 			});
 		} catch {}
 	}
-	if (pixiApi && typeof pixiApi.drawFrame === 'function') {
+	if (globalState.pixiApi && typeof globalState.pixiApi.drawFrame === 'function') {
 		try {
-			pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+			globalState.pixiApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, { selectedId: globalState.selectedId, labelScale, logLabelNodeIds });
 		} catch {}
 	}
 }
@@ -3444,10 +3445,10 @@ function setSidebarViewMode(mode: SidebarViewMode, options: { expandMobile?: boo
 }
 
 function getTraceModeNodeIds() {
-	const visibleNodeIds = new Set((layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
-	const ids = highlightedSelections.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id));
-	if (selectedId) {
-		const normalizedSelectedId = String(selectedId).trim();
+	const visibleNodeIds = new Set((globalState.layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
+	const ids = globalState.highlightedSelections.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id));
+	if (globalState.selectedId) {
+		const normalizedSelectedId = String(globalState.selectedId).trim();
 		if (normalizedSelectedId && visibleNodeIds.has(normalizedSelectedId) && !ids.includes(normalizedSelectedId)) {
 			ids.push(normalizedSelectedId);
 		}
@@ -3474,12 +3475,12 @@ function getTraceModeNodeIds() {
 }
 
 function getTraceLogNodeIds() {
-	const visibleNodeIds = new Set((layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
+	const visibleNodeIds = new Set((globalState.layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
 	return Array.from(new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id))));
 }
 function getSelectionLogLabelNodeIds() {
 	if (!isSelectionLogBold) return [];
-	const visibleNodeIds = new Set((layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
+	const visibleNodeIds = new Set((globalState.layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
 	return Array.from(
 		new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id) && !clearedSelectionLogLabelNodeIds.has(id))),
 	);
@@ -3513,10 +3514,10 @@ function clearSelectionLogLabels(scope: SelectionLogClearLabelsScope = 'all') {
 }
 
 function getConnectedRenderedGraphSnapshot() {
-	const nodes = Array.isArray(layoutNodes) ? layoutNodes.filter((node) => node && String(node.id || '').trim()) : [];
+	const nodes = Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.filter((node) => node && String(node.id || '').trim()) : [];
 	const links =
-		Array.isArray(layoutLinks) ?
-			layoutLinks.filter((link) => {
+		Array.isArray(globalState.layoutLinks) ?
+			globalState.layoutLinks.filter((link) => {
 				const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
 				const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
 				return Boolean(sourceId && targetId);
@@ -3559,7 +3560,7 @@ function getConnectedRenderedGraphSnapshot() {
 		if (degreeDiff !== 0) return degreeDiff;
 		const a = nodeMap.get(aId);
 		const b = nodeMap.get(bId);
-		return String(getPreferredNodeLabel(a) || a?.label || aId).localeCompare(String(getPreferredNodeLabel(b) || b?.label || bId));
+		return String(getPreferredNodeLabel(a) || (a as any)?.label || aId).localeCompare(String(getPreferredNodeLabel(b) || (b as any)?.label || bId));
 	};
 
 	for (const startNode of connectedNodes.slice().sort((a, b) => sortByDegreeThenLabel(String(a.id), String(b.id)))) {
@@ -3610,10 +3611,10 @@ function getConnectedRenderedGraphSnapshot() {
 			const node = nodeMap.get(nodeId);
 			return {
 				id: nodeId,
-				label: getPreferredNodeLabel(node) || node?.label || nodeId,
-				group: node?.group || null,
-				firmId: node?.firmId || null,
-				crd: node?.crd || null,
+				label: getPreferredNodeLabel(node) || (node as any)?.label || nodeId,
+				group: (node as any)?.group || null,
+				firmId: (node as any)?.firmId || null,
+				crd: (node as any)?.crd || null,
 				connectedTo: Array.from(adjacency.get(nodeId) || []).sort(sortByDegreeThenLabel),
 				children: (childrenById.get(nodeId) || []).map((childId) => buildTree(childId)),
 			};
@@ -3622,7 +3623,7 @@ function getConnectedRenderedGraphSnapshot() {
 		const rootId = Array.from(componentNodes).sort(sortByDegreeThenLabel)[0] || startId;
 		components.push({
 			rootId,
-			rootLabel: getPreferredNodeLabel(nodeMap.get(rootId)) || nodeMap.get(rootId)?.label || rootId,
+			rootLabel: getPreferredNodeLabel(nodeMap.get(rootId)) || (nodeMap.get(rootId) as any)?.label || rootId,
 			nodeCount: componentNodes.size,
 			linkCount: componentLinks.length,
 			nodes: Array.from(componentNodes)
@@ -3631,10 +3632,10 @@ function getConnectedRenderedGraphSnapshot() {
 					const node = nodeMap.get(nodeId);
 					return {
 						id: nodeId,
-						label: getPreferredNodeLabel(node) || node?.label || nodeId,
-						group: node?.group || null,
-						firmId: node?.firmId || null,
-						crd: node?.crd || null,
+						label: getPreferredNodeLabel(node) || (node as any)?.label || nodeId,
+						group: (node as any)?.group || null,
+						firmId: (node as any)?.firmId || null,
+						crd: (node as any)?.crd || null,
 						degree: degreeById.get(nodeId) || 0,
 						connectedTo: Array.from(adjacency.get(nodeId) || []).sort(sortByDegreeThenLabel),
 					};
@@ -3664,7 +3665,7 @@ function isSelectionLogChildNode(nodeId: string) {
 	const normalizedNodeId = String(nodeId || '').trim();
 	if (!normalizedNodeId) return false;
 	ensureLayoutLinkIndexes();
-	for (const link of layoutLinksByNodeId.get(normalizedNodeId) || []) {
+	for (const link of globalState.layoutLinksByNodeId.get(normalizedNodeId) || []) {
 		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
 		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
 		if (sourceId && targetId && targetId === normalizedNodeId && sourceId !== normalizedNodeId) return true;
@@ -3675,11 +3676,11 @@ function isSelectionLogChildNode(nodeId: string) {
 function clearChildNodeSelectionVisualState(nodeId: string) {
 	const normalizedNodeId = String(nodeId || '').trim();
 	if (!normalizedNodeId) return;
-	highlightedSelections = highlightedSelections.filter((entry) => String(entry?.id || '').trim() !== normalizedNodeId);
-	visitedNodeIds.delete(normalizedNodeId);
-	persistentSelectedIds.delete(normalizedNodeId);
-	if (selectedId && String(selectedId).trim() === normalizedNodeId) {
-		selectedId = null;
+	globalState.highlightedSelections = globalState.highlightedSelections.filter((entry) => String(entry?.id || '').trim() !== normalizedNodeId);
+	globalState.visitedNodeIds.delete(normalizedNodeId);
+	globalState.persistentSelectedIds.delete(normalizedNodeId);
+	if (globalState.selectedId && String(globalState.selectedId).trim() === normalizedNodeId) {
+		globalState.selectedId = null;
 	}
 }
 
@@ -3687,7 +3688,7 @@ function restoreChildNodeSelectionVisualState(nodeId: string) {
 	const normalizedNodeId = String(nodeId || '').trim();
 	if (!normalizedNodeId) return;
 	upsertHighlightedSelection(normalizedNodeId, getDefaultSelectionHops());
-	visitedNodeIds.add(normalizedNodeId);
+	globalState.visitedNodeIds.add(normalizedNodeId);
 }
 
 function calculateTrace() {
@@ -3699,10 +3700,10 @@ function calculateTrace() {
 	// and must never be highlighted. This includes links that are dashed via
 	// inactive endpoints as well as explicit "previous employment" links.
 	const blockedTraceLinkIds = new Set<string>(
-		(layoutLinks || []).filter((link) => Boolean(getLinkDash(link)) || hasInactiveEndpoint(link) || isPreviousEmploymentLink(link)).map((link) => getLinkKey(link)),
+		(globalState.layoutLinks || []).filter((link) => Boolean(getLinkDash(link)) || hasInactiveEndpoint(link) || isPreviousEmploymentLink(link)).map((link) => getLinkKey(link)),
 	);
 	const isTraceEligibleNode = (nodeId: string) => {
-		const node = layoutNodes.find((entry) => entry.id === nodeId);
+		const node = globalState.layoutNodes.find((entry) => entry.id === nodeId);
 		if (!node) return false;
 		return !isNodeInactive(node);
 	};
@@ -3726,8 +3727,8 @@ function calculateTrace() {
 	traceLogConnectorIds.clear();
 
 	const adj = new Map<string, Array<{ nodeId: string; linkId: string }>>();
-	layoutNodes.forEach((n) => adj.set(String(n.id), []));
-	layoutLinks.forEach((l) => {
+	globalState.layoutNodes.forEach((n) => adj.set(String(n.id), []));
+	globalState.layoutLinks.forEach((l) => {
 		const s = l.source?.id ?? l.source;
 		const t = l.target?.id ?? l.target;
 		const linkId = getLinkKey(l);
@@ -3764,7 +3765,7 @@ function calculateTrace() {
 	if (hasTraceTargets) {
 		const originId = traceModeNodeIds[0];
 		const targetId = traceModeNodeIds[traceModeNodeIds.length - 1];
-		const traceRoute = buildTraceRoute(originId, targetId, adj, { blockedLinkIds: blockedTraceLinkIds });
+		const traceRoute = buildTraceRoute(originId as string, targetId as string, adj, { blockedLinkIds: blockedTraceLinkIds });
 		const getPathNodeCount = (path: string[] | null) => (Array.isArray(path) ? Math.ceil(path.length / 2) : 0);
 
 		let longestNonCircleRoute: string[] = [];
@@ -3773,7 +3774,7 @@ function calculateTrace() {
 		let fallbackLongestNodeCount = -1;
 
 		for (let i = 1; i < traceModeNodeIds.length; i++) {
-			const candidateRoute = buildTraceRoute(originId, traceModeNodeIds[i], adj, { blockedLinkIds: blockedTraceLinkIds });
+			const candidateRoute = buildTraceRoute(originId as string, traceModeNodeIds[i] as string, adj, { blockedLinkIds: blockedTraceLinkIds });
 			const candidateForwardPath = candidateRoute?.forwardPath || null;
 			const candidateNodeCount = getPathNodeCount(candidateForwardPath);
 			if (!candidateForwardPath) continue;
@@ -3798,8 +3799,8 @@ function calculateTrace() {
 			extractConnectorNodeIds(purpleRoute).forEach((id) => traceLongestConnectorIds.add(id));
 		}
 
-		if (originId && isTraceEligibleNode(originId)) traceShortestIds.add(originId);
-		if (targetId && isTraceEligibleNode(targetId)) traceShortestIds.add(targetId);
+		if (originId && isTraceEligibleNode(originId as string)) traceShortestIds.add(originId as string);
+		if (targetId && isTraceEligibleNode(targetId as string)) traceShortestIds.add(targetId as string);
 
 		if (traceRoute?.hasDistinctReturn && traceRoute.closedLoop) {
 			traceRoute.closedLoop.forEach((id) => traceShortestIds.add(id));
@@ -3813,7 +3814,7 @@ function calculateTrace() {
 function refreshTraceState(options: { deferMs?: number } = {}) {
 	const { deferMs = 0 } = options;
 	const runRefresh = () => {
-		traceRefreshTimer = null;
+		globalState.traceRefreshTimer = null;
 		if (isAnyTraceModeActive()) {
 			calculateTrace();
 			syncTraceLabelPresentation();
@@ -3822,13 +3823,13 @@ function refreshTraceState(options: { deferMs?: number } = {}) {
 		reapplySelectionState();
 	};
 
-	if (traceRefreshTimer) {
-		clearTimeout(traceRefreshTimer);
-		traceRefreshTimer = null;
+	if (globalState.traceRefreshTimer) {
+		clearTimeout(globalState.traceRefreshTimer);
+		globalState.traceRefreshTimer = null;
 	}
 
 	if (deferMs > 0) {
-		traceRefreshTimer = setTimeout(runRefresh, deferMs);
+		globalState.traceRefreshTimer = setTimeout(runRefresh, deferMs);
 		return;
 	}
 
@@ -4092,13 +4093,13 @@ function removeSelectionLogEntry(entryId: string) {
 		isSelectionLogEditMode = false;
 	}
 
-	if (isSelectionLogEditMode && graphData) {
+	if (isSelectionLogEditMode && globalState.graphData) {
 		// 1. Find all nodes reachable from normalizedEntryId (A)
 		const reachableFromA = new Set<string>([normalizedEntryId]);
 		const aQueue = [normalizedEntryId];
 		while (aQueue.length > 0) {
 			const curr = aQueue.shift()!;
-			for (const l of graphData.links) {
+			for (const l of globalState.graphData.links) {
 				const s = String(l.source?.id ?? l.source).trim();
 				const t = String(l.target?.id ?? l.target).trim();
 				if (s === curr && !reachableFromA.has(t)) {
@@ -4112,14 +4113,14 @@ function removeSelectionLogEntry(entryId: string) {
 		}
 
 		// 2. Find keep-roots: clicked-on nodes (excluding A) and nodes not reachable from A at all
-		const clickedNodes = Array.from(visitedNodeIds)
+		const clickedNodes = Array.from(globalState.visitedNodeIds)
 			.map((id) => String(id).trim())
 			.filter((id) => id !== normalizedEntryId);
 
 		const visited = new Set<string>(clickedNodes);
 		const queue = [...clickedNodes];
 
-		for (const n of graphData.nodes) {
+		for (const n of globalState.graphData.nodes) {
 			const nid = String(n.id).trim();
 			if (!reachableFromA.has(nid) && !visited.has(nid)) {
 				visited.add(nid);
@@ -4130,7 +4131,7 @@ function removeSelectionLogEntry(entryId: string) {
 		// 3. Traverse from keep-roots along all links (excluding those connected to normalizedEntryId) to identify all protected nodes
 		while (queue.length > 0) {
 			const curr = queue.shift()!;
-			for (const l of graphData.links) {
+			for (const l of globalState.graphData.links) {
 				const s = String(l.source?.id ?? l.source).trim();
 				const t = String(l.target?.id ?? l.target).trim();
 				if (s === curr && t !== normalizedEntryId && !visited.has(t)) {
@@ -4146,7 +4147,7 @@ function removeSelectionLogEntry(entryId: string) {
 		// 'visited' set now contains all nodes that should be KEPT.
 		// The nodes to REMOVE are everything else (which includes normalizedEntryId).
 		const removedNodeIds = new Set<string>();
-		for (const n of graphData.nodes) {
+		for (const n of globalState.graphData.nodes) {
 			const nid = String(n.id).trim();
 			if (!visited.has(nid)) {
 				removedNodeIds.add(nid);
@@ -4154,10 +4155,10 @@ function removeSelectionLogEntry(entryId: string) {
 		}
 
 		// Remove the nodes from graphData.nodes
-		graphData.nodes = graphData.nodes.filter((n) => !removedNodeIds.has(String(n.id).trim()));
+		globalState.graphData.nodes = globalState.graphData.nodes.filter((n) => !removedNodeIds.has(String(n.id).trim()));
 
 		// Remove links connecting to any removed node
-		graphData.links = graphData.links.filter((l) => {
+		globalState.graphData.links = globalState.graphData.links.filter((l) => {
 			const s = String(l.source?.id ?? l.source).trim();
 			const t = String(l.target?.id ?? l.target).trim();
 			return !removedNodeIds.has(s) && !removedNodeIds.has(t);
@@ -4165,30 +4166,30 @@ function removeSelectionLogEntry(entryId: string) {
 
 		// Clean up selected/highlighted/visited sets for all removed nodes
 		for (const removedId of removedNodeIds) {
-			if (selectedId && String(selectedId).trim() === removedId) {
-				selectedId = null;
+			if (globalState.selectedId && String(globalState.selectedId).trim() === removedId) {
+				globalState.selectedId = null;
 				sidebarSelectedNode = null;
 				sidebarViewMode = 'none';
 				showSidebarHint();
 				emitSelectedNodeRoute(null, { replace: true });
 			}
-			highlightedSelections = highlightedSelections.filter((sel) => String(sel.id).trim() !== removedId);
-			persistentSelectedIds.delete(removedId);
-			visitedNodeIds.delete(removedId);
+			globalState.highlightedSelections = globalState.highlightedSelections.filter((sel) => String(sel.id).trim() !== removedId);
+			globalState.persistentSelectedIds.delete(removedId);
+			globalState.visitedNodeIds.delete(removedId);
 
-			if (initialServerNodeIds instanceof Set) {
-				initialServerNodeIds.delete(removedId);
+			if (globalState.initialServerNodeIds instanceof Set) {
+				globalState.initialServerNodeIds.delete(removedId);
 			}
-			if (initialServerLinkKeys instanceof Set) {
-				for (const key of Array.from(initialServerLinkKeys)) {
-					if (key.startsWith(`${removedId}|`) || key.endsWith(`|${removedId}`)) {
-						initialServerLinkKeys.delete(key);
+			if (globalState.initialServerLinkKeys instanceof Set) {
+				for (const key of Array.from(globalState.initialServerLinkKeys)) {
+					if ((key as string).startsWith(`${removedId}|`) || (key as string).endsWith(`|${removedId}`)) {
+						globalState.initialServerLinkKeys.delete(key);
 					}
 				}
 			}
 		}
 
-		renderGraph(graphData);
+		renderGraph(globalState.graphData);
 		updateMeta();
 		saveSession();
 	}
@@ -4220,20 +4221,20 @@ function clearSelectionLogEntriesByScope(scope: 'all' | 'people' | 'firms') {
 
 async function ensureNodeFetchedAndOnScreen(entry: SelectionLogEntry) {
 	const entryId = entry.id;
-	const isOnScreen = Array.isArray(layoutNodes) && layoutNodes.some((n) => String(n.id).trim() === String(entryId).trim());
+	const isOnScreen = Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.some((n) => String(n.id).trim() === String(entryId).trim());
 	if (isOnScreen) {
-		const liveNode = layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
+		const liveNode = globalState.layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
 		if (liveNode) {
 			selectNode(liveNode, { focus: true, pulse: true });
 		}
 		return;
 	}
 
-	if (graphData && Array.isArray(graphData.nodes)) {
-		const nodeInGraph = graphData.nodes.find((n) => String(n.id).trim() === String(entryId).trim());
+	if (globalState.graphData && Array.isArray(globalState.graphData.nodes)) {
+		const nodeInGraph = globalState.graphData.nodes.find((n) => String(n.id).trim() === String(entryId).trim());
 		if (nodeInGraph) {
 			injectNodesById([entryId]);
-			const liveNode = layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
+			const liveNode = globalState.layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
 			if (liveNode) {
 				selectNode(liveNode, { focus: true, pulse: true });
 			}
@@ -4247,11 +4248,11 @@ async function ensureNodeFetchedAndOnScreen(entry: SelectionLogEntry) {
 	updateFetchStatus(`Fetching CRD ${crd} into graph...`, true);
 	try {
 		const success = await fetchAndInjectLocalQuery(crd);
-		if (success && graphData && Array.isArray(graphData.nodes)) {
-			const nodeInGraph = graphData.nodes.find((n) => String(n.id).trim() === String(entryId).trim());
+		if (success && globalState.graphData && Array.isArray(globalState.graphData.nodes)) {
+			const nodeInGraph = globalState.graphData.nodes.find((n) => String(n.id).trim() === String(entryId).trim());
 			if (nodeInGraph) {
 				injectNodesById([entryId]);
-				const liveNode = layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
+				const liveNode = globalState.layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
 				if (liveNode) {
 					selectNode(liveNode, { focus: true, pulse: true });
 					updateFetchStatus(`Loaded CRD ${crd}`);
@@ -4398,13 +4399,13 @@ export function pruneGraphToSelectionLogEntries(
 
 /** Copy live simulation x/y onto graphData nodes so a full renderGraph rebuild keeps layout. */
 function syncLayoutPositionsIntoGraphDataNodes() {
-	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(layoutNodes) || !layoutNodes.length) return;
+	if (!globalState.graphData || !Array.isArray(globalState.graphData.nodes) || !Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length) return;
 	const liveById = new Map<string, any>();
-	for (const live of layoutNodes) {
+	for (const live of globalState.layoutNodes) {
 		const id = String(live?.id || '').trim();
 		if (id) liveById.set(id, live);
 	}
-	for (const node of graphData.nodes) {
+	for (const node of globalState.graphData.nodes) {
 		const id = String(node?.id || '').trim();
 		const live = id ? liveById.get(id) : null;
 		if (!live) continue;
@@ -4417,8 +4418,8 @@ function syncLayoutPositionsIntoGraphDataNodes() {
 
 function captureCurrentZoomTransform(): { x: number; y: number; k: number } | null {
 	try {
-		if (!svgSel?.node || !d3?.zoomTransform) return null;
-		const t = d3.zoomTransform(svgSel.node());
+		if (!globalState.svgSel?.node || !d3?.zoomTransform) return null;
+		const t = d3.zoomTransform(globalState.svgSel.node());
 		if (!Number.isFinite(t.x) || !Number.isFinite(t.y) || !Number.isFinite(t.k) || t.k <= 0) return null;
 		return { x: t.x, y: t.y, k: t.k };
 	} catch {
@@ -4427,9 +4428,9 @@ function captureCurrentZoomTransform(): { x: number; y: number; k: number } | nu
 }
 
 function restoreCapturedZoomTransform(saved: { x: number; y: number; k: number } | null) {
-	if (!saved || !zoomBehavior || !svgSel) return false;
+	if (!saved || !globalState.zoomBehavior || !globalState.svgSel) return false;
 	try {
-		svgSel.call(zoomBehavior.transform, d3.zoomIdentity.translate(saved.x, saved.y).scale(saved.k));
+		globalState.svgSel.call(globalState.zoomBehavior.transform, d3.zoomIdentity.translate(saved.x, saved.y).scale(saved.k));
 		return true;
 	} catch {
 		return false;
@@ -4438,17 +4439,17 @@ function restoreCapturedZoomTransform(saved: { x: number; y: number; k: number }
 
 /** After a prune rebuild, freeze nodes at their restored coordinates so the force sim cannot collapse them to the origin. */
 function pinLayoutNodesAtCurrentPositions(releaseAfterMs = 0) {
-	if (!Array.isArray(layoutNodes) || !layoutNodes.length) return;
-	for (const node of layoutNodes) {
+	if (!Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length) return;
+	for (const node of globalState.layoutNodes) {
 		if (!Number.isFinite(node?.x) || !Number.isFinite(node?.y)) continue;
 		node.fx = node.x;
 		node.fy = node.y;
 		node.vx = 0;
 		node.vy = 0;
 	}
-	if (simulation) {
+	if (globalState.simulation) {
 		try {
-			simulation.alpha(0).alphaTarget(0).stop();
+			globalState.simulation.alpha(0).alphaTarget(0).stop();
 		} catch {
 			/* ignore */
 		}
@@ -4456,8 +4457,8 @@ function pinLayoutNodesAtCurrentPositions(releaseAfterMs = 0) {
 	// releaseAfterMs <= 0 keeps pins until the user drags (fluidDrag clears fx/fy).
 	if (!(releaseAfterMs > 0) || typeof window === 'undefined' || typeof window.setTimeout !== 'function') return;
 	window.setTimeout(() => {
-		if (!Array.isArray(layoutNodes)) return;
-		for (const node of layoutNodes) {
+		if (!Array.isArray(globalState.layoutNodes)) return;
+		for (const node of globalState.layoutNodes) {
 			node.fx = null;
 			node.fy = null;
 		}
@@ -4465,31 +4466,31 @@ function pinLayoutNodesAtCurrentPositions(releaseAfterMs = 0) {
 }
 
 function pruneSelectionStateToKeptIds(keptNodeIds: Set<string>) {
-	if (selectedId && !keptNodeIds.has(String(selectedId).trim())) {
-		selectedId = null;
+	if (globalState.selectedId && !keptNodeIds.has(String(globalState.selectedId).trim())) {
+		globalState.selectedId = null;
 		sidebarSelectedNode = null;
 		sidebarViewMode = 'none';
 		showSidebarHint();
 		emitSelectedNodeRoute(null, { replace: true });
 	}
 
-	highlightedSelections = highlightedSelections.filter((selection) => keptNodeIds.has(String(selection?.id || '').trim()));
-	persistentSelectedIds = new Set(Array.from(persistentSelectedIds).filter((id) => keptNodeIds.has(String(id).trim())));
-	visitedNodeIds = new Set(Array.from(visitedNodeIds).filter((id) => keptNodeIds.has(String(id).trim())));
+	globalState.highlightedSelections = globalState.highlightedSelections.filter((selection) => keptNodeIds.has(String(selection?.id || '').trim()));
+	globalState.persistentSelectedIds = new Set(Array.from(globalState.persistentSelectedIds).filter((id) => keptNodeIds.has(String(id).trim())));
+	globalState.visitedNodeIds = new Set(Array.from(globalState.visitedNodeIds).filter((id) => keptNodeIds.has(String(id).trim())));
 
-	if (initialServerNodeIds instanceof Set) {
-		for (const nodeId of Array.from(initialServerNodeIds)) {
+	if (globalState.initialServerNodeIds instanceof Set) {
+		for (const nodeId of Array.from(globalState.initialServerNodeIds)) {
 			if (!keptNodeIds.has(String(nodeId).trim())) {
-				initialServerNodeIds.delete(nodeId);
+				globalState.initialServerNodeIds.delete(nodeId);
 			}
 		}
 	}
 
-	if (initialServerLinkKeys instanceof Set) {
-		for (const key of Array.from(initialServerLinkKeys)) {
-			const [sourceId, targetId] = key.split('|');
+	if (globalState.initialServerLinkKeys instanceof Set) {
+		for (const key of Array.from(globalState.initialServerLinkKeys)) {
+			const [sourceId, targetId] = (key as string).split('|');
 			if (!keptNodeIds.has(String(sourceId).trim()) || !keptNodeIds.has(String(targetId).trim())) {
-				initialServerLinkKeys.delete(key);
+				globalState.initialServerLinkKeys.delete(key);
 			}
 		}
 	}
@@ -4497,28 +4498,28 @@ function pruneSelectionStateToKeptIds(keptNodeIds: Set<string>) {
 
 /** Fast path: remove exited nodes/links from the live SVG without a full renderGraph wipe. */
 function pruneLiveGraphDomToKeepIds(keepIds: Set<string>) {
-	if (!nodeGroup || !simulation || !Array.isArray(layoutNodes) || !Array.isArray(layoutLinks)) return false;
+	if (!globalState.nodeGroup || !globalState.simulation || !Array.isArray(globalState.layoutNodes) || !Array.isArray(globalState.layoutLinks)) return false;
 
-	const prevNodeCount = layoutNodes.length;
-	const prevLinkCount = layoutLinks.length;
-	layoutNodes = layoutNodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
-	layoutLinks = layoutLinks.filter((link) => {
+	const prevNodeCount = globalState.layoutNodes.length;
+	const prevLinkCount = globalState.layoutLinks.length;
+	globalState.layoutNodes = globalState.layoutNodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
+	globalState.layoutLinks = globalState.layoutLinks.filter((link) => {
 		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
 		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
 		return Boolean(sourceId && targetId && keepIds.has(sourceId) && keepIds.has(targetId));
 	});
-	const removedAnything = layoutNodes.length !== prevNodeCount || layoutLinks.length !== prevLinkCount;
+	const removedAnything = globalState.layoutNodes.length !== prevNodeCount || globalState.layoutLinks.length !== prevLinkCount;
 
-	resolveLinkEndpoints(layoutLinks, layoutNodes);
-	rebuildLayoutLinkIndexes(layoutLinks);
-	neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
-	setGraphLabelRenderMode(layoutNodes.length);
+	resolveLinkEndpoints(globalState.layoutLinks, globalState.layoutNodes);
+	rebuildLayoutLinkIndexes(globalState.layoutLinks);
+	globalState.neighborMap = buildNeighborMap(globalState.layoutNodes, globalState.layoutLinks);
+	setGraphLabelRenderMode(globalState.layoutNodes.length);
 
 	try {
 		if (removedAnything) {
-			const nodeJoin = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d: any) => String(d?.id || ''));
+			const nodeJoin = globalState.nodeGroup.selectAll('g.fg-node').data(globalState.layoutNodes, (d: any) => String(d?.id || ''));
 			nodeJoin.exit().remove();
-			nodeSel = nodeGroup.selectAll('g.fg-node');
+			globalState.nodeSel = globalState.nodeGroup.selectAll('g.fg-node');
 
 			// Cheap link/arrow DOM prune — avoid full layer restack/sort on large graphs.
 			const pruneLineSelection = (selection: any) => {
@@ -4531,60 +4532,60 @@ function pruneLiveGraphDomToKeepIds(keepIds: Set<string>) {
 					}
 				});
 			};
-			pruneLineSelection(linkBottomGroup?.selectAll('line'));
-			pruneLineSelection(linkMidGroup?.selectAll('line'));
-			pruneLineSelection(linkTopGroup?.selectAll('line'));
-			pruneLineSelection(arrowBottomGroup?.selectAll('line'));
-			pruneLineSelection(arrowMidGroup?.selectAll('line'));
-			pruneLineSelection(arrowTopGroup?.selectAll('line'));
-			linkSel = selectRenderedLinkLines();
-			arrowSel = selectRenderedArrowLines();
+			pruneLineSelection(globalState.linkBottomGroup?.selectAll('line'));
+			pruneLineSelection(globalState.linkMidGroup?.selectAll('line'));
+			pruneLineSelection(globalState.linkTopGroup?.selectAll('line'));
+			pruneLineSelection(globalState.arrowBottomGroup?.selectAll('line'));
+			pruneLineSelection(globalState.arrowMidGroup?.selectAll('line'));
+			pruneLineSelection(globalState.arrowTopGroup?.selectAll('line'));
+			globalState.linkSel = selectRenderedLinkLines();
+			globalState.arrowSel = selectRenderedArrowLines();
 		}
 	} catch {
 		return false;
 	}
 
 	try {
-		simulation.nodes(layoutNodes);
-		simulation.force('link')?.links(layoutLinks);
-		simulation.force('collision')?.radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
-		simulation.alpha(0).alphaTarget(0).stop();
+		globalState.simulation.nodes(globalState.layoutNodes);
+		globalState.simulation.force('link')?.links(globalState.layoutLinks);
+		globalState.simulation.force('collision')?.radius((d) => getNodeCollisionRadius(d, globalState.layoutNodes.length));
+		globalState.simulation.alpha(0).alphaTarget(0).stop();
 	} catch {
 		/* ignore */
 	}
 
 	pinLayoutNodesAtCurrentPositions(0);
 	if (removedAnything) {
-		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	}
 	return true;
 }
 
 function pruneGraphDataToKeepIds(keepIds: Set<string>) {
-	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return;
+	if (!globalState.graphData || !Array.isArray(globalState.graphData.nodes) || !Array.isArray(globalState.graphData.links)) return;
 	if (!keepIds || keepIds.size === 0) return;
 
 	// layoutNodes hold the live coordinates; graphData often does not. Sync before we mutate.
 	syncLayoutPositionsIntoGraphDataNodes();
 
-	const prevNodeCount = graphData.nodes.length;
-	const prevLinkCount = graphData.links.length;
-	graphData.nodes = graphData.nodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
-	graphData.links = graphData.links.filter((link) => {
+	const prevNodeCount = globalState.graphData.nodes.length;
+	const prevLinkCount = globalState.graphData.links.length;
+	globalState.graphData.nodes = globalState.graphData.nodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
+	globalState.graphData.links = globalState.graphData.links.filter((link) => {
 		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
 		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
 		return Boolean(sourceId && targetId && keepIds.has(sourceId) && keepIds.has(targetId));
 	});
-	const removedAnything = graphData.nodes.length !== prevNodeCount || graphData.links.length !== prevLinkCount;
+	const removedAnything = globalState.graphData.nodes.length !== prevNodeCount || globalState.graphData.links.length !== prevLinkCount;
 
-	const keptNodeIds = new Set<string>(graphData.nodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
+	const keptNodeIds = new Set<string>(globalState.graphData.nodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
 	pruneSelectionStateToKeptIds(keptNodeIds);
 
 	// Prefer incremental DOM pruning — a full renderGraph wipe on ~1k nodes blocks UI for seconds.
 	const didIncremental = pruneLiveGraphDomToKeepIds(keptNodeIds);
 	if (!didIncremental) {
 		const savedZoom = captureCurrentZoomTransform();
-		renderGraph(graphData, { freezeLayout: true, skipInitialZoom: Boolean(savedZoom) });
+		renderGraph(globalState.graphData, { freezeLayout: true, skipInitialZoom: Boolean(savedZoom) });
 		if (!restoreCapturedZoomTransform(savedZoom)) {
 			ensureGraphViewportVisible({ duration: 0 });
 		}
@@ -4621,7 +4622,7 @@ function isPersonNodeId(nodeId: string) {
 	const normalized = String(nodeId || '').trim();
 	if (!normalized) return false;
 	if (normalized.startsWith('person:')) return true;
-	const node = (Array.isArray(graphData?.nodes) ? graphData.nodes : []).find((entry) => String(entry?.id || '').trim() === normalized);
+	const node = (Array.isArray(globalState.graphData?.nodes) ? globalState.graphData.nodes : []).find((entry) => String(entry?.id || '').trim() === normalized);
 	return Boolean(node && (node.group === 'individual' || node.type === 'individual'));
 }
 
@@ -4640,7 +4641,7 @@ function isPersonEmploymentHistoryLink(link: any, personId: string) {
 }
 
 /** Employment-history link identity keys for one person in the current graph. */
-function collectPersonEmploymentHistoryLinkKeys(personId: string, links: Array<any> = graphData?.links || []) {
+function collectPersonEmploymentHistoryLinkKeys(personId: string, links: Array<any> = globalState.graphData?.links || []) {
 	const normalizedPersonId = String(personId || '').trim();
 	if (!normalizedPersonId || !Array.isArray(links)) return new Set<string>();
 	const keys = new Set<string>();
@@ -4653,8 +4654,8 @@ function collectPersonEmploymentHistoryLinkKeys(personId: string, links: Array<a
 
 function collectSelectedPersonNodeIds() {
 	const ids = new Set<string>();
-	if (selectedId && isPersonNodeId(String(selectedId))) ids.add(String(selectedId).trim());
-	for (const id of persistentSelectedIds) {
+	if (globalState.selectedId && isPersonNodeId(String(globalState.selectedId))) ids.add(String(globalState.selectedId).trim());
+	for (const id of globalState.persistentSelectedIds) {
 		const normalized = String(id || '').trim();
 		if (normalized && isPersonNodeId(normalized)) ids.add(normalized);
 	}
@@ -4670,7 +4671,7 @@ function clearPersonSelectionVisualState(nodeId: string) {
 		sidebarViewMode = 'none';
 		showSidebarHint();
 	}
-	if (!selectedId) {
+	if (!globalState.selectedId) {
 		emitSelectedNodeRoute(null, { replace: true });
 		updateFocusReadout(null);
 	}
@@ -4681,15 +4682,15 @@ function clearPersonSelectionVisualState(nodeId: string) {
  * that are no longer reachable. Mutates graphData only — caller should render once.
  */
 function stripPreviousEmploymentLinksAndUnreachable(logIds: Set<string>) {
-	if (!graphData || !Array.isArray(graphData.links) || !Array.isArray(graphData.nodes)) return;
+	if (!globalState.graphData || !Array.isArray(globalState.graphData.links) || !Array.isArray(globalState.graphData.nodes)) return;
 
-	const remainingLinks = graphData.links.filter((link) => !isPreviousEmploymentLink(link));
-	graphData.links = remainingLinks;
+	const remainingLinks = globalState.graphData.links.filter((link) => !isPreviousEmploymentLink(link));
+	globalState.graphData.links = remainingLinks;
 
-	const adj = buildUndirectedAdjacencyList(graphData.links);
+	const adj = buildUndirectedAdjacencyList(globalState.graphData.links);
 	const reachable = new Set<string>();
 	const queue: string[] = [];
-	const presentNodeIds = new Set<string>(graphData.nodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
+	const presentNodeIds = new Set<string>(globalState.graphData.nodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
 
 	for (const logId of logIds) {
 		if (!presentNodeIds.has(logId)) continue;
@@ -4710,8 +4711,8 @@ function stripPreviousEmploymentLinksAndUnreachable(logIds: Set<string>) {
 		if (presentNodeIds.has(logId)) reachable.add(logId);
 	}
 
-	graphData.nodes = graphData.nodes.filter((node) => reachable.has(String(node?.id || '').trim()));
-	graphData.links = graphData.links.filter((link) => {
+	globalState.graphData.nodes = globalState.graphData.nodes.filter((node) => reachable.has(String(node?.id || '').trim()));
+	globalState.graphData.links = globalState.graphData.links.filter((link) => {
 		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
 		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
 		return Boolean(sourceId && targetId && reachable.has(sourceId) && reachable.has(targetId));
@@ -4762,7 +4763,7 @@ function clearNonConnectedAction(button?: HTMLButtonElement) {
 		if (button) flashSelectionLogActionButton(button, 'Empty');
 		return;
 	}
-	const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, selectedNodesLog);
+	const keepIds = collectSelectionLogClearNonLogKeepIds(globalState.graphData, selectedNodesLog);
 	pruneGraphDataToKeepIds(keepIds);
 	if (button) flashSelectionLogActionButton(button, 'Step 1');
 }
@@ -4781,27 +4782,27 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 	const selectedPeople = collectSelectedPersonNodeIds();
 	const employmentKeysBefore = new Map<string, Set<string>>();
 	for (const personId of selectedPeople) {
-		employmentKeysBefore.set(personId, collectPersonEmploymentHistoryLinkKeys(personId, graphData?.links || []));
+		employmentKeysBefore.set(personId, collectPersonEmploymentHistoryLinkKeys(personId, globalState.graphData?.links || []));
 	}
 
 	// Single rebuild path: sync live positions, prune to log+bridges, strip previous-employment
 	// reachability, then render once. The old double-renderGraph wiped zoom and left nodes at 0,0.
 	syncLayoutPositionsIntoGraphDataNodes();
-	const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, selectedNodesLog);
-	graphData.nodes = (graphData.nodes || []).filter((node) => keepIds.has(String(node?.id || '').trim()));
-	graphData.links = (graphData.links || []).filter((link) => {
+	const keepIds = collectSelectionLogClearNonLogKeepIds(globalState.graphData, selectedNodesLog);
+	globalState.graphData.nodes = (globalState.graphData.nodes || []).filter((node) => keepIds.has(String(node?.id || '').trim()));
+	globalState.graphData.links = (globalState.graphData.links || []).filter((link) => {
 		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
 		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
 		return Boolean(sourceId && targetId && keepIds.has(sourceId) && keepIds.has(targetId));
 	});
 	stripPreviousEmploymentLinksAndUnreachable(logIds);
-	pruneGraphDataToKeepIds(new Set((graphData.nodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean)));
+	pruneGraphDataToKeepIds(new Set((globalState.graphData.nodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean)));
 
 	// Selected people who lost any employment-history links should no longer look selected.
 	for (const personId of selectedPeople) {
 		const beforeKeys = employmentKeysBefore.get(personId) || new Set<string>();
 		if (beforeKeys.size === 0) continue;
-		const afterKeys = collectPersonEmploymentHistoryLinkKeys(personId, graphData?.links || []);
+		const afterKeys = collectPersonEmploymentHistoryLinkKeys(personId, globalState.graphData?.links || []);
 		let removedAny = beforeKeys.size > afterKeys.size;
 		if (!removedAny) {
 			for (const key of beforeKeys) {
@@ -4816,10 +4817,10 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 
 	// Drop prior hop/line connection emphasis left over from earlier expansions.
 	// Avoid full clearHighlights() here — it re-walks every node/link and feels like another multi-second hitch.
-	highlightedSelections = [];
+	globalState.highlightedSelections = [];
 	logBoldHighlightRootsSuppressed = true;
-	hoveredNodeId = null;
-	focusedNodeId = null;
+	globalState.hoveredNodeId = null;
+	globalState.focusedNodeId = null;
 	try {
 		highlightLinks(computeHighlightState());
 		reapplySelectionState();
@@ -4874,12 +4875,12 @@ function toggleSelectToKeepMode(button?: HTMLButtonElement) {
 				.drag<Element, unknown>()
 				.on('start', (event) => {
 					if (!isSelectToKeepMode) return;
-					const transform = d3.zoomTransform(svgSel.node() as Element);
+					const transform = d3.zoomTransform(globalState.svgSel.node() as Element);
 					const [px, py] = transform.invert([event.x, event.y]);
 					selectToKeepCircle = { x: px, y: py, r: 0 };
-					if (rootGroup) rootGroup.selectAll('.fg-select-to-keep-ring').remove();
-					if (rootGroup) {
-						rootGroup
+					if (globalState.rootGroup) globalState.rootGroup.selectAll('.fg-select-to-keep-ring').remove();
+					if (globalState.rootGroup) {
+						globalState.rootGroup
 							.append('circle')
 							.attr('class', 'fg-select-to-keep-ring')
 							.attr('cx', px)
@@ -4893,17 +4894,17 @@ function toggleSelectToKeepMode(button?: HTMLButtonElement) {
 				})
 				.on('drag', (event) => {
 					if (!isSelectToKeepMode || !selectToKeepCircle) return;
-					const transform = d3.zoomTransform(svgSel.node() as Element);
+					const transform = d3.zoomTransform(globalState.svgSel.node() as Element);
 					const [px, py] = transform.invert([event.x, event.y]);
 					const dx = px - selectToKeepCircle.x;
 					const dy = py - selectToKeepCircle.y;
 					selectToKeepCircle.r = Math.sqrt(dx * dx + dy * dy);
-					if (rootGroup) rootGroup.select('.fg-select-to-keep-ring').attr('r', selectToKeepCircle.r);
+					if (globalState.rootGroup) globalState.rootGroup.select('.fg-select-to-keep-ring').attr('r', selectToKeepCircle.r);
 				});
 		}
 
 		// Disable zoom, enable drag on main
-		if (svgSel) svgSel.on('.zoom', null);
+		if (globalState.svgSel) globalState.svgSel.on('.zoom', null);
 		interactionTarget.on('.zoom', null); // just in case
 		interactionTarget.call(selectToKeepDragBehavior);
 	} else {
@@ -4914,11 +4915,11 @@ function toggleSelectToKeepMode(button?: HTMLButtonElement) {
 
 		// Remove circle
 		selectToKeepCircle = null;
-		if (rootGroup) rootGroup.selectAll('.fg-select-to-keep-ring').remove();
+		if (globalState.rootGroup) globalState.rootGroup.selectAll('.fg-select-to-keep-ring').remove();
 
 		// Restore zoom
 		interactionTarget.on('.drag', null);
-		if (zoomBehavior && svgSel) svgSel.call(zoomBehavior);
+		if (globalState.zoomBehavior && globalState.svgSel) globalState.svgSel.call(globalState.zoomBehavior);
 	}
 }
 
@@ -4934,8 +4935,8 @@ function applySelectToKeep(button?: HTMLButtonElement) {
 	const { x: cx, y: cy, r } = selectToKeepCircle;
 	const r2 = r * r;
 	const candidates =
-		Array.isArray(layoutNodes) && layoutNodes.length ? layoutNodes
-		: Array.isArray(graphData?.nodes) ? graphData.nodes
+		Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.length ? globalState.layoutNodes
+		: Array.isArray(globalState.graphData?.nodes) ? globalState.graphData.nodes
 		: [];
 
 	for (const node of candidates) {
@@ -5065,7 +5066,7 @@ function updateSelectionLogUI() {
 					:	'<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>';
 				const childNode = isSelectionLogChildNode(entry.id);
 				const secondaryLineHidden = childNode && clearedSelectionLogLabelNodeIds.has(String(entry.id).trim());
-				const isLabelShown = isSelectionLogBold && !clearedSelectionLogLabelNodeIds.has(String(entry.id)) && (layoutNodes || []).some((n) => String(n?.id) === String(entry.id));
+				const isLabelShown = isSelectionLogBold && !clearedSelectionLogLabelNodeIds.has(String(entry.id)) && (globalState.layoutNodes || []).some((n) => String(n?.id) === String(entry.id));
 				const labelToggleTitle = isLabelShown ? 'Hide large label' : 'Show large label';
 				const labelToggleDisabled = !isSelectionLogBold;
 				const labelToggleClass = `fg-log-label-toggle-btn${labelToggleDisabled ? ' is-disabled' : ''}`;
@@ -5349,40 +5350,40 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		// screen. The user's expectation is to remove everything not in the
 		// log (except for nodes that serve as connectors between log entries),
 		// so pass an empty extraKeepIds set here.
-		pruneGraphToSelectionLogEntries(graphData, selectedNodesLog, new Set<string>());
+		pruneGraphToSelectionLogEntries(globalState.graphData, selectedNodesLog, new Set<string>());
 
-		const keptNodeIds = new Set<string>((Array.isArray(graphData?.nodes) ? graphData.nodes : []).map((node) => String(node?.id || '').trim()).filter(Boolean));
+		const keptNodeIds = new Set<string>((Array.isArray(globalState.graphData?.nodes) ? globalState.graphData.nodes : []).map((node) => String(node?.id || '').trim()).filter(Boolean));
 
-		if (selectedId && !keptNodeIds.has(String(selectedId).trim())) {
-			selectedId = null;
+		if (globalState.selectedId && !keptNodeIds.has(String(globalState.selectedId).trim())) {
+			globalState.selectedId = null;
 			sidebarSelectedNode = null;
 			sidebarViewMode = 'none';
 			showSidebarHint();
 			emitSelectedNodeRoute(null, { replace: true });
 		}
 
-		highlightedSelections = highlightedSelections.filter((selection) => keptNodeIds.has(String(selection?.id || '').trim()));
-		persistentSelectedIds = new Set(Array.from(persistentSelectedIds).filter((id) => keptNodeIds.has(String(id).trim())));
-		visitedNodeIds = new Set(Array.from(visitedNodeIds).filter((id) => keptNodeIds.has(String(id).trim())));
+		globalState.highlightedSelections = globalState.highlightedSelections.filter((selection) => keptNodeIds.has(String(selection?.id || '').trim()));
+		globalState.persistentSelectedIds = new Set(Array.from(globalState.persistentSelectedIds).filter((id) => keptNodeIds.has(String(id).trim())));
+		globalState.visitedNodeIds = new Set(Array.from(globalState.visitedNodeIds).filter((id) => keptNodeIds.has(String(id).trim())));
 
-		if (initialServerNodeIds instanceof Set) {
-			for (const nodeId of Array.from(initialServerNodeIds)) {
+		if (globalState.initialServerNodeIds instanceof Set) {
+			for (const nodeId of Array.from(globalState.initialServerNodeIds)) {
 				if (!keptNodeIds.has(String(nodeId).trim())) {
-					initialServerNodeIds.delete(nodeId);
+					globalState.initialServerNodeIds.delete(nodeId);
 				}
 			}
 		}
 
-		if (initialServerLinkKeys instanceof Set) {
-			for (const key of Array.from(initialServerLinkKeys)) {
-				const [sourceId, targetId] = key.split('|');
+		if (globalState.initialServerLinkKeys instanceof Set) {
+			for (const key of Array.from(globalState.initialServerLinkKeys)) {
+				const [sourceId, targetId] = (key as string).split('|');
 				if (!keptNodeIds.has(String(sourceId).trim()) || !keptNodeIds.has(String(targetId).trim())) {
-					initialServerLinkKeys.delete(key);
+					globalState.initialServerLinkKeys.delete(key);
 				}
 			}
 		}
 
-		renderGraph(graphData);
+		renderGraph(globalState.graphData);
 		updateMeta();
 		saveSession();
 		syncSelectionLogActionButtonStates();
@@ -5400,30 +5401,30 @@ function isProfileEnabled(profile) {
 	return profile == null || profile.disabled !== true;
 }
 
-function getRefreshLayoutDurationMs(nodeCount = layoutNodes?.length || 0) {
+function getRefreshLayoutDurationMs(nodeCount = globalState.layoutNodes?.length || 0) {
 	if (nodeCount > 1000) return 1100;
 	if (nodeCount > 300) return 1300;
 	return 1500;
 }
 
 function stopNodePulseLoop() {
-	if (nodePulseInteractionCleanup) {
-		nodePulseInteractionCleanup();
-		nodePulseInteractionCleanup = null;
+	if (globalState.nodePulseInteractionCleanup) {
+		globalState.nodePulseInteractionCleanup();
+		globalState.nodePulseInteractionCleanup = null;
 	}
 	stopSearchPulseLoop();
-	if (nodePulseInterval) {
-		clearInterval(nodePulseInterval);
-		nodePulseInterval = null;
+	if (globalState.nodePulseInterval) {
+		clearInterval(globalState.nodePulseInterval);
+		globalState.nodePulseInterval = null;
 	}
-	if (nodePulseTimer) {
-		clearTimeout(nodePulseTimer);
-		nodePulseTimer = null;
+	if (globalState.nodePulseTimer) {
+		clearTimeout(globalState.nodePulseTimer);
+		globalState.nodePulseTimer = null;
 	}
 	// Remove any transient pulse rings immediately so clicks clear visual state
 	try {
-		if (nodeSel && typeof nodeSel.selectAll === 'function') {
-			nodeSel.selectAll('circle.fg-restore-ring, circle.fg-restore-ring--static').remove();
+		if (globalState.nodeSel && typeof globalState.nodeSel.selectAll === 'function') {
+			globalState.nodeSel.selectAll('circle.fg-restore-ring, circle.fg-restore-ring--static').remove();
 		}
 	} catch (e) {
 		/* ignore */
@@ -5455,9 +5456,9 @@ export function updateFocusReadout(node) {
 }
 
 function stopSearchPulseLoop() {
-	if (searchPulseInterval) {
-		clearInterval(searchPulseInterval);
-		searchPulseInterval = null;
+	if (globalState.searchPulseInterval) {
+		clearInterval(globalState.searchPulseInterval);
+		globalState.searchPulseInterval = null;
 	}
 }
 
@@ -5468,16 +5469,16 @@ function startSearchPulseLoop(id, { interval = 1400, immediate = true }: { inter
 	if (immediate) {
 		pulseNodeHighlightById(id, { duration: 900 });
 	}
-	searchPulseInterval = window.setInterval(() => {
+	globalState.searchPulseInterval = window.setInterval(() => {
 		pulseNodeHighlightById(id, { duration: 900 });
 	}, interval);
 }
 
 function armNodePulseStopOnInteraction() {
 	if (typeof window === 'undefined') return;
-	if (nodePulseInteractionCleanup) {
-		nodePulseInteractionCleanup();
-		nodePulseInteractionCleanup = null;
+	if (globalState.nodePulseInteractionCleanup) {
+		globalState.nodePulseInteractionCleanup();
+		globalState.nodePulseInteractionCleanup = null;
 	}
 
 	const stopOnInteraction = () => {
@@ -5489,7 +5490,7 @@ function armNodePulseStopOnInteraction() {
 		window.addEventListener(eventName, stopOnInteraction, listenerOptions);
 	});
 
-	nodePulseInteractionCleanup = () => {
+	globalState.nodePulseInteractionCleanup = () => {
 		events.forEach((eventName) => {
 			window.removeEventListener(eventName, stopOnInteraction, listenerOptions);
 		});
@@ -5533,7 +5534,7 @@ async function mapWithConcurrency<T, R>(items: T[], concurrency: number, worker:
 function rememberPersistentSelection(id: string | null | undefined) {
 	const normalized = String(id || '').trim();
 	if (!normalized) return;
-	persistentSelectedIds.add(normalized);
+	globalState.persistentSelectedIds.add(normalized);
 }
 
 function upsertHighlightedSelection(id, hops = getDefaultSelectionHops(), options: { replace?: boolean } = {}) {
@@ -5544,29 +5545,29 @@ function upsertHighlightedSelection(id, hops = getDefaultSelectionHops(), option
 	// Default: accumulate hop roots so prior selections still light their lines until Clear Highlight.
 	// replace: true is reserved for explicit reset-style selection if needed later.
 	if (replace) {
-		highlightedSelections = [{ id, hops: normalizedHops }];
+		globalState.highlightedSelections = [{ id, hops: normalizedHops }];
 		return;
 	}
-	highlightedSelections = highlightedSelections.filter((entry) => entry.id !== id);
-	highlightedSelections.push({ id, hops: normalizedHops });
+	globalState.highlightedSelections = globalState.highlightedSelections.filter((entry) => entry.id !== id);
+	globalState.highlightedSelections.push({ id, hops: normalizedHops });
 	// Bound storage above the live BFS cap so briefly-deselected roots can still return.
 	const maxStoredRoots = Math.max(MAX_HOP_HIGHLIGHT_ROOTS * 2, 96);
-	if (highlightedSelections.length > maxStoredRoots) {
-		highlightedSelections = highlightedSelections.slice(highlightedSelections.length - maxStoredRoots);
+	if (globalState.highlightedSelections.length > maxStoredRoots) {
+		globalState.highlightedSelections = globalState.highlightedSelections.slice(globalState.highlightedSelections.length - maxStoredRoots);
 	}
 }
 
 function setHoveredNode(id) {
 	const nextId = id ? String(id).trim() : null;
-	if (hoveredNodeId === nextId) return;
-	hoveredNodeId = nextId;
+	if (globalState.hoveredNodeId === nextId) return;
+	globalState.hoveredNodeId = nextId;
 	reapplySelectionState();
 }
 
 function setFocusedNode(id) {
 	const nextId = id ? String(id).trim() : null;
-	if (focusedNodeId === nextId) return;
-	focusedNodeId = nextId;
+	if (globalState.focusedNodeId === nextId) return;
+	globalState.focusedNodeId = nextId;
 	reapplySelectionState();
 }
 
@@ -5768,7 +5769,7 @@ function computeHighlightState() {
 
 	const activeFindId = activeFindMatchIndex >= 0 && Array.isArray(activeFindMatchOrder) ? activeFindMatchOrder[activeFindMatchIndex] : null;
 
-	const nodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
+	const nodeById = new Map<string, any>((globalState.layoutNodes || []).map((node) => [String(node.id), node]));
 
 	const logBoldNodeIds =
 		isSelectionLogBold && !logBoldHighlightRootsSuppressed && Array.isArray(selectedNodesLog) ?
@@ -5780,9 +5781,9 @@ function computeHighlightState() {
 				.reverse()
 		:	[];
 
-	const tempRoots = selectHopHighlightRoots(highlightedSelections, {
-		hoveredNodeId,
-		focusedNodeId,
+	const tempRoots = selectHopHighlightRoots(globalState.highlightedSelections, {
+		hoveredNodeId: globalState.hoveredNodeId,
+		focusedNodeId: globalState.focusedNodeId,
 		activeFindId,
 		logBoldNodeIds,
 	});
@@ -5791,8 +5792,8 @@ function computeHighlightState() {
 		return { rootIds, nodeIds, hopNodeIds, linkKeys };
 	}
 
-	const adjacency = new Map<string, Array<{ nodeId: string; link: any }>>((layoutNodes || []).map((node) => [String(node.id), []]));
-	(layoutLinks || []).forEach((link) => {
+	const adjacency = new Map<string, Array<{ nodeId: string; link: any }>>((globalState.layoutNodes || []).map((node) => [String(node.id), []]));
+	(globalState.layoutLinks || []).forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
 		if (!adjacency.has(sourceId)) adjacency.set(sourceId, []);
@@ -5840,7 +5841,7 @@ function computeHighlightState() {
 						entryId: entry.id,
 						neighborGroup: neighborNode?.group,
 						neighborId: nodeId,
-						hoveredNodeId,
+						hoveredNodeId: globalState.hoveredNodeId,
 					})
 				) {
 					return;
@@ -5862,8 +5863,8 @@ function computeHighlightState() {
 	// Hover must always highlight incident lines, even when the hovered node is already a
 	// firm selection root (selectHopHighlightRoots de-dupes that id as isSelection=true,
 	// which would otherwise keep person edges suppressed).
-	if (hoveredNodeId) {
-		walkHighlightRoot({ id: String(hoveredNodeId), hops: 1, isSelection: false }, { ignoreFirmSelectionSuppress: true });
+	if (globalState.hoveredNodeId) {
+		walkHighlightRoot({ id: String(globalState.hoveredNodeId), hops: 1, isSelection: false }, { ignoreFirmSelectionSuppress: true });
 	}
 
 	return { rootIds, nodeIds, hopNodeIds, linkKeys };
@@ -5877,11 +5878,11 @@ function startNodePulseLoop(id, { interval = 1400, immediate = true, startDelayM
 		if (immediate) {
 			pulseNodeHighlightById(id, { duration: 900 });
 		}
-		nodePulseInterval = setInterval(() => pulseNodeHighlightById(id, { duration: 900 }), interval);
+		globalState.nodePulseInterval = setInterval(() => pulseNodeHighlightById(id, { duration: 900 }), interval);
 	};
 	if (startDelayMs > 0) {
-		nodePulseTimer = setTimeout(() => {
-			nodePulseTimer = null;
+		globalState.nodePulseTimer = setTimeout(() => {
+			globalState.nodePulseTimer = null;
 			beginPulseLoop();
 		}, startDelayMs);
 		return;
@@ -5908,17 +5909,17 @@ function startMultiNodePulseLoop(ids: Array<string | number>, options: { duratio
 			/* ignore */
 		}
 		// Ensure we clear any timers after the duration so stopNodePulseLoop won't linger
-		nodePulseTimer = setTimeout(
+		globalState.nodePulseTimer = setTimeout(
 			() => {
-				nodePulseTimer = null;
+				globalState.nodePulseTimer = null;
 				stopNodePulseLoop();
 			},
 			duration + ids.length * 120,
 		);
 	};
 	if (startDelayMs > 0) {
-		nodePulseTimer = setTimeout(() => {
-			nodePulseTimer = null;
+		globalState.nodePulseTimer = setTimeout(() => {
+			globalState.nodePulseTimer = null;
 			begin();
 		}, startDelayMs);
 		return;
@@ -5941,8 +5942,8 @@ function resolveCssColorValue(value, fallback = '#18a0fb') {
 
 function pulseNodeHighlightById(id, { duration = 600, stroke = GRAPH_COLORS.nodePulse }: { duration?: number; stroke?: string } = {}) {
 	try {
-		if (!nodeSel) return;
-		const selectedNode = nodeSel.filter((nodeDatum) => nodeDatum.id === id);
+		if (!globalState.nodeSel) return;
+		const selectedNode = globalState.nodeSel.filter((nodeDatum) => nodeDatum.id === id);
 
 		if (!selectedNode || typeof selectedNode.empty !== 'function' || selectedNode.empty()) return;
 
@@ -6019,31 +6020,31 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 		: session?.selectedNodeId ? [{ id: session.selectedNodeId, hops: currentHopDefaults.selection }]
 		: [];
 
-	if (selectionRestoreTimer) {
-		clearTimeout(selectionRestoreTimer);
-		selectionRestoreTimer = null;
+	if (globalState.selectionRestoreTimer) {
+		clearTimeout(globalState.selectionRestoreTimer);
+		globalState.selectionRestoreTimer = null;
 	}
 
 	const restoreSelection = () => {
-		selectionRestoreTimer = null;
+		globalState.selectionRestoreTimer = null;
 
 		if (!restoredHighlights.length) {
-			selectedId =
-				typeof session?.selectedNodeId === 'string' && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === session.selectedNodeId) ? session.selectedNodeId : null;
-			highlightedSelections = [];
+			globalState.selectedId =
+				typeof session?.selectedNodeId === 'string' && Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.some((node) => node.id === session.selectedNodeId) ? session.selectedNodeId : null;
+			globalState.highlightedSelections = [];
 			reapplySelectionState();
 
 			// Notify canvas renderer (Pixi) that a selection was restored so it
 			// can mark the node visually (canvas keeps its own selected set).
 			try {
-				if (typeof window !== 'undefined' && selectedId) {
-					window.dispatchEvent(new CustomEvent(ROUTE_NODE_REQUEST_EVENT, { detail: { nodeId: selectedId } }));
+				if (typeof window !== 'undefined' && globalState.selectedId) {
+					window.dispatchEvent(new CustomEvent(ROUTE_NODE_REQUEST_EVENT, { detail: { nodeId: globalState.selectedId } }));
 				}
 			} catch (e) {
 				/* ignore */
 			}
 
-			const selectedNode = Array.isArray(layoutNodes) ? layoutNodes.find((entry) => entry.id === selectedId) : null;
+			const selectedNode = Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.find((entry) => entry.id === globalState.selectedId) : null;
 			if (!selectedNode) return;
 			resetTransientDetailState(selectedNode);
 			sidebarSelectedNode = selectedNode;
@@ -6063,7 +6064,7 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 		// races ahead of this deferred restore. That call adds its own single-node highlight to
 		// highlightedSelections before this timer fires, so unioning here (instead of overwriting)
 		// ensures the full previously-selected set survives a graph -> dashboard -> graph round trip.
-		const preRestoreHighlights = Array.isArray(highlightedSelections) ? highlightedSelections : [];
+		const preRestoreHighlights = Array.isArray(globalState.highlightedSelections) ? globalState.highlightedSelections : [];
 		const mergedHighlightsById = new Map<string, { id: string; hops: any }>();
 		for (const entry of restoredHighlights) {
 			const id = entry?.id ? String(entry.id).trim() : '';
@@ -6079,32 +6080,32 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 			mergedHighlightsById.set(id, { id, hops: normalizeHighlightHops(entry?.hops ?? currentHopDefaults.selection) });
 		}
 
-		highlightedSelections = Array.from(mergedHighlightsById.values()).filter((entry) => entry.id && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === entry.id));
+		globalState.highlightedSelections = Array.from(mergedHighlightsById.values()).filter((entry) => entry.id && Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.some((node) => node.id === entry.id));
 
 		// Restore durable selected-node chrome (survives Clear Highlight).
 		const restoredSelectedIds = Array.isArray(session?.selectedNodeIds) ? session.selectedNodeIds : [];
 		const nextPersistent = new Set<string>();
 		for (const id of restoredSelectedIds) {
 			const normalized = String(id || '').trim();
-			if (normalized && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === normalized)) {
+			if (normalized && Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.some((node) => node.id === normalized)) {
 				nextPersistent.add(normalized);
 			}
 		}
-		for (const entry of highlightedSelections) {
+		for (const entry of globalState.highlightedSelections) {
 			if (entry?.id) nextPersistent.add(String(entry.id));
 		}
 		if (session?.selectedNodeId) nextPersistent.add(String(session.selectedNodeId));
-		persistentSelectedIds = nextPersistent;
+		globalState.persistentSelectedIds = nextPersistent;
 
-		selectedId =
-			(Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === selectedId) ? selectedId : null) ||
-			highlightedSelections.find((entry) => entry.id === session?.selectedNodeId)?.id ||
-			highlightedSelections[highlightedSelections.length - 1]?.id ||
+		globalState.selectedId =
+			(Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.some((node) => node.id === globalState.selectedId) ? globalState.selectedId : null) ||
+			globalState.highlightedSelections.find((entry) => entry.id === session?.selectedNodeId)?.id ||
+			globalState.highlightedSelections[globalState.highlightedSelections.length - 1]?.id ||
 			null;
 
 		reapplySelectionState();
 
-		const node = Array.isArray(layoutNodes) ? layoutNodes.find((entry) => entry.id === selectedId) : null;
+		const node = Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.find((entry) => entry.id === globalState.selectedId) : null;
 		if (!node) return;
 		resetTransientDetailState(node);
 		sidebarSelectedNode = node;
@@ -6129,7 +6130,7 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 	};
 
 	if (delayMs > 0) {
-		selectionRestoreTimer = setTimeout(restoreSelection, delayMs);
+		globalState.selectionRestoreTimer = setTimeout(restoreSelection, delayMs);
 	} else {
 		restoreSelection();
 	}
@@ -6190,15 +6191,15 @@ function buildSyntheticFirmNodeId(label) {
 }
 
 function findExistingPersonNode(crd) {
-	return findExistingPersonNodeImpl(crd, layoutNodes);
+	return findExistingPersonNodeImpl(crd, globalState.layoutNodes);
 }
 
 function findFirmNodeByLabel(label) {
-	return findFirmNodeByLabelImpl(label, layoutNodes);
+	return findFirmNodeByLabelImpl(label, globalState.layoutNodes);
 }
 
 function findExistingFirmNode(firmId, { label = '' }: { label?: string } = {}) {
-	return findExistingFirmNodeImpl(firmId, layoutNodes, { label });
+	return findExistingFirmNodeImpl(firmId, globalState.layoutNodes, { label });
 }
 
 function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
@@ -6208,10 +6209,10 @@ function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 async function restoreSavedSession(session) {
 	if (!session || session.cleared) return;
 
-	const renderedIds = new Set(layoutNodes.map((n) => n.id));
+	const renderedIds = new Set(globalState.layoutNodes.map((n) => n.id));
 
 	if (Array.isArray(session.visitedNodeIds)) {
-		visitedNodeIds = new Set(session.visitedNodeIds);
+		globalState.visitedNodeIds = new Set(session.visitedNodeIds);
 	}
 
 	const missingServerIds = (session.renderedServerIds || []).filter((id) => !renderedIds.has(id));
@@ -6224,9 +6225,9 @@ async function restoreSavedSession(session) {
 		restoredExtraNodes.forEach((node) => resetTransientDetailState(node));
 		const normalized = normalizeGraphPayloadByIdentity(restoredExtraNodes, session.extraLinks || []);
 		mergeIntoGraphData(normalized.nodes, normalized.links);
-		appendFetched(normalized.nodes, normalized.links);
+		globalState.appendFetched(normalized.nodes, normalized.links);
 	} else if (session.extraNodeIds?.length) {
-		const missingExtraNodeIds = session.extraNodeIds.filter((id) => !layoutNodes.some((node) => node.id === id));
+		const missingExtraNodeIds = session.extraNodeIds.filter((id) => !globalState.layoutNodes.some((node) => node.id === id));
 		if (missingExtraNodeIds.length) {
 			injectNodesById(missingExtraNodeIds, { skipPersist: true });
 		}
@@ -6240,8 +6241,8 @@ async function restoreSavedSession(session) {
 
 	try {
 		const parsed = parseZoomTransformString(session.zoomTransform);
-		if (parsed && zoomBehavior && svgSel && typeof svgSel.call === 'function') {
-			svgSel.call(zoomBehavior.transform, d3.zoomIdentity.translate(parsed.x, parsed.y).scale(parsed.k));
+		if (parsed && globalState.zoomBehavior && globalState.svgSel && typeof globalState.svgSel.call === 'function') {
+			globalState.svgSel.call(globalState.zoomBehavior.transform, d3.zoomIdentity.translate(parsed.x, parsed.y).scale(parsed.k));
 		}
 	} catch {
 		// non-critical
@@ -6276,7 +6277,7 @@ async function restoreSavedSession(session) {
 	// emphasis cannot leave the whole canvas looking washed out.
 	try {
 		refreshRenderedLinkStrokeWidthsForZoom();
-		if (linkSel) {
+		if (globalState.linkSel) {
 			highlightLinks(computeHighlightState());
 		}
 	} catch {
@@ -6294,47 +6295,47 @@ export function clearSelectionState(_state: { selectedId?: string | null; highli
 }
 
 function clearGraphData() {
-	graphData = { nodes: [], links: [], meta: {} };
-	sessionPersistenceMode = 'full';
-	initialServerNodeIds = new Set();
-	initialServerLinkKeys = new Set();
-	isSubsetMode = false;
+	globalState.graphData = { nodes: [], links: [], meta: {} };
+	globalState.sessionPersistenceMode = 'full';
+	globalState.initialServerNodeIds = new Set();
+	globalState.initialServerLinkKeys = new Set();
+	globalState.isSubsetMode = false;
 	clearFetchStatus();
-	allowFirstFetchZoom = true;
-	hasUserInitiatedGraphExpansion = false;
+	globalState.allowFirstFetchZoom = true;
+	globalState.hasUserInitiatedGraphExpansion = false;
 	const resetSelectionState = clearSelectionState();
-	selectedId = resetSelectionState.selectedId;
-	highlightedSelections = resetSelectionState.highlightedSelections;
-	persistentSelectedIds = new Set(resetSelectionState.persistentSelectedIds || []);
+	globalState.selectedId = resetSelectionState.selectedId;
+	globalState.highlightedSelections = resetSelectionState.highlightedSelections;
+	globalState.persistentSelectedIds = new Set(resetSelectionState.persistentSelectedIds || []);
 	updateFocusReadout(null);
-	visitedNodeIds.clear();
+	globalState.visitedNodeIds.clear();
 	sidebarSelectedNode = resetSelectionState.sidebarSelectedNode;
 	sidebarViewMode = 'none';
 	stopNodePulseLoop();
 	clearSubsetInfo();
-	renderGraph(graphData);
+	renderGraph(globalState.graphData);
 	updateMeta({ totalIndividuals: 0, totalFirms: 0, totalLinks: 0 });
 	showSidebarHint();
 	showEmpty(true);
 }
 
 function renderBaselineGraphData() {
-	if (!graphData) return null;
-	const hasGraphContent = Boolean((graphData?.nodes?.length || 0) > 0 || (graphData?.links?.length || 0) > 0);
-	updateMeta(graphData.meta);
-	const totalNodes = graphData.meta?.totalNodes ?? graphData.nodes.length;
-	if (totalNodes > graphData.nodes.length) {
-		isSubsetMode = true;
-		updateSubsetInfo(graphData.nodes.length, totalNodes);
+	if (!globalState.graphData) return null;
+	const hasGraphContent = Boolean((globalState.graphData?.nodes?.length || 0) > 0 || (globalState.graphData?.links?.length || 0) > 0);
+	updateMeta(globalState.graphData.meta);
+	const totalNodes = globalState.graphData.meta?.totalNodes ?? globalState.graphData.nodes.length;
+	if (totalNodes > globalState.graphData.nodes.length) {
+		globalState.isSubsetMode = true;
+		updateSubsetInfo(globalState.graphData.nodes.length, totalNodes);
 		const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
 		if (sel) sel.value = String(INITIAL_SEED_COUNT);
-		renderGraph(graphData);
+		renderGraph(globalState.graphData);
 	} else {
-		isSubsetMode = false;
+		globalState.isSubsetMode = false;
 		clearSubsetInfo();
 		const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
 		if (sel) sel.value = 'all';
-		renderGraph(graphData);
+		renderGraph(globalState.graphData);
 	}
 	if (!hasGraphContent) {
 		sidebarSelectedNode = null;
@@ -6342,7 +6343,7 @@ function renderBaselineGraphData() {
 		showSidebarHint();
 	}
 	showEmpty(!hasGraphContent);
-	return graphData;
+	return globalState.graphData;
 }
 
 async function loadBaselineGraph(profileName, { suppressRender = false }: { suppressRender?: boolean } = {}) {
@@ -6371,18 +6372,18 @@ async function loadBaselineGraph(profileName, { suppressRender = false }: { supp
 		}
 		throw new Error(`HTTP ${res.status}`);
 	}
-	graphData = await res.json();
-	sessionPersistenceMode = 'full';
-	normalizeNodeLabelsInPlace(graphData?.nodes || []);
-	initialServerNodeIds = new Set(graphData.nodes.map((n) => n.id));
-	initialServerLinkKeys = new Set(
-		graphData.links.map((l) => {
+	globalState.graphData = await res.json();
+	globalState.sessionPersistenceMode = 'full';
+	normalizeNodeLabelsInPlace(globalState.graphData?.nodes || []);
+	globalState.initialServerNodeIds = new Set(globalState.graphData.nodes.map((n) => n.id));
+	globalState.initialServerLinkKeys = new Set(
+		globalState.graphData.links.map((l) => {
 			const s = l.source?.id ?? l.source;
 			const t = l.target?.id ?? l.target;
 			return `${s}|${t}`;
 		}),
 	);
-	if (suppressRender) return graphData;
+	if (suppressRender) return globalState.graphData;
 	return renderBaselineGraphData();
 }
 
@@ -6459,7 +6460,7 @@ function hideSessionRestoreChrome() {
 	document.getElementById('fg-session-prompt')?.classList.add('hidden');
 	document.getElementById('fg-session-loader')?.classList.add('hidden');
 	empty?.classList.remove('fg-empty--session-restore');
-	const hasNodes = Boolean((Array.isArray(layoutNodes) && layoutNodes.length) || (Array.isArray(graphData?.nodes) && graphData.nodes.length));
+	const hasNodes = Boolean((Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.length) || (Array.isArray(globalState.graphData?.nodes) && globalState.graphData.nodes.length));
 	if (hasNodes) {
 		// Always clear the full-viewport empty overlay after restore. Hiding only the
 		// prompt/loader cards left a blank dimmed #fg-empty covering the graph, and
@@ -6468,7 +6469,7 @@ function hideSessionRestoreChrome() {
 		document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
 		const canvas = document.getElementById('fg-canvas');
 		if (canvas) canvas.style.visibility = 'visible';
-		if (activeFetchStatusMessage === 'Restoring previous session…') {
+		if (globalState.activeFetchStatusMessage === 'Restoring previous session…') {
 			updateFetchStatus('Session restored');
 		}
 		return;
@@ -6545,7 +6546,7 @@ async function restoreSelectionLogOnlyGraph() {
 	const stubs = buildSelectionLogStubNodes(selectedNodesLog);
 	if (stubs.length) {
 		mergeIntoGraphData(stubs, []);
-		appendFetched?.(stubs, []);
+		globalState.appendFetched?.(stubs, []);
 		showEmpty(false);
 		document.getElementById('fg-empty-default')?.classList.add('hidden');
 		document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
@@ -6562,7 +6563,7 @@ async function restoreSelectionLogOnlyGraph() {
 	applySelectionLogLabelState();
 	saveSession();
 	hideSessionRestoreChrome();
-	const hasNodes = Boolean(layoutNodes?.length);
+	const hasNodes = Boolean(globalState.layoutNodes?.length);
 	showEmpty(!hasNodes);
 	if (!hasNodes) {
 		document.getElementById('fg-empty-default')?.classList.remove('hidden');
@@ -6581,7 +6582,7 @@ async function restoreSelectionLogOnlyGraph() {
 			applySelectionLogLabelState();
 			saveSession();
 			void fetchCacheStats();
-			updateFetchStatus(`Loaded ${layoutNodes?.length || 0} log nodes`);
+			updateFetchStatus(`Loaded ${globalState.layoutNodes?.length || 0} log nodes`);
 		})
 		.catch((error) => {
 			console.warn('Background log-list hydrate failed:', error);
@@ -6646,10 +6647,10 @@ function parseZoomTransformString(t) {
 }
 
 function applySavedNodePositions(savedPositions) {
-	if (!Array.isArray(savedPositions) || !layoutNodes || !simulation) return;
+	if (!Array.isArray(savedPositions) || !globalState.layoutNodes || !globalState.simulation) return;
 
 	const byId = new Map(savedPositions.map((p) => [p.id, p]));
-	layoutNodes.forEach((n) => {
+	globalState.layoutNodes.forEach((n) => {
 		const p = byId.get(n.id);
 		if (!p) return;
 		if (Number.isFinite(p.x)) n.x = p.x;
@@ -6659,21 +6660,21 @@ function applySavedNodePositions(savedPositions) {
 		n.fy = null;
 	});
 
-	if (linkSel) {
-		linkSel
+	if (globalState.linkSel) {
+		globalState.linkSel
 			.attr('x1', (d) => d.source.x)
 			.attr('y1', (d) => d.source.y)
 			.attr('x2', (d) => d.target.x)
 			.attr('y2', (d) => d.target.y);
 	}
-	if (nodeSel) {
-		nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
+	if (globalState.nodeSel) {
+		globalState.nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	}
 
-	simulation.alpha(0).restart();
+	globalState.simulation.alpha(0).restart();
 }
 
-export function buildSessionRenderGraphData(session, baseGraphData = graphData) {
+export function buildSessionRenderGraphData(session, baseGraphData = globalState.graphData) {
 	if (!baseGraphData || !Array.isArray(baseGraphData.nodes) || !Array.isArray(baseGraphData.links)) return null;
 
 	const requestedIds = new Set(
@@ -6748,28 +6749,28 @@ export function buildSessionRenderGraphData(session, baseGraphData = graphData) 
 }
 
 function renderSavedSessionGraph(session) {
-	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return false;
+	if (!globalState.graphData || !Array.isArray(globalState.graphData.nodes) || !Array.isArray(globalState.graphData.links)) return false;
 
-	const sessionGraphData = buildSessionRenderGraphData(session, graphData);
+	const sessionGraphData = buildSessionRenderGraphData(session, globalState.graphData);
 	if (!sessionGraphData || !Array.isArray(sessionGraphData.nodes) || !Array.isArray(sessionGraphData.links)) return false;
 
 	const sessionNodes = sessionGraphData.nodes;
 	if (!sessionNodes.length) return false;
 
-	isSubsetMode = sessionNodes.length < graphData.nodes.length;
-	if (isSubsetMode) {
-		updateSubsetInfo(sessionNodes.length, graphData.nodes.length);
+	globalState.isSubsetMode = sessionNodes.length < globalState.graphData.nodes.length;
+	if (globalState.isSubsetMode) {
+		updateSubsetInfo(sessionNodes.length, globalState.graphData.nodes.length);
 	} else {
 		clearSubsetInfo();
 	}
 
 	renderGraph({
-		...graphData,
+		...globalState.graphData,
 		nodes: sessionNodes,
 		links: sessionGraphData.links,
 	});
 	showEmpty(false);
-	updateMeta(graphData.meta);
+	updateMeta(globalState.graphData.meta);
 	return true;
 }
 
@@ -6857,7 +6858,7 @@ function getVisibleGraphViewport() {
 	};
 }
 
-function getLayoutBounds(nodes = layoutNodes) {
+function getLayoutBounds(nodes = globalState.layoutNodes) {
 	if (!Array.isArray(nodes) || !nodes.length) return null;
 
 	let minX = Infinity;
@@ -6891,15 +6892,15 @@ function getLayoutBounds(nodes = layoutNodes) {
 }
 
 function getGraphViewportMetrics() {
-	if (!svgSel || typeof svgSel.node !== 'function' || !layoutNodes?.length) {
+	if (!globalState.svgSel || typeof globalState.svgSel.node !== 'function' || !globalState.layoutNodes?.length) {
 		return null;
 	}
 
-	const bounds = getLayoutBounds(layoutNodes);
+	const bounds = getLayoutBounds(globalState.layoutNodes);
 	if (!bounds) return null;
 
 	const { width, height } = getViewportSize();
-	const transform = d3.zoomTransform(svgSel.node());
+	const transform = d3.zoomTransform(globalState.svgSel.node());
 	// Detect and log invalid transforms (once) to help track down NaN origins.
 	try {
 		const tKey = `${String(transform?.x)}|${String(transform?.y)}|${String(transform?.k)}`;
@@ -6922,7 +6923,7 @@ function getGraphViewportMetrics() {
 	};
 
 	let visibleNodeCount = 0;
-	layoutNodes.forEach((node) => {
+	globalState.layoutNodes.forEach((node) => {
 		if (!Number.isFinite(node?.x) || !Number.isFinite(node?.y)) return;
 		const radius = (node._vizHalf ?? NODE_R[node.group] ?? 10) * k;
 		const sx = node.x * k + x;
@@ -6945,13 +6946,13 @@ function getGraphViewportMetrics() {
 }
 
 function recenterGraphViewport({ duration = 0, scale = null }: { duration?: number; scale?: number | null } = {}) {
-	if (!zoomBehavior || !svgSel || typeof svgSel.call !== 'function') return false;
+	if (!globalState.zoomBehavior || !globalState.svgSel || typeof globalState.svgSel.call !== 'function') return false;
 
-	const bounds = getLayoutBounds(layoutNodes);
+	const bounds = getLayoutBounds(globalState.layoutNodes);
 	if (!bounds) return false;
 
 	const { width, height } = getViewportSize();
-	const currentTransform = svgSel && typeof svgSel.node === 'function' ? d3.zoomTransform(svgSel.node()) : d3.zoomIdentity;
+	const currentTransform = globalState.svgSel && typeof globalState.svgSel.node === 'function' ? d3.zoomTransform(globalState.svgSel.node()) : d3.zoomIdentity;
 	const k =
 		Number.isFinite(scale) && scale > 0 ? scale
 		: Number.isFinite(currentTransform?.k) && currentTransform.k > 0 ? currentTransform.k
@@ -6960,9 +6961,9 @@ function recenterGraphViewport({ duration = 0, scale = null }: { duration?: numb
 	const target = d3.zoomIdentity.translate(width / 2 - bounds.centerX * k, height / 2 - bounds.centerY * k).scale(k);
 
 	if (duration > 0) {
-		svgSel.transition().duration(duration).call(zoomBehavior.transform, target);
+		globalState.svgSel.transition().duration(duration).call(globalState.zoomBehavior.transform, target);
 	} else {
-		svgSel.call(zoomBehavior.transform, target);
+		globalState.svgSel.call(globalState.zoomBehavior.transform, target);
 		try {
 			saveSession();
 		} catch {
@@ -6985,7 +6986,7 @@ function ensureGraphViewportVisible({ duration = 0 }: { duration?: number } = {}
 		metrics.screenBounds.top > metrics.height - padding;
 	const graphCenterOutOfView =
 		metrics.centerScreenX < padding || metrics.centerScreenX > metrics.width - padding || metrics.centerScreenY < padding || metrics.centerScreenY > metrics.height - padding;
-	const minimumVisibleNodes = Math.min(3, Math.max(1, Math.ceil(layoutNodes.length * 0.05)));
+	const minimumVisibleNodes = Math.min(3, Math.max(1, Math.ceil(globalState.layoutNodes.length * 0.05)));
 	const tooFewVisibleNodes = metrics.visibleNodeCount < minimumVisibleNodes;
 
 	if (!graphOutsideViewport && !(graphCenterOutOfView && tooFewVisibleNodes)) {
@@ -6999,14 +7000,14 @@ function ensureGraphViewportVisible({ duration = 0 }: { duration?: number } = {}
 }
 
 function refreshNodeLayout() {
-	if (!simulation || !Array.isArray(layoutNodes) || !layoutNodes.length) return;
+	if (!globalState.simulation || !Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length) return;
 
 	const main = document.getElementById('fg-main');
 	const width = main?.clientWidth || 800;
 	const height = main?.clientHeight || 600;
 	const centerX = width / 2;
 	const centerY = height / 2;
-	const nodeCount = layoutNodes.length;
+	const nodeCount = globalState.layoutNodes.length;
 	const isLarge = nodeCount > 300;
 	const isHuge = nodeCount > 1000;
 	const jitterBase =
@@ -7014,7 +7015,7 @@ function refreshNodeLayout() {
 		: isLarge ? 8
 		: 6;
 
-	layoutNodes.forEach((node, index) => {
+	globalState.layoutNodes.forEach((node, index) => {
 		node.fx = null;
 		node.fy = null;
 
@@ -7026,23 +7027,23 @@ function refreshNodeLayout() {
 			node.x = centerX + (Math.random() - 0.5) * 80;
 			node.y = centerY + (Math.random() - 0.5) * 80;
 		} else {
-			const angle = (index / Math.max(1, layoutNodes.length)) * Math.PI * 2;
+			const angle = (index / Math.max(1, globalState.layoutNodes.length)) * Math.PI * 2;
 			const jitter = jitterBase + (index % 3) * 1.25;
 			node.x += Math.cos(angle) * jitter + (Math.random() - 0.5) * 6;
 			node.y += Math.sin(angle) * jitter + (Math.random() - 0.5) * 6;
 		}
 	});
 
-	if (refreshLayoutStopTimer) {
-		clearTimeout(refreshLayoutStopTimer);
-		refreshLayoutStopTimer = null;
+	if (globalState.refreshLayoutStopTimer) {
+		clearTimeout(globalState.refreshLayoutStopTimer);
+		globalState.refreshLayoutStopTimer = null;
 	}
 
 	// Create a stable finalize function so other code (e.g. revealNeighbors)
 	// can delay the final stop briefly after newly-revealed nodes settle.
-	refreshFinalizeLayoutFn = () => {
-		simulation.alphaTarget(0);
-		refreshLayoutStopTimer = null;
+	globalState.refreshFinalizeLayoutFn = () => {
+		globalState.simulation.alphaTarget(0);
+		globalState.refreshLayoutStopTimer = null;
 		try {
 			saveSession();
 		} catch {
@@ -7052,8 +7053,8 @@ function refreshNodeLayout() {
 
 	// Let the refresh reheat briefly, then cool naturally to D3's alpha minimum.
 	// A non-zero alphaTarget keeps the simulation energized and prevents settling.
-	simulation.alphaTarget(0);
-	simulation
+	globalState.simulation.alphaTarget(0);
+	globalState.simulation
 		.alpha(
 			isHuge ? 0.28
 			: isLarge ? 0.34
@@ -7061,7 +7062,7 @@ function refreshNodeLayout() {
 		)
 		.restart();
 
-	simulation.on('end.refresh-layout', refreshFinalizeLayoutFn);
+	globalState.simulation.on('end.refresh-layout', globalState.refreshFinalizeLayoutFn);
 }
 
 function hasAffirmativeDisclosureFlag(value) {
@@ -7119,71 +7120,71 @@ setOnNodeClickCallback(handleNodeOpen);
 
 export function destroy() {
 	cancelGraphTickPositions();
-	if (spreadAnimId != null) {
-		cancelAnimationFrame(spreadAnimId);
-		spreadAnimId = null;
+	if (globalState.spreadAnimId != null) {
+		cancelAnimationFrame(globalState.spreadAnimId);
+		globalState.spreadAnimId = null;
 	}
-	for (const timer of [refreshLayoutStopTimer, selectionRestoreTimer, traceRefreshTimer, nodePulseTimer, spreadReleaseTimer, nodePinReleaseTimer]) {
+	for (const timer of [globalState.refreshLayoutStopTimer, globalState.selectionRestoreTimer, globalState.traceRefreshTimer, globalState.nodePulseTimer, globalState.spreadReleaseTimer, globalState.nodePinReleaseTimer]) {
 		if (timer != null) clearTimeout(timer);
 	}
-	refreshLayoutStopTimer = null;
-	selectionRestoreTimer = null;
-	traceRefreshTimer = null;
-	nodePulseTimer = null;
-	spreadReleaseTimer = null;
-	nodePinReleaseTimer = null;
-	refreshFinalizeLayoutFn = null;
-	if (nodePulseInterval) {
-		clearInterval(nodePulseInterval);
-		nodePulseInterval = null;
+	globalState.refreshLayoutStopTimer = null;
+	globalState.selectionRestoreTimer = null;
+	globalState.traceRefreshTimer = null;
+	globalState.nodePulseTimer = null;
+	globalState.spreadReleaseTimer = null;
+	globalState.nodePinReleaseTimer = null;
+	globalState.refreshFinalizeLayoutFn = null;
+	if (globalState.nodePulseInterval) {
+		clearInterval(globalState.nodePulseInterval);
+		globalState.nodePulseInterval = null;
 	}
-	if (searchPulseInterval) {
-		clearInterval(searchPulseInterval);
-		searchPulseInterval = null;
+	if (globalState.searchPulseInterval) {
+		clearInterval(globalState.searchPulseInterval);
+		globalState.searchPulseInterval = null;
 	}
-	if (nodePulseInteractionCleanup) {
-		nodePulseInteractionCleanup();
-		nodePulseInteractionCleanup = null;
+	if (globalState.nodePulseInteractionCleanup) {
+		globalState.nodePulseInteractionCleanup();
+		globalState.nodePulseInteractionCleanup = null;
 	}
-	if (metaPollId != null) {
-		clearInterval(metaPollId);
-		metaPollId = null;
+	if (globalState.metaPollId != null) {
+		clearInterval(globalState.metaPollId);
+		globalState.metaPollId = null;
 	}
-	if (resizeListenerBound && typeof window !== 'undefined') {
+	if (globalState.resizeListenerBound && typeof window !== 'undefined') {
 		window.removeEventListener('resize', onResize);
-		resizeListenerBound = false;
+		globalState.resizeListenerBound = false;
 	}
-	for (const [eventName, listener] of networkStatusListeners) {
+	for (const [eventName, listener] of globalState.networkStatusListeners) {
 		if (typeof window !== 'undefined') window.removeEventListener(eventName, listener);
 	}
-	networkStatusListeners = [];
-	networkStatusListenerBound = false;
-	if (simulation) {
-		simulation.stop();
-		simulation.on('tick', null);
-		simulation = null;
+	globalState.networkStatusListeners = [];
+	globalState.networkStatusListenerBound = false;
+	if (globalState.simulation) {
+		globalState.simulation.stop();
+		globalState.simulation.on('tick', null);
+		globalState.simulation = null;
 	}
 	try {
-		if (pixiApi && pixiApi.destroy) pixiApi.destroy();
-		if (canvasApi && canvasApi.destroy) canvasApi.destroy();
-		if (overlayApi && overlayApi.destroy) overlayApi.destroy();
+		if (globalState.pixiApi && globalState.pixiApi.destroy) globalState.pixiApi.destroy();
+		if (globalState.canvasApi && globalState.canvasApi.destroy) globalState.canvasApi.destroy();
+		if (globalState.overlayApi && globalState.overlayApi.destroy) globalState.overlayApi.destroy();
 	} catch (e) {}
-	pixiApi = null;
-	canvasApi = null;
-	overlayApi = null;
+	globalState.pixiApi = null;
+	globalState.canvasApi = null;
+	globalState.overlayApi = null;
 
-	svgSel = null;
-	nodeGroup = null;
-	linkGroup = null;
-	layoutNodes = [];
-	layoutLinks = [];
-	graphData = null;
-	neighborMap = new Map();
-	selectedId = null;
-	hoveredNodeId = null;
-	focusedNodeId = null;
-	highlightedSelections = [];
-	activeSpreadFrozenNodes = [];
+	globalState.svgSel = null;
+	globalState.nodeGroup = null;
+	globalState.linkGroup = null;
+	globalState.layoutNodes = [];
+	globalState.layoutLinks = [];
+	globalState.graphData = null;
+	globalState.neighborMap = new Map();
+	globalState.selectedId = null;
+	globalState.hoveredNodeId = null;
+	globalState.focusedNodeId = null;
+	globalState.highlightedSelections = [];
+	globalState.activeSpreadFrozenNodes = [];
 	nodeExpansionQueue.length = 0;
 	pendingNodeExpansionIds.clear();
 	pendingRouteNodeId = null;
@@ -7314,7 +7315,7 @@ export function init(
 
 			const selectAndOpenMatch = (nodeId: string) => {
 				startSearchPulseLoop(nodeId, { interval: 1400, immediate: true });
-				const liveNode = Array.isArray(layoutNodes) ? layoutNodes.find((n) => n.id === nodeId) : null;
+				const liveNode = Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.find((n) => n.id === nodeId) : null;
 				if (liveNode) {
 					markUserInitiatedGraphExpansion();
 					anchorNode(liveNode);
@@ -7436,7 +7437,7 @@ export function init(
 			// so the URL still reflects the currently displayed sidebar node (if any).
 			try {
 				const side = document.getElementById('fg-sidebar');
-				const displayedId = (side && side.dataset && side.dataset.displayedId) || selectedId || '';
+				const displayedId = (side && side.dataset && side.dataset.displayedId) || globalState.selectedId || '';
 				if (displayedId) {
 					const nextPath = buildNodeRoutePath(displayedId);
 					if (typeof window !== 'undefined' && window.history && typeof window.history.replaceState === 'function') {
@@ -7484,10 +7485,10 @@ export function init(
 		focusSidebarBtn.addEventListener('click', () => {
 			markUserInitiatedGraphExpansion();
 			const sideEl = document.getElementById('fg-sidebar');
-			const sid = sideEl?.dataset?.displayedId || selectedId;
+			const sid = sideEl?.dataset?.displayedId || globalState.selectedId;
 			if (!sid) return;
 			const focusDuration = 600;
-			const nodeObj = (Array.isArray(layoutNodes) && layoutNodes.find((n) => n.id === sid)) || null;
+			const nodeObj = (Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.find((n) => n.id === sid)) || null;
 			if (nodeObj && typeof selectNode === 'function') {
 				selectNode(nodeObj);
 			}
@@ -7510,26 +7511,26 @@ export function init(
 				if (limit > 0) url.searchParams.set('limit', String(limit));
 				const r = await fetchWithTimeout(url.toString());
 				if (!r.ok) throw new Error(`HTTP ${r.status}`);
-				graphData = await r.json();
+				globalState.graphData = await r.json();
 				// Reset baseline snapshot for this newly loaded server subset.
-				initialServerNodeIds = new Set(graphData.nodes.map((n) => n.id));
-				initialServerLinkKeys = new Set(
-					graphData.links.map((l) => {
+				globalState.initialServerNodeIds = new Set(globalState.graphData.nodes.map((n) => n.id));
+				globalState.initialServerLinkKeys = new Set(
+					globalState.graphData.links.map((l) => {
 						const s = l.source?.id ?? l.source;
 						const t = l.target?.id ?? l.target;
 						return `${s}|${t}`;
 					}),
 				);
-				const totalNodes = graphData.meta?.totalNodes ?? graphData.nodes.length;
-				if (limit > 0 && totalNodes > graphData.nodes.length) {
-					isSubsetMode = true;
-					updateSubsetInfo(graphData.nodes.length, totalNodes);
+				const totalNodes = globalState.graphData.meta?.totalNodes ?? globalState.graphData.nodes.length;
+				if (limit > 0 && totalNodes > globalState.graphData.nodes.length) {
+					globalState.isSubsetMode = true;
+					updateSubsetInfo(globalState.graphData.nodes.length, totalNodes);
 				} else {
-					isSubsetMode = limit > 0;
-					if (!isSubsetMode) clearSubsetInfo();
-					else updateSubsetInfo(graphData.nodes.length, totalNodes);
+					globalState.isSubsetMode = limit > 0;
+					if (!globalState.isSubsetMode) clearSubsetInfo();
+					else updateSubsetInfo(globalState.graphData.nodes.length, totalNodes);
 				}
-				renderGraph(graphData);
+				renderGraph(globalState.graphData);
 				void fetchCacheStats();
 			} catch (err) {
 				console.error('subset select fetch failed', err);
@@ -7737,9 +7738,9 @@ export function init(
 			}
 		});
 	}
-	if (!resizeListenerBound) {
+	if (!globalState.resizeListenerBound) {
 		window.addEventListener('resize', onResize);
-		resizeListenerBound = true;
+		globalState.resizeListenerBound = true;
 	}
 
 	// Database search button – search ALL results, inject every hit, persist to server
@@ -7748,13 +7749,13 @@ export function init(
 	if (fetchBtn && fetchInput) {
 		const findExistingNodeMatches = (rawQuery, explicitNodePool = null) => {
 			const nodePool =
-				Array.isArray(explicitNodePool) ? explicitNodePool : [...(Array.isArray(layoutNodes) ? layoutNodes : []), ...(Array.isArray(graphData?.nodes) ? graphData.nodes : [])];
-			return rankFindNodeMatches(rawQuery, nodePool, Array.isArray(layoutLinks) ? layoutLinks : []);
+				Array.isArray(explicitNodePool) ? explicitNodePool : [...(Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes : []), ...(Array.isArray(globalState.graphData?.nodes) ? globalState.graphData.nodes : [])];
+			return rankFindNodeMatches(rawQuery, nodePool, Array.isArray(globalState.layoutLinks) ? globalState.layoutLinks : []);
 		};
 
 		const focusExistingNodeMatch = (rawQuery, options: { statusPrefix?: string } = {}) => {
 			const { statusPrefix = 'Already loaded' } = options;
-			const renderedNodes = (nodeSel && typeof nodeSel.data === 'function' ? nodeSel.data() : []).filter(Boolean);
+			const renderedNodes = (globalState.nodeSel && typeof globalState.nodeSel.data === 'function' ? globalState.nodeSel.data() : []).filter(Boolean);
 			const renderedMatches = findExistingNodeMatches(rawQuery, renderedNodes).filter((match) => match.hasExactMatch);
 			const matches = renderedMatches.length ? renderedMatches : findExistingNodeMatches(rawQuery).filter((match) => match.hasExactMatch);
 			if (!matches.length) return false;
@@ -7764,11 +7765,11 @@ export function init(
 			const bestNodeId = matches[0]?.node?.id;
 			if (!bestNodeId) return false;
 
-			if (!layoutNodes.some((node) => node.id === bestNodeId)) {
+			if (!globalState.layoutNodes.some((node) => node.id === bestNodeId)) {
 				injectNodesById([bestNodeId]);
 			}
 
-			const liveNode = layoutNodes.find((node) => node.id === bestNodeId) || matches[0].node;
+			const liveNode = globalState.layoutNodes.find((node) => node.id === bestNodeId) || matches[0].node;
 			if (!liveNode) return false;
 
 			openNodeWithExpansion(liveNode, {
@@ -7785,14 +7786,14 @@ export function init(
 
 		const ensureFetchRuntimeReady = async () => {
 			for (let attempt = 0; attempt < 20; attempt += 1) {
-				if (graphData && Array.isArray(layoutNodes) && Array.isArray(layoutLinks) && typeof appendFetched === 'function') {
+				if (globalState.graphData && Array.isArray(globalState.layoutNodes) && Array.isArray(globalState.layoutLinks) && typeof globalState.appendFetched === 'function') {
 					return true;
 				}
 				await new Promise<void>((resolve) => {
 					window.requestAnimationFrame(() => resolve());
 				});
 			}
-			return Boolean(graphData && Array.isArray(layoutNodes) && Array.isArray(layoutLinks) && typeof appendFetched === 'function');
+			return Boolean(globalState.graphData && Array.isArray(globalState.layoutNodes) && Array.isArray(globalState.layoutLinks) && typeof globalState.appendFetched === 'function');
 		};
 
 		const runDatabaseSearch = async () => {
@@ -8031,7 +8032,7 @@ export function init(
 					progressiveExistingTotal += existingIds.length;
 
 					if (nodesToFlush.length || linksToFlush.length) {
-						appendFetched(nodesToFlush, linksToFlush);
+						globalState.appendFetched(nodesToFlush, linksToFlush);
 						mergeIntoGraphData(nodesToFlush, linksToFlush);
 					}
 					if (existingIds.length) {
@@ -8132,7 +8133,7 @@ export function init(
 					// Build graph-visible firm connections from embedded employment data.
 					// Historical/previous employers stay in the sidebar detail stack, unless
 					// the previous employer firm is already on the screen, in which case we connect them.
-					const onScreenFirmIds = new Set((layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)));
+					const onScreenFirmIds = new Set((globalState.layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)));
 					const prevEmps = [
 						...(parsed?.previousEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
 						...(parsed?.previousIAEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
@@ -8289,7 +8290,7 @@ export function init(
 							const firmNodeId = `firm:${firmId}`;
 							const bi = detail?.basicInformation || {};
 							const firmLabel = bi.firmName || detail?.firmName || detail?.name || `Firm ${firmId}`;
-							if (!findExistingFirmNode(firmId) && !batchAllNodes.some((n) => n.id === firmNodeId) && !layoutNodes.some((n) => n.id === firmNodeId)) {
+							if (!findExistingFirmNode(firmId) && !batchAllNodes.some((n) => n.id === firmNodeId) && !globalState.layoutNodes.some((n) => n.id === firmNodeId)) {
 								batchAllNodes.push({
 									id: firmNodeId,
 									label: firmLabel,
@@ -8317,7 +8318,7 @@ export function init(
 								const pid = String(o?.crdNumber || o?.crd || o?.personId || '').trim();
 								if (!pid) continue;
 								const personNodeId = `person:${pid}`;
-								if (!findExistingPersonNode(pid) && !batchAllNodes.some((n) => n.id === personNodeId) && !layoutNodes.some((n) => n.id === personNodeId)) {
+								if (!findExistingPersonNode(pid) && !batchAllNodes.some((n) => n.id === personNodeId) && !globalState.layoutNodes.some((n) => n.id === personNodeId)) {
 									batchAllNodes.push({
 										id: personNodeId,
 										label: normalizePersonLabel(o?.legalName || o?.name || `Person ${pid}`),
@@ -8329,7 +8330,7 @@ export function init(
 								}
 								if (
 									!batchAllLinks.some((l) => (l.source?.id ?? l.source) === personNodeId && (l.target?.id ?? l.target) === firmNodeId) &&
-									!layoutLinks.some((l) => (l.source?.id ?? l.source) === personNodeId && (l.target?.id ?? l.target) === firmNodeId)
+									!globalState.layoutLinks.some((l) => (l.source?.id ?? l.source) === personNodeId && (l.target?.id ?? l.target) === firmNodeId)
 								) {
 									batchAllLinks.push({
 										source: personNodeId,
@@ -8408,16 +8409,16 @@ export function init(
 							const rawId = targetId.split(':').pop() || '';
 							if (!rawId) return null;
 							try {
-								const onScreenFirmIds = Array.from(new Set((layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId))));
-								const batch = target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId, null, { includePreviousEmployerIds: onScreenFirmIds });
-								const liveTargetNode = layoutNodes?.find((node) => node.id === targetId) || null;
+								const onScreenFirmIds = Array.from(new Set((globalState.layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId))));
+								const batch = target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId, null, { includePreviousEmployerIds: onScreenFirmIds as string[] });
+								const liveTargetNode = globalState.layoutNodes?.find((node) => node.id === targetId) || null;
 								const primaryNode = Array.isArray(batch?.nodes) ? batch.nodes.find((node) => node?.id === targetId) || null : null;
 								if (liveTargetNode && primaryNode && typeof primaryNode === 'object') {
 									Object.assign(liveTargetNode, primaryNode);
 									normalizeNodeLabelInPlace(liveTargetNode);
 								}
 								if (batch?.nodes?.length || batch?.links?.length) {
-									appendFetched(batch.nodes || [], batch.links || []);
+									globalState.appendFetched(batch.nodes || [], batch.links || []);
 									mergeIntoGraphData(batch.nodes || [], batch.links || []);
 								}
 								rerenderGraphNodesByIds([targetId]);
@@ -8480,7 +8481,7 @@ export function init(
 
 	// Keep the shared fetch appender available even if reset happens before the
 	// next render cycle settles.
-	appendFetched = appendFetchedImpl;
+	globalState.appendFetched = appendFetchedImpl;
 
 	renderLegend();
 	void fetchCacheStats();
@@ -8516,14 +8517,14 @@ export function init(
 	}
 
 	function startMetaPolling() {
-		if (metaPollId != null) return;
+		if (globalState.metaPollId != null) return;
 		void fetchMetaOnce();
-		metaPollId = setInterval(() => {
+		globalState.metaPollId = setInterval(() => {
 			void fetchMetaOnce();
 		}, META_POLL_MS);
 	}
 
-	if (typeof window !== 'undefined' && !networkStatusListenerBound) {
+	if (typeof window !== 'undefined' && !globalState.networkStatusListenerBound) {
 		const offlineListener = () => {
 			showOfflineFetchStatus();
 		};
@@ -8536,8 +8537,8 @@ export function init(
 		};
 		window.addEventListener('offline', offlineListener);
 		window.addEventListener('online', onlineListener);
-		networkStatusListeners = [['offline', offlineListener], ['online', onlineListener]];
-		networkStatusListenerBound = true;
+		globalState.networkStatusListeners = [['offline', offlineListener], ['online', onlineListener]];
+		globalState.networkStatusListenerBound = true;
 	}
 	if (isBrowserOffline()) {
 		showOfflineFetchStatus();
@@ -8617,7 +8618,7 @@ async function fetchAndInjectQuery(q) {
 
 	const newNodes = [];
 	const newLinks = [];
-	const seenNodes = new Set(layoutNodes ? layoutNodes.map((n) => n.id) : []);
+	const seenNodes = new Set(globalState.layoutNodes ? globalState.layoutNodes.map((n) => n.id) : []);
 
 	for (const hit of allHits) {
 		const src = hit._source || hit;
@@ -8722,7 +8723,7 @@ async function fetchAndInjectQuery(q) {
 
 	if (!newNodes.length) return;
 
-	if (typeof appendFetched === 'function') appendFetched(newNodes, newLinks);
+	if (typeof globalState.appendFetched === 'function') globalState.appendFetched(newNodes, newLinks);
 
 	const CHUNK_SIZE = 15;
 	for (let i = 0; i < newNodes.length; i += CHUNK_SIZE) {
@@ -8783,7 +8784,7 @@ async function fetchQueryBatch(q) {
 
 	const newNodes = [];
 	const newLinks = [];
-	const seenNodes = new Set(layoutNodes ? layoutNodes.map((n) => n.id) : []);
+	const seenNodes = new Set(globalState.layoutNodes ? globalState.layoutNodes.map((n) => n.id) : []);
 
 	for (const hit of allHits) {
 		const src = hit._source || hit;
@@ -8888,17 +8889,17 @@ async function fetchQueryBatch(q) {
 }
 
 function updateGraphMeta() {
-	if (!graphData) return;
-	const totalIndividuals = graphData.nodes.filter((n) => n.group === 'individual').length;
-	const totalFirms = graphData.nodes.filter((n) => n.group === 'firm').length;
-	const totalLinks = graphData.links.length;
-	graphData.meta = {
-		...(graphData.meta || {}),
+	if (!globalState.graphData) return;
+	const totalIndividuals = globalState.graphData.nodes.filter((n) => n.group === 'individual').length;
+	const totalFirms = globalState.graphData.nodes.filter((n) => n.group === 'firm').length;
+	const totalLinks = globalState.graphData.links.length;
+	globalState.graphData.meta = {
+		...(globalState.graphData.meta || {}),
 		totalIndividuals,
 		totalFirms,
 		totalLinks,
 	};
-	updateMeta(graphData.meta);
+	updateMeta(globalState.graphData.meta);
 }
 
 function inferNodeGroup(node) {
@@ -8982,7 +8983,7 @@ function getNodeIdentityKey(node) {
 	return explicitId ? `entity:${explicitId}` : '';
 }
 
-export function selectNodesToInjectById(ids = [], { renderedNodes = layoutNodes, graphNodes = graphData?.nodes } = {}) {
+export function selectNodesToInjectById(ids = [], { renderedNodes = globalState.layoutNodes, graphNodes = globalState.graphData?.nodes } = {}) {
 	const requestedIds = Array.from(new Set((Array.isArray(ids) ? ids : []).map((nodeId) => String(nodeId || '').trim()).filter(Boolean)));
 	if (!requestedIds.length) return [];
 
@@ -9177,16 +9178,16 @@ function filterRevealableGraphPayload(payload, linkFilter) {
 }
 
 function mergeIntoGraphData(newNodes, newLinks) {
-	if (!graphData) return;
+	if (!globalState.graphData) return;
 	invalidateFullAdjacencyMap();
-	const existingNodes = Array.isArray(graphData.nodes) ? graphData.nodes : [];
+	const existingNodes = Array.isArray(globalState.graphData.nodes) ? globalState.graphData.nodes : [];
 	const mergeResult = mergeIncomingNodesIntoExistingNodes(existingNodes, newNodes);
 	const mergedNodes = mergeResult.nodes;
 	const addedIds = mergedNodes.filter((node) => !existingNodes.some((entry) => entry.id === node.id)).map((node) => node.id);
-	graphData.nodes = mergedNodes;
+	globalState.graphData.nodes = mergedNodes;
 	const revealableLinks = Array.isArray(newLinks) ? newLinks.filter((link) => isAutoExpansionLink(link) || isPreviousEmploymentLink(link)) : [];
 	const rewrittenLinks = rewriteLinksForNodeIdMap(revealableLinks, mergeResult.idRewriteMap);
-	const gLinkKeys = new Set(graphData.links.map((l) => getLinkIdentityKey(l)));
+	const gLinkKeys = new Set(globalState.graphData.links.map((l) => getLinkIdentityKey(l)));
 	rewrittenLinks
 		.filter((l) => {
 			const k = getLinkIdentityKey(l);
@@ -9194,8 +9195,8 @@ function mergeIntoGraphData(newNodes, newLinks) {
 			gLinkKeys.add(k);
 			return true;
 		})
-		.forEach((l) => graphData.links.push(l));
-	ensureQueueGraphSeedLinks(graphData.nodes);
+		.forEach((l) => globalState.graphData.links.push(l));
+	ensureQueueGraphSeedLinks(globalState.graphData.nodes);
 
 	// Persist session so any changes to graphData that affect rendered nodes
 	// or available server IDs get saved for reloads.
@@ -9212,18 +9213,18 @@ function mergeIntoGraphData(newNodes, newLinks) {
 	updateGraphMeta();
 	if (addedIds.length) {
 		// Expose recent additions for the next render so they can be highlighted.
-		graphData._recentlyAddedNodeIds = addedIds;
+		globalState.graphData._recentlyAddedNodeIds = addedIds;
 	}
 }
 
 function ensureQueueGraphSeedLinks(nodes: any[] = []) {
 	const seed = pendingQueueGraphSeed;
 	const firmId = String(seed?.anchorFirmId || '').trim().replace(/^firm:/i, '');
-	if (!seed || !/^\d+$/.test(firmId) || !graphData || !Array.isArray(graphData.links)) return;
+	if (!seed || !/^\d+$/.test(firmId) || !globalState.graphData || !Array.isArray(globalState.graphData.links)) return;
 	const firmNodeId = `firm:${firmId}`;
 	const nodeIds = new Set(nodes.map((node) => String(node?.id || '')));
 	if (!nodeIds.has(firmNodeId)) return;
-	const existingKeys = new Set(graphData.links.map((link) => getLinkIdentityKey(link)));
+	const existingKeys = new Set(globalState.graphData.links.map((link) => getLinkIdentityKey(link)));
 	for (const person of seed.people || []) {
 		const crd = String(person?.crd || '').trim();
 		const personId = `person:${crd}`;
@@ -9238,7 +9239,7 @@ function ensureQueueGraphSeedLinks(nodes: any[] = []) {
 		const key = getLinkIdentityKey(link);
 		if (existingKeys.has(key)) continue;
 		existingKeys.add(key);
-		graphData.links.push(link);
+		globalState.graphData.links.push(link);
 	}
 }
 
@@ -9507,8 +9508,8 @@ async function importPastedCrdList(rawText: string) {
 		const results = await mapWithConcurrency(parsed, PROFILE_SEED_FETCH_CONCURRENCY, async (entry) => {
 			const personId = `person:${entry.crd}`;
 			const firmId = `firm:${entry.crd}`;
-			if (layoutNodes.some((n) => n.id === personId)) return { entry, existed: true, nodeId: personId, nodes: [], links: [] };
-			if (layoutNodes.some((n) => n.id === firmId)) return { entry, existed: true, nodeId: firmId, nodes: [], links: [] };
+			if (globalState.layoutNodes.some((n) => n.id === personId)) return { entry, existed: true, nodeId: personId, nodes: [], links: [] };
+			if (globalState.layoutNodes.some((n) => n.id === firmId)) return { entry, existed: true, nodeId: firmId, nodes: [], links: [] };
 
 			const fetchAsFirm = () => fetchFirmBatch(entry.crd, entry.name || null).then((batch) => ({ entry, existed: false, nodeId: firmId, nodes: batch.nodes, links: batch.links }));
 			const fetchAsIndividual = () =>
@@ -9545,13 +9546,13 @@ async function importPastedCrdList(rawText: string) {
 		});
 
 		if (allNodes.length) {
-			appendFetched(allNodes, allLinks);
+			globalState.appendFetched(allNodes, allLinks);
 			mergeIntoGraphData(allNodes, allLinks);
 			persistToServer(allNodes, allLinks);
 		}
 
 		for (const nodeId of addedNodeIds) {
-			const node = layoutNodes.find((n) => n.id === nodeId);
+			const node = globalState.layoutNodes.find((n) => n.id === nodeId);
 			if (node) addToSelectionLog(node);
 		}
 
@@ -9696,11 +9697,11 @@ async function loadGraph() {
 			);
 
 			if (hasExistingSessionData) {
-				graphData = { nodes: [], links: [], meta: {} };
-				initialServerNodeIds = new Set();
-				initialServerLinkKeys = new Set();
-				isSubsetMode = false;
-				renderGraph(graphData);
+				globalState.graphData = { nodes: [], links: [], meta: {} };
+				globalState.initialServerNodeIds = new Set();
+				globalState.initialServerLinkKeys = new Set();
+				globalState.isSubsetMode = false;
+				renderGraph(globalState.graphData);
 				showEmpty(false);
 				updateMeta({ totalIndividuals: 0, totalFirms: 0, totalLinks: 0 });
 				await restoreSavedSession(existingSession);
@@ -9845,11 +9846,11 @@ async function loadGraph() {
 
 		if (!currentProfileEnabled) {
 			if (session && !clearedSession) {
-				graphData = { nodes: [], links: [], meta: {} };
-				initialServerNodeIds = new Set();
-				initialServerLinkKeys = new Set();
-				isSubsetMode = false;
-				renderGraph(graphData);
+				globalState.graphData = { nodes: [], links: [], meta: {} };
+				globalState.initialServerNodeIds = new Set();
+				globalState.initialServerLinkKeys = new Set();
+				globalState.isSubsetMode = false;
+				renderGraph(globalState.graphData);
 				showEmpty(false);
 				updateMeta({ totalIndividuals: 0, totalFirms: 0, totalLinks: 0 });
 				await restoreSavedSession(session);
@@ -9876,11 +9877,11 @@ async function loadGraph() {
 			await loadBaselineGraph(profileName, { suppressRender: Boolean(session) });
 			// Custom / cache-miss baselines can return null even when a local session still has
 			// extraNodes to restore. Seed an empty graph shell so renderSavedSessionGraph can run.
-			if (!graphData) {
-				graphData = { nodes: [], links: [], meta: {} };
-				initialServerNodeIds = new Set();
-				initialServerLinkKeys = new Set();
-				isSubsetMode = false;
+			if (!globalState.graphData) {
+				globalState.graphData = { nodes: [], links: [], meta: {} };
+				globalState.initialServerNodeIds = new Set();
+				globalState.initialServerLinkKeys = new Set();
+				globalState.isSubsetMode = false;
 			}
 
 			if (session) {
@@ -9888,17 +9889,17 @@ async function loadGraph() {
 				if (!renderedSavedSession) {
 					// Avoid showEmpty(true) here — that hides the SVG under the restore chrome
 					// and can leave the canvas grayed out / unclickable if restore is slow.
-					const hasBaselineContent = Boolean((graphData?.nodes?.length || 0) > 0 || (graphData?.links?.length || 0) > 0);
+					const hasBaselineContent = Boolean((globalState.graphData?.nodes?.length || 0) > 0 || (globalState.graphData?.links?.length || 0) > 0);
 					if (hasBaselineContent) {
 						renderBaselineGraphData();
-					} else if (!layoutNodes?.length) {
-						graphData = graphData || { nodes: [], links: [], meta: {} };
-						renderGraph(graphData);
+					} else if (!globalState.layoutNodes?.length) {
+						globalState.graphData = globalState.graphData || { nodes: [], links: [], meta: {} };
+						renderGraph(globalState.graphData);
 						showEmpty(false);
 					}
 				}
 				await restoreSavedSession(session);
-				if ((layoutNodes?.length || 0) > 0 || (graphData?.nodes?.length || 0) > 0) {
+				if ((globalState.layoutNodes?.length || 0) > 0 || (globalState.graphData?.nodes?.length || 0) > 0) {
 					showEmpty(false);
 					document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
 				}
@@ -9928,7 +9929,7 @@ async function loadGraph() {
 			const seedQueries = getNormalizedProfileSeedQueries(prof);
 
 			const indivResults = await mapWithConcurrency(indCrds, PROFILE_SEED_FETCH_CONCURRENCY, async (c) => {
-				if (layoutNodes.some((n) => n.id === `person:${c}`)) return { nodes: [], links: [] };
+				if (globalState.layoutNodes.some((n) => n.id === `person:${c}`)) return { nodes: [], links: [] };
 				try {
 					return await fetchIndividualBatch(c);
 				} catch {
@@ -9936,7 +9937,7 @@ async function loadGraph() {
 				}
 			});
 			const firmResults = await mapWithConcurrency(firmIds, PROFILE_SEED_FETCH_CONCURRENCY, async (f) => {
-				if (layoutNodes.some((n) => n.id === `firm:${f}`)) return { nodes: [], links: [] };
+				if (globalState.layoutNodes.some((n) => n.id === `firm:${f}`)) return { nodes: [], links: [] };
 				try {
 					return await fetchFirmBatch(f);
 				} catch {
@@ -9961,7 +9962,7 @@ async function loadGraph() {
 			}
 
 			if (batchAllNodes.length) {
-				appendFetched(batchAllNodes, batchAllLinks);
+				globalState.appendFetched(batchAllNodes, batchAllLinks);
 				mergeIntoGraphData(batchAllNodes, batchAllLinks);
 				persistToServer(batchAllNodes, batchAllLinks);
 			}
@@ -9984,7 +9985,7 @@ async function loadGraph() {
 					if (result.value.links?.length) seedBatchLinks.push(...result.value.links);
 				}
 				if (seedBatchNodes.length) {
-					appendFetched(seedBatchNodes, seedBatchLinks);
+					globalState.appendFetched(seedBatchNodes, seedBatchLinks);
 					mergeIntoGraphData(seedBatchNodes, seedBatchLinks);
 					persistToServer(seedBatchNodes, seedBatchLinks);
 				}
@@ -9995,7 +9996,7 @@ async function loadGraph() {
 		showEmpty(true);
 	} finally {
 		if (pendingRouteNodeId) {
-			if (!graphData || !layoutNodes) {
+			if (!globalState.graphData || !globalState.layoutNodes) {
 				clearGraphData();
 			}
 			void applyPendingRouteNodeSelection();
@@ -10070,7 +10071,7 @@ async function hydratePendingNodeIds(
 	}
 
 	if (idsToInject.length) {
-		const missingFromCanvas = idsToInject.filter((id) => !layoutNodes?.some((node) => node.id === id));
+		const missingFromCanvas = idsToInject.filter((id) => !globalState.layoutNodes?.some((node) => node.id === id));
 		if (missingFromCanvas.length) injectNodesById(missingFromCanvas);
 	}
 	reportProgress(normalizedIds.length - idsToFetch.length);
@@ -10097,7 +10098,7 @@ async function hydratePendingNodeIds(
 				}
 				if (chunkNodes.length) {
 					mergeIntoGraphData(chunkNodes, []);
-					appendFetched?.(chunkNodes, []);
+					globalState.appendFetched?.(chunkNodes, []);
 				}
 			} catch (error) {
 				console.warn('Bulk nodes-by-ids hydrate failed; falling back to detail fetches.', error);
@@ -10119,7 +10120,7 @@ async function hydratePendingNodeIds(
 			:	Array.from(
 					new Set([
 						...normalizedIds.filter((id) => id.startsWith('firm:')).map((id) => id.split(':')[1]),
-						...(layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)),
+						...(globalState.layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)),
 					]),
 				);
 
@@ -10134,7 +10135,7 @@ async function hydratePendingNodeIds(
 					try {
 						const batch =
 							entry.prefix === 'person' ?
-								await fetchIndividualBatch(entry.rawId, null, isLogList ? {} : { includePreviousEmployerIds: onScreenFirmIds })
+								await fetchIndividualBatch(entry.rawId, null, isLogList ? {} : { includePreviousEmployerIds: onScreenFirmIds as string[] })
 							:	await fetchFirmBatch(entry.rawId);
 						if (batch?.nodes?.length) chunkNodes.push(...batch.nodes);
 						if (batch?.links?.length) chunkLinks.push(...batch.links);
@@ -10146,7 +10147,7 @@ async function hydratePendingNodeIds(
 
 			if (chunkNodes.length || chunkLinks.length) {
 				mergeIntoGraphData(chunkNodes, chunkLinks);
-				appendFetched?.(chunkNodes, chunkLinks);
+				globalState.appendFetched?.(chunkNodes, chunkLinks);
 			}
 			completedDetail += chunk.length;
 			reportProgress(completedDetail);
@@ -10235,11 +10236,11 @@ function subsetGraph(data, seedCount, hops = getDefaultExpansionHops()) {
 
 function updateSubsetInfo(shown, total) {
 	const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
-	if (activeFetchStatusMessage || hasLockedFetchStatus()) {
-		applyStatusPresentation(activeFetchStatusMessage || '', {
-			transient: Boolean(activeFetchStatusMessage),
-			dismissible: Boolean(activeFetchStatusMessage),
-			pinned: activeFetchStatusPinned,
+	if (globalState.activeFetchStatusMessage || hasLockedFetchStatus()) {
+		applyStatusPresentation(globalState.activeFetchStatusMessage || '', {
+			transient: Boolean(globalState.activeFetchStatusMessage),
+			dismissible: Boolean(globalState.activeFetchStatusMessage),
+			pinned: globalState.activeFetchStatusPinned,
 		});
 	}
 
@@ -10249,7 +10250,7 @@ function updateSubsetInfo(shown, total) {
 function clearSubsetInfo() {
 	const info = document.getElementById('fg-subset-info');
 	const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
-	if (!activeFetchStatusMessage && !hasLockedFetchStatus() && info) {
+	if (!globalState.activeFetchStatusMessage && !hasLockedFetchStatus() && info) {
 		applyStatusPresentation('', { transient: false, dismissible: false, pinned: false });
 	}
 	if (sel) sel.value = 'all';
@@ -10269,17 +10270,17 @@ function debounce(fn, ms) {
 async function filterGraph(rawQuery) {
 	const q = String(rawQuery || '').trim();
 	const qlow = q.toLowerCase();
-	if (!nodeSel || !linkSel || !layoutNodes || !layoutLinks) return;
+	if (!globalState.nodeSel || !globalState.linkSel || !globalState.layoutNodes || !globalState.layoutLinks) return;
 
 	if (!q) {
 		// reset
-		nodeSel.style('opacity', null).classed('filtered', false);
-		linkSel
+		globalState.nodeSel.style('opacity', null).classed('filtered', false);
+		globalState.linkSel
 			.style('stroke-opacity', null)
 			.attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)))
 			.style('opacity', null);
 		// Restore the real layout count
-		if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
+		if (globalState.graphData) updateSubsetInfo(globalState.layoutNodes.length, globalState.graphData.nodes.length);
 		return;
 	}
 
@@ -10300,7 +10301,7 @@ async function filterGraph(rawQuery) {
 
 	// determine matching node ids
 	const matched = new Set();
-	layoutNodes.forEach((n) => {
+	globalState.layoutNodes.forEach((n) => {
 		// gather candidate values
 		const label = String(firstField(n, ['label', 'firm_name', 'firmName']) || '');
 		const labelLow = label.toLowerCase();
@@ -10420,8 +10421,8 @@ async function filterGraph(rawQuery) {
 
 	// If no matches found in the currently rendered subset, try the full graph
 	// so users can search for nodes that aren't yet injected into the view.
-	if (matched.size === 0 && graphData && Array.isArray(graphData.nodes)) {
-		for (const n of graphData.nodes) {
+	if (matched.size === 0 && globalState.graphData && Array.isArray(globalState.graphData.nodes)) {
+		for (const n of globalState.graphData.nodes) {
 			const label = String(firstField(n, ['label', 'firm_name', 'firmName']) || '');
 			const labelLow = label.toLowerCase();
 
@@ -10455,7 +10456,7 @@ async function filterGraph(rawQuery) {
 
 		// If we found some ids in the full graph, inject them into the layout
 		if (matched.size > 0) {
-			const rendered = new Set(layoutNodes.map((n) => String(n.id)));
+			const rendered = new Set(globalState.layoutNodes.map((n) => String(n.id)));
 			const missing = Array.from(matched as Set<string>).filter((id) => !rendered.has(String(id)));
 			if (missing.length) injectNodesById(missing);
 		}
@@ -10480,7 +10481,7 @@ async function filterGraph(rawQuery) {
 							if (++count >= FILTER_MATCH_LIMIT) break;
 						}
 					}
-					const rendered = new Set(layoutNodes.map((n) => String(n.id)));
+					const rendered = new Set(globalState.layoutNodes.map((n) => String(n.id)));
 					const missing = Array.from(matched as Set<string>).filter((id) => !rendered.has(String(id)));
 					if (missing.length) injectNodesById(missing);
 				}
@@ -10498,7 +10499,7 @@ async function filterGraph(rawQuery) {
 	});
 
 	// update node opacity
-	nodeSel.style('opacity', (d) => {
+	globalState.nodeSel.style('opacity', (d) => {
 		const inactive = isNodeInactive(d);
 		if (matched.has(d.id)) return inactive ? 0.6 : 0.9;
 		if (expanded.has(d.id)) return inactive ? 0.38 : 0.58;
@@ -10506,12 +10507,12 @@ async function filterGraph(rawQuery) {
 	});
 
 	// Update the count to reflect visible (expanded) nodes
-	if (graphData) {
-		updateSubsetInfo(expanded.size, graphData.nodes.length);
+	if (globalState.graphData) {
+		updateSubsetInfo(expanded.size, globalState.graphData.nodes.length);
 	}
 
 	// update links: highlight links connected to any matched node, dim others
-	linkSel
+	globalState.linkSel
 		.style('stroke-opacity', (l) => {
 			const srcId = l.source?.id ?? l.source;
 			const tgtId = l.target?.id ?? l.target;
@@ -10536,11 +10537,11 @@ function fetchCacheStats(options: { force?: boolean } = {}) {
 }
 
 function updateMeta(meta: { totalIndividuals?: number; totalFirms?: number; totalLinks?: number } = {}) {
-	if (!meta && !layoutNodes) return;
+	if (!meta && !globalState.layoutNodes) return;
 
-	const dispSeeds = Array.isArray(layoutNodes) ? layoutNodes.filter((n) => n.group === 'individual').length : (meta.totalIndividuals ?? 0);
-	const dispFirms = Array.isArray(layoutNodes) ? layoutNodes.filter((n) => n.group === 'firm').length : (meta.totalFirms ?? 0);
-	const dispLinks = Array.isArray(layoutLinks) ? layoutLinks.length : (meta.totalLinks ?? 0);
+	const dispSeeds = Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.filter((n) => n.group === 'individual').length : (meta.totalIndividuals ?? 0);
+	const dispFirms = Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.filter((n) => n.group === 'firm').length : (meta.totalFirms ?? 0);
+	const dispLinks = Array.isArray(globalState.layoutLinks) ? globalState.layoutLinks.length : (meta.totalLinks ?? 0);
 	const globalPeople = typeof _cacheStats?.people === 'number' ? Math.max(_cacheStats.people, meta.totalIndividuals ?? 0) : (meta.totalIndividuals ?? dispSeeds);
 	const globalFirms = typeof _cacheStats?.firms === 'number' ? Math.max(_cacheStats.firms, meta.totalFirms ?? 0) : (meta.totalFirms ?? dispFirms);
 	const globalLinks = typeof _cacheStats?.links === 'number' ? Math.max(_cacheStats.links, meta.totalLinks ?? 0) : (meta.totalLinks ?? dispLinks);
@@ -10920,7 +10921,7 @@ function getNodeDegreeValue(node) {
 	return Math.max(0, Number(node?._deg?.total || 0));
 }
 
-function getNodeScatterBoost(node, nodeCount = layoutNodes?.length || 0) {
+function getNodeScatterBoost(node, nodeCount = globalState.layoutNodes?.length || 0) {
 	const degree = getNodeDegreeValue(node);
 	if (!degree) return 0;
 	const multiplier =
@@ -11049,13 +11050,13 @@ function getLocationSourceStrength(node) {
 	return LOCATION_SOURCE_STRENGTH[source] ?? (node?.locationDistrict ? LOCATION_SOURCE_STRENGTH.district : 0.55);
 }
 
-function getLocationGroupingBaseStrength(nodeCount = layoutNodes?.length || 0) {
+function getLocationGroupingBaseStrength(nodeCount = globalState.layoutNodes?.length || 0) {
 	if (nodeCount > 1000) return 0.013;
 	if (nodeCount > 300) return 0.015;
 	return 0.018;
 }
 
-function getSoftLocationGroupingTarget(node, width, height, nodeCount = layoutNodes?.length || 0) {
+function getSoftLocationGroupingTarget(node, width, height, nodeCount = globalState.layoutNodes?.length || 0) {
 	if (!SOFT_LOCATION_GROUPING_ENABLED || !node || node.group === 'entity') return null;
 	const region = getLocationRegion(node);
 	if (!region) return null;
@@ -11094,23 +11095,23 @@ function applySoftLocationGroupingTargets(nodeList, width, height) {
 	}
 }
 
-function refreshSoftLocationGroupingForces(nodeList = layoutNodes) {
-	if (!simulation || !Array.isArray(nodeList)) return;
+function refreshSoftLocationGroupingForces(nodeList = globalState.layoutNodes) {
+	if (!globalState.simulation || !Array.isArray(nodeList)) return;
 	const main = document.getElementById('fg-main');
 	const width = Math.max(1, main?.clientWidth || 1);
 	const height = Math.max(1, main?.clientHeight || 1);
 	applySoftLocationGroupingTargets(nodeList, width, height);
-	simulation
+	globalState.simulation
 		.force('location-x')
 		?.x((node) => (Number.isFinite(node?._locationBiasX) ? node._locationBiasX : width / 2))
 		.strength((node) => node?._locationBiasStrength || 0);
-	simulation
+	globalState.simulation
 		.force('location-y')
 		?.y((node) => (Number.isFinite(node?._locationBiasY) ? node._locationBiasY : height / 2))
 		.strength((node) => (node?._locationBiasStrength || 0) * 0.85);
 }
 
-function getForceLinkDistance(link, nodeCount = layoutNodes?.length || 0) {
+function getForceLinkDistance(link, nodeCount = globalState.layoutNodes?.length || 0) {
 	const baseDistance =
 		nodeCount > 1000 ? 160
 		: nodeCount > 300 ? 130
@@ -11118,8 +11119,8 @@ function getForceLinkDistance(link, nodeCount = layoutNodes?.length || 0) {
 		: nodeCount > 80 ? 150
 		: 225;
 
-	const sourceNode = typeof link?.source === 'object' ? link.source : layoutNodes?.find((node) => node.id === link?.source);
-	const targetNode = typeof link?.target === 'object' ? link.target : layoutNodes?.find((node) => node.id === link?.target);
+	const sourceNode = typeof link?.source === 'object' ? link.source : globalState.layoutNodes?.find((node) => node.id === link?.source);
+	const targetNode = typeof link?.target === 'object' ? link.target : globalState.layoutNodes?.find((node) => node.id === link?.target);
 
 	// Multiplier for dense nodes to spread them out further
 	const sourceDeg = sourceNode?._deg?.total || 0;
@@ -11143,7 +11144,7 @@ function getForceLinkDistance(link, nodeCount = layoutNodes?.length || 0) {
 	return baseDistance * densityMultiplier * crowdDistanceBoost + scatterBoost * 1.5 + relationshipBoost;
 }
 
-function getNodeCollisionRadius(node, nodeCount = layoutNodes?.length || 0) {
+function getNodeCollisionRadius(node, nodeCount = globalState.layoutNodes?.length || 0) {
 	const padding =
 		nodeCount > 1000 ? 24
 		: nodeCount > 600 ? 30
@@ -11157,16 +11158,16 @@ function getNodeCollisionRadius(node, nodeCount = layoutNodes?.length || 0) {
 		: nodeCount > 300 ? 16
 		: 14;
 	const scatterPadding = Math.min(nodeCount > 1000 ? 56 : 48, getNodeScatterBoost(node, nodeCount) * 0.35);
-	const labelLengthPadding = Math.min(26, Math.max(0, formatNodeLabel(node?.label || '').length - 10) * 0.5);
+	const labelLengthPadding = Math.min(26, Math.max(0, formatNodeLabel((node as any)?.label || '').length - 10) * 0.5);
 	const emphasisPadding =
-		node?.group === 'firm' ? 10
-		: node?.group === 'individual' ? 6
+		(node as any)?.group === 'firm' ? 10
+		: (node as any)?.group === 'individual' ? 6
 		: 0;
 	const focusPadding = node && (node.isSelected || node.isHovered || node?._labelExpanded) ? 16 : 0;
 	const crowd = getNodeCrowdFactor(node);
 	const crowdPadding = Math.max(0, crowd - 1) * (nodeCount > 300 ? 30 : 38);
 	return (
-		(node?._vizHalf != null ? node._vizHalf : NODE_R[node?.group] || 10) +
+		(node?._vizHalf != null ? node._vizHalf : NODE_R[(node as any)?.group] || 10) +
 		padding +
 		labelPadding +
 		scatterPadding +
@@ -11177,7 +11178,7 @@ function getNodeCollisionRadius(node, nodeCount = layoutNodes?.length || 0) {
 	);
 }
 
-function getIncrementalRestartAlpha(nodeCount = layoutNodes?.length || 0, changedNodeCount = 0) {
+function getIncrementalRestartAlpha(nodeCount = globalState.layoutNodes?.length || 0, changedNodeCount = 0) {
 	if (nodeCount <= 0) return 0.18;
 	const changeRatio = changedNodeCount > 0 ? changedNodeCount / nodeCount : 0;
 	if (nodeCount > 1000) {
@@ -11189,7 +11190,7 @@ function getIncrementalRestartAlpha(nodeCount = layoutNodes?.length || 0, change
 	return changeRatio > 0.25 ? 0.24 : 0.14;
 }
 
-export function getLargeNodeRevealBatchPlan(hiddenNodeCount = 0, currentNodeCount = layoutNodes?.length || 0) {
+export function getLargeNodeRevealBatchPlan(hiddenNodeCount = 0, currentNodeCount = globalState.layoutNodes?.length || 0) {
 	const hiddenCount = Math.max(0, Number(hiddenNodeCount) || 0);
 	const nodeCount = Math.max(0, Number(currentNodeCount) || 0);
 	if (!hiddenCount) {
@@ -11400,7 +11401,7 @@ function hasIndividualSecPresence(node: any) {
 		return false;
 
 	// Per-id suppression: if the node's id/crd is known to be invalid for SEC links, suppress.
-	const rawId = String(node?.crd || node?.basicInformation?.individualId || node?.individualId || node?.id || '')
+	const rawId = String((node as any)?.crd || node?.basicInformation?.individualId || node?.individualId || node?.id || '')
 		.replace(/^person[:_]/, '')
 		.replace(/^node[:_]/, '')
 		.trim();
@@ -11435,7 +11436,7 @@ function hasFirmFinraPresence(node: any) {
 		return false;
 
 	// if this firm is explicitly blacklisted, treat as no FINRA presence
-	const rawFirmId = String(node?.firmId || node?.id || '')
+	const rawFirmId = String((node as any)?.firmId || node?.id || '')
 		.replace(/^firm[:_]/, '')
 		.replace(/^node[:_]/, '')
 		.trim();
@@ -11464,7 +11465,7 @@ function hasFirmSecPresence(node: any) {
 		)
 	)
 		return false;
-	const rawFirmId = String(node?.firmId || node?.id || '')
+	const rawFirmId = String((node as any)?.firmId || node?.id || '')
 		.replace(/^firm[:_]/, '')
 		.replace(/^node[:_]/, '')
 		.trim();
@@ -11487,12 +11488,12 @@ function hasFirmSecPresence(node: any) {
 
 function getNodeSourceTruth(node): NodeSourceTruth {
 	const finra =
-		node?.group === 'individual' ? hasIndividualFinraPresence(node)
-		: node?.group === 'firm' ? hasFirmFinraPresence(node)
+		(node as any)?.group === 'individual' ? hasIndividualFinraPresence(node)
+		: (node as any)?.group === 'firm' ? hasFirmFinraPresence(node)
 		: Boolean(node?.hasFinraData);
 	const sec =
-		node?.group === 'individual' ? hasIndividualSecPresence(node)
-		: node?.group === 'firm' ? hasFirmSecPresence(node)
+		(node as any)?.group === 'individual' ? hasIndividualSecPresence(node)
+		: (node as any)?.group === 'firm' ? hasFirmSecPresence(node)
 		: Boolean(node?.hasSecData);
 	const coverage = toNodeSourceCoverage(finra, sec);
 	return {
@@ -11587,7 +11588,7 @@ function resolveLinkEndpointNode(endpoint) {
 	if (endpoint && typeof endpoint === 'object') return endpoint;
 	const endpointId = String(endpoint || '').trim();
 	if (!endpointId) return null;
-	return layoutNodes?.find((node) => node.id === endpointId) || null;
+	return globalState.layoutNodes?.find((node) => node.id === endpointId) || null;
 }
 
 function hasInactiveEndpoint(link) {
@@ -11659,30 +11660,30 @@ function getCompactInactiveNodeLabel(node) {
 	const preferredLabel = getPreferredNodeLabel(node);
 	if (!preferredLabel) return '';
 	const isNodeIdLabel = /^Node\s+/i.test(preferredLabel);
-	if (node?.group === 'firm') {
+	if ((node as any)?.group === 'firm') {
 		const clippedLabel = clipFirmLabelAtWord(preferredLabel, 26);
-		return !isNodeIdLabel && isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
+		return !isNodeIdLabel && isPlaceholderExpansionLabel(clippedLabel, (node as any)?.group) ? '' : clippedLabel;
 	}
-	const formattedLabel = formatNodeLabel(preferredLabel, node?.group);
+	const formattedLabel = formatNodeLabel(preferredLabel, (node as any)?.group);
 	const compactLabel = truncate(formattedLabel, 18);
-	return !isNodeIdLabel && isPlaceholderExpansionLabel(compactLabel, node?.group) ? '' : compactLabel;
+	return !isNodeIdLabel && isPlaceholderExpansionLabel(compactLabel, (node as any)?.group) ? '' : compactLabel;
 }
 
 function updateInactiveLabelZoomState(rootSelection, zoomScale, forceExpandedLabels = false) {
 	if (!rootSelection) return;
-	const compactInactive = !forceExpandedLabels && zoomScale < inactiveLabelCompactZoomThreshold;
+	const compactInactive = !forceExpandedLabels && zoomScale < globalState.inactiveLabelCompactZoomThreshold;
 	rootSelection.classed('fg-inactive-labels-compact', compactInactive);
-	if (inactiveLabelCompactMode === compactInactive) return;
-	inactiveLabelCompactMode = compactInactive;
+	if (globalState.inactiveLabelCompactMode === compactInactive) return;
+	globalState.inactiveLabelCompactMode = compactInactive;
 	rootSelection.selectAll('.fg-label--inactive').text((node) => getNodeVisualLabelText(node));
 }
 
 function rerenderGraphNodesByIds(nodeIds) {
-	if (!nodeSel) return;
+	if (!globalState.nodeSel) return;
 	const ids = Array.isArray(nodeIds) ? nodeIds.filter(Boolean) : Array.from(nodeIds || []).filter(Boolean);
 	if (!ids.length) return;
 	const idSet = new Set(ids);
-	renderNodeContents(nodeSel.filter((node) => idSet.has(node.id)));
+	renderNodeContents(globalState.nodeSel.filter((node) => idSet.has(node.id)));
 }
 
 export function getNodeLabelFontSize({
@@ -11702,9 +11703,9 @@ export function getNodeTooltipTitle(node) {
 	const parts = [];
 	const label = getPreferredNodeLabel(node);
 	if (label) parts.push(label);
-	const group = node?.group?.toUpperCase?.() || '';
+	const group = (node as any)?.group?.toUpperCase?.() || '';
 	if (group) parts.push(group);
-	const crd = node?.crd || (node?.group === 'firm' ? node?.firmId : null) || (typeof node?.id === 'string' && node.id.startsWith('firm:') ? node.id.replace(/^firm:/, '') : null);
+	const crd = (node as any)?.crd || ((node as any)?.group === 'firm' ? (node as any)?.firmId : null) || (typeof node?.id === 'string' && node.id.startsWith('firm:') ? node.id.replace(/^firm:/, '') : null);
 	if (crd) parts.push(`CRD: ${crd}`);
 	return parts.join('\n');
 }
@@ -11723,7 +11724,7 @@ export function renderNodeContents(selection) {
 		const inactive = isNodeInactive(d);
 		const deg = d._deg || { total: 0, controls: 0, employed: 0 };
 		const isControlNode = Boolean(deg.controls > 0);
-		const compactMode = nodeLabelRenderMode === 'compact';
+		const compactMode = globalState.nodeLabelRenderMode === 'compact';
 		g.classed('fg-node--inactive', inactive)
 			.classed('fg-node--individual', d.group === 'individual')
 			.classed('fg-node--firm', d.group === 'firm')
@@ -11861,8 +11862,8 @@ export function renderNodeContents(selection) {
 		const isBolded = isLogged || isFirmBold;
 
 		const labelFontSize = `${getNodeLabelFontSize({
-			isSelected: selectedId != null && String(selectedId) === String(d.id),
-			isHovered: hoveredNodeId != null && String(hoveredNodeId) === String(d.id),
+			isSelected: globalState.selectedId != null && String(globalState.selectedId) === String(d.id),
+			isHovered: globalState.hoveredNodeId != null && String(globalState.hoveredNodeId) === String(d.id),
 			isBolded: isBolded,
 		})}px`;
 
@@ -11895,7 +11896,7 @@ function isCurrentRegistration(d) {
 	if (d.isCurrent !== undefined) return Boolean(d.isCurrent);
 	if (d.endDate !== undefined && d.endDate !== null && String(d.endDate).trim() !== '') return false;
 
-	const src = typeof d.source === 'object' ? d.source : layoutNodes?.find((n) => n.id === d.source);
+	const src = typeof d.source === 'object' ? d.source : globalState.layoutNodes?.find((n) => n.id === d.source);
 	if (!src || src.group !== 'individual') return false;
 
 	const tgtId = String(typeof d.target === 'object' ? d.target.id : d.target)
@@ -11950,8 +11951,8 @@ function getLinkBaseWidth(d) {
 function getLinkZoomOutScale() {
 	const zoom = Math.max(0.02, Number(getCurrentGraphZoomScale()) || 1);
 	// Thicken when zoomed out so thin selected/default lines stay readable at distance.
-	if (zoom >= activeLabelZoomThreshold) return 1;
-	return Math.min(2.15, Math.max(1, activeLabelZoomThreshold / zoom));
+	if (zoom >= globalState.activeLabelZoomThreshold) return 1;
+	return Math.min(2.15, Math.max(1, globalState.activeLabelZoomThreshold / zoom));
 }
 
 function getScaledLinkStrokeWidth(baseWidth: number) {
@@ -11981,10 +11982,10 @@ function getScaledLinkStrokeOpacity(baseOpacity: number) {
 }
 
 function refreshRenderedLinkStrokeWidthsForZoom() {
-	if (!linkSel) return;
+	if (!globalState.linkSel) return;
 	const zoomScale = getLinkZoomOutScale();
 	const opacityScale = getLinkZoomOutOpacityScale();
-	linkSel.each(function (d) {
+	globalState.linkSel.each(function (d) {
 		const sel = d3.select(this);
 		const storedBase = Number.parseFloat(String(sel.attr('data-fg-base-stroke-width') || ''));
 		const baseWidth = Number.isFinite(storedBase) ? storedBase : getLinkBaseWidth(d);
@@ -12019,14 +12020,14 @@ function getNodeRenderPriority(node, highlightState) {
 	if (node.id === activeFindId) return 20000 + degreeBias;
 
 	// Other active search matches or explicitly focused nodes
-	if (node.id === selectedId || activeFindMatchIds.has(node.id)) return 10000 + degreeBias;
+	if (node.id === globalState.selectedId || activeFindMatchIds.has(node.id)) return 10000 + degreeBias;
 
 	// Nodes on an explicit trace get top priority
 	if (isNodeOnAnyTrace(node.id)) return 4000 + degreeBias;
 
 	// Nodes that have been explicitly selected (visited selections)
 	// should render above ordinary nodes so their labels and connecting lines are visible.
-	if (visitedNodeIds.has(node.id)) return 3000 + degreeBias;
+	if (globalState.visitedNodeIds.has(node.id)) return 3000 + degreeBias;
 
 	// Highlight roots/hop nodes (from trace/highlight state) also get high priority
 	if (highlightState?.rootIds?.has(node.id) || highlightState?.hopNodeIds?.has(node.id)) return 3000 + degreeBias;
@@ -12062,14 +12063,14 @@ function getLinkDataKey(link) {
 }
 
 function selectRenderedLinkLines() {
-	if (rootGroup) return rootGroup.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
-	if (linkGroup) return linkGroup.selectAll('line');
+	if (globalState.rootGroup) return globalState.rootGroup.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
+	if (globalState.linkGroup) return globalState.linkGroup.selectAll('line');
 	return null;
 }
 
 function selectRenderedArrowLines() {
-	if (rootGroup) return rootGroup.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
-	if (arrowGroup) return arrowGroup.selectAll('line');
+	if (globalState.rootGroup) return globalState.rootGroup.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
+	if (globalState.arrowGroup) return globalState.arrowGroup.selectAll('line');
 	return null;
 }
 
@@ -12119,17 +12120,17 @@ function joinLayeredArrowGroup(groupSel, data) {
 }
 
 function refreshLayeredLinkSelections({ enterDuration = 0, highlightState = computeHighlightState() }: { enterDuration?: number; highlightState?: any } = {}) {
-	if (!layoutLinks) return;
-	if (!(linkBottomGroup && linkMidGroup && linkTopGroup && arrowBottomGroup && arrowMidGroup && arrowTopGroup)) {
-		linkSel = selectRenderedLinkLines();
-		arrowSel = selectRenderedArrowLines();
+	if (!globalState.layoutLinks) return;
+	if (!(globalState.linkBottomGroup && globalState.linkMidGroup && globalState.linkTopGroup && globalState.arrowBottomGroup && globalState.arrowMidGroup && globalState.arrowTopGroup)) {
+		globalState.linkSel = selectRenderedLinkLines();
+		globalState.arrowSel = selectRenderedArrowLines();
 		return;
 	}
 
 	const bottomLinks = [];
 	const midLinks = [];
 	const topLinks = [];
-	for (const link of layoutLinks) {
+	for (const link of globalState.layoutLinks) {
 		const priority = getLinkRenderPriority(link, highlightState);
 		if (priority <= 0) bottomLinks.push(link);
 		else if (priority >= 3) topLinks.push(link);
@@ -12141,24 +12142,24 @@ function refreshLayeredLinkSelections({ enterDuration = 0, highlightState = comp
 	midLinks.sort(byPaintOrder);
 	topLinks.sort(byPaintOrder);
 
-	joinLayeredLinkGroup(linkBottomGroup, bottomLinks, enterDuration);
-	joinLayeredLinkGroup(linkMidGroup, midLinks, enterDuration);
-	joinLayeredLinkGroup(linkTopGroup, topLinks, enterDuration);
-	joinLayeredArrowGroup(arrowBottomGroup, bottomLinks);
-	joinLayeredArrowGroup(arrowMidGroup, midLinks);
-	joinLayeredArrowGroup(arrowTopGroup, topLinks);
+	joinLayeredLinkGroup(globalState.linkBottomGroup, bottomLinks, enterDuration);
+	joinLayeredLinkGroup(globalState.linkMidGroup, midLinks, enterDuration);
+	joinLayeredLinkGroup(globalState.linkTopGroup, topLinks, enterDuration);
+	joinLayeredArrowGroup(globalState.arrowBottomGroup, bottomLinks);
+	joinLayeredArrowGroup(globalState.arrowMidGroup, midLinks);
+	joinLayeredArrowGroup(globalState.arrowTopGroup, topLinks);
 
-	linkSel = selectRenderedLinkLines();
-	arrowSel = selectRenderedArrowLines();
+	globalState.linkSel = selectRenderedLinkLines();
+	globalState.arrowSel = selectRenderedArrowLines();
 	orderGraphVisualLayers(highlightState);
 }
 
 function orderGraphVisualLayers(highlightState = computeHighlightState()) {
-	const rootNode = rootGroup?.node?.();
+	const rootNode = globalState.rootGroup?.node?.();
 	if (!rootNode || !rootNode.isConnected || !rootNode.parentNode) return;
 
-	if (nodeSel && typeof nodeSel.sort === 'function') {
-		nodeSel.sort((a, b) => {
+	if (globalState.nodeSel && typeof globalState.nodeSel.sort === 'function') {
+		globalState.nodeSel.sort((a, b) => {
 			const aPriority = getNodeRenderPriority(a, highlightState);
 			const bPriority = getNodeRenderPriority(b, highlightState);
 			if (aPriority !== bPriority) return aPriority - bPriority;
@@ -12190,11 +12191,11 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 	};
 
 	try {
-		if (linkBottomGroup && linkMidGroup && linkTopGroup && linkSel) {
-			restackSelectionIntoLayers(linkSel, linkBottomGroup.node(), linkMidGroup.node(), linkTopGroup.node());
+		if (globalState.linkBottomGroup && globalState.linkMidGroup && globalState.linkTopGroup && globalState.linkSel) {
+			restackSelectionIntoLayers(globalState.linkSel, globalState.linkBottomGroup.node(), globalState.linkMidGroup.node(), globalState.linkTopGroup.node());
 		}
-		if (arrowBottomGroup && arrowMidGroup && arrowTopGroup && arrowSel) {
-			restackSelectionIntoLayers(arrowSel, arrowBottomGroup.node(), arrowMidGroup.node(), arrowTopGroup.node());
+		if (globalState.arrowBottomGroup && globalState.arrowMidGroup && globalState.arrowTopGroup && globalState.arrowSel) {
+			restackSelectionIntoLayers(globalState.arrowSel, globalState.arrowBottomGroup.node(), globalState.arrowMidGroup.node(), globalState.arrowTopGroup.node());
 		}
 	} catch (e) {
 		// Non-fatal — DOM move failures should not break rendering
@@ -12203,11 +12204,11 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 	// Stacking: highlight/selection links remain above gray links, but must stay
 	// beneath the node layer so brighter hover stroke never covers the node itself.
 	try {
-		if (nodeGroup && nodeGroup.node()) {
-			const nodesEl = nodeGroup.node();
+		if (globalState.nodeGroup && globalState.nodeGroup.node()) {
+			const nodesEl = globalState.nodeGroup.node();
 			const parent = nodesEl.parentNode;
 			if (parent) {
-				const beforeNodes = [linkBottomGroup?.node(), arrowBottomGroup?.node(), linkMidGroup?.node(), arrowMidGroup?.node(), linkTopGroup?.node(), arrowTopGroup?.node()].filter(
+				const beforeNodes = [globalState.linkBottomGroup?.node(), globalState.arrowBottomGroup?.node(), globalState.linkMidGroup?.node(), globalState.arrowMidGroup?.node(), globalState.linkTopGroup?.node(), globalState.arrowTopGroup?.node()].filter(
 					Boolean,
 				);
 				for (const el of beforeNodes) {
@@ -12222,8 +12223,8 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 	// Expose a debug-friendly render order map for E2E tests and dev inspection.
 	try {
 		const nodeRender = [];
-		if (nodeSel) {
-			nodeSel.each(function (d) {
+		if (globalState.nodeSel) {
+			globalState.nodeSel.each(function (d) {
 				try {
 					const pr = getNodeRenderPriority(d, highlightState);
 					const layer =
@@ -12238,8 +12239,8 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 		}
 
 		const linkRender = [];
-		if (linkSel) {
-			linkSel.each(function (d) {
+		if (globalState.linkSel) {
+			globalState.linkSel.each(function (d) {
 				try {
 					const pr = getLinkRenderPriority(d, highlightState);
 					const layer = pr <= 0 ? 'bottom' : 'mid';
@@ -12258,10 +12259,10 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 }
 
 function reapplySelectionState() {
-	if (!nodeSel) return;
+	if (!globalState.nodeSel) return;
 	const highlightState = computeHighlightState();
 	const activeConnectedIds = new Set<string>();
-	(layoutLinks || []).forEach((link) => {
+	(globalState.layoutLinks || []).forEach((link) => {
 		if (!isCurrentActiveConnection(link)) return;
 		const sId = String(link.source?.id ?? link.source);
 		const tId = String(link.target?.id ?? link.target);
@@ -12275,7 +12276,7 @@ function reapplySelectionState() {
 	const hasHighlights = highlightState.rootIds.size > 0;
 	if (hasHighlights) {
 		for (const rootId of highlightState.rootIds) {
-			for (const link of layoutLinksByNodeId.get(String(rootId)) || []) {
+			for (const link of globalState.layoutLinksByNodeId.get(String(rootId)) || []) {
 				if (!isCurrentActiveConnection(link)) continue;
 				const sId = String(link.source?.id ?? link.source);
 				const tId = String(link.target?.id ?? link.target);
@@ -12291,23 +12292,23 @@ function reapplySelectionState() {
 	// already selected via cheap id-set membership. Skip nodes without trusted detail —
 	// those predicates always return false and dominated click cost on large graphs.
 	const fetchedLeafOrExhaustedIds = new Set<string>();
-	for (const node of layoutNodes || []) {
+	for (const node of globalState.layoutNodes || []) {
 		const id = String(node?.id || '');
 		if (!id) continue;
-		if (id === String(selectedId || '') || highlightState.rootIds.has(node.id)) continue;
+		if (id === String(globalState.selectedId || '') || highlightState.rootIds.has(node.id)) continue;
 		if (!hasTrustedCurrentRelationshipData(node)) continue;
 		if (isFetchedLeafNode(node) || isFetchedExhaustedConnectedNode(node)) {
 			fetchedLeafOrExhaustedIds.add(id);
 		}
 	}
 
-	nodeSel
+	globalState.nodeSel
 		.classed('selected', (node) =>
 			shouldRenderNodeSelected(node, {
-				selectedId,
+				selectedId: globalState.selectedId,
 				highlightRootIds: highlightState.rootIds,
-				persistentSelectedIds,
-				visitedNodeIds,
+				persistentSelectedIds: globalState.persistentSelectedIds,
+				visitedNodeIds: globalState.visitedNodeIds,
 				isFetchedLeafNode: (candidateNode) => fetchedLeafOrExhaustedIds.has(String(candidateNode?.id || '')),
 				isFetchedExhaustedConnectedNode: () => false,
 			}),
@@ -12315,10 +12316,10 @@ function reapplySelectionState() {
 		// Hop emphasis (neighbor glow) is line-highlight companion state — cleared with Clear Highlight.
 		.classed(
 			'highlighted-hop',
-			(node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && !fetchedLeafOrExhaustedIds.has(node.id) && highlightState.hopNodeIds.has(node.id),
+			(node) => node.id !== globalState.selectedId && !highlightState.rootIds.has(node.id) && !fetchedLeafOrExhaustedIds.has(node.id) && highlightState.hopNodeIds.has(node.id),
 		);
 
-	nodeSel
+	globalState.nodeSel
 		.classed('fg-node--active-connected', (d) => activeConnectedIds.has(String(d.id)))
 		.classed('fg-node--active-parent-connected', (d) => activeParentConnectedIds.has(String(d.id)));
 
@@ -12327,7 +12328,7 @@ function reapplySelectionState() {
 	const isOnLogTrace = (id: string) => traceLogIds.has(id) || traceLogConnectorIds.has(id);
 	const selectionLogLabelNodeIds = new Set(getSelectionLogLabelNodeIds());
 
-	nodeSel
+	globalState.nodeSel
 		.classed(
 			'fg-node--selection-log-label',
 			(d) => selectionLogLabelNodeIds.has(d.id) || (forceFirmsBold && (d.group === 'firm' || d.type === 'firm' || (d.id && String(d.id).startsWith('firm:')))),
@@ -12348,7 +12349,7 @@ function reapplySelectionState() {
 		);
 
 	highlightLinks(highlightState);
-	updateNodeVisuals(nodeSel, { highlightState, activeConnectedIds, activeParentConnectedIds, selectionLogLabelNodeIds });
+	updateNodeVisuals(globalState.nodeSel, { highlightState, activeConnectedIds, activeParentConnectedIds, selectionLogLabelNodeIds });
 }
 
 export function shouldRenderNodeSelected(
@@ -12398,11 +12399,11 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 	const { persist = true } = options;
 	// Keep prior highlight roots; add this node + its direct neighbors.
 	upsertHighlightedSelection(node.id, 1, { replace: false });
-	selectedId = node.id;
-	visitedNodeIds.add(node.id);
+	globalState.selectedId = node.id;
+	globalState.visitedNodeIds.add(node.id);
 	// Keep hover on the clicked node so firm→child line highlights still work while
 	// the cursor remains over a selected firm (mouseenter may not re-fire after click).
-	hoveredNodeId = String(node.id);
+	globalState.hoveredNodeId = String(node.id);
 	refreshTraceState();
 	if (!persist) return;
 	try {
@@ -12413,9 +12414,9 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 }
 
 function getNodeVisualLabelText(node) {
-	const isFocused = node.id === selectedId || activeFindMatchIds.has(node.id) || (Array.isArray(highlightedSelections) && highlightedSelections.some((h) => h.id === node.id));
+	const isFocused = node.id === globalState.selectedId || activeFindMatchIds.has(node.id) || (Array.isArray(globalState.highlightedSelections) && globalState.highlightedSelections.some((h) => h.id === node.id));
 
-	return isNodeInactive(node) && inactiveLabelCompactMode && !isFocused ? getCompactInactiveNodeLabel(node) : getRenderedNodeLabel(node, { skipTruncation: isFocused });
+	return isNodeInactive(node) && globalState.inactiveLabelCompactMode && !isFocused ? getCompactInactiveNodeLabel(node) : getRenderedNodeLabel(node, { skipTruncation: isFocused });
 }
 
 function updateNodeVisuals(
@@ -12441,8 +12442,8 @@ function updateNodeVisuals(
 		const inactive = isNodeInactive(d);
 		const deg = d._deg || { total: 0, controls: 0, employed: 0 };
 		const isControlNode = deg.controls > 0;
-		const isSelectedNode = selectedId != null && String(selectedId) === String(d.id);
-		const isHoveredNode = hoveredNodeId != null && String(hoveredNodeId) === String(d.id);
+		const isSelectedNode = globalState.selectedId != null && String(globalState.selectedId) === String(d.id);
+		const isHoveredNode = globalState.hoveredNodeId != null && String(globalState.hoveredNodeId) === String(d.id);
 		const isFindMatchNode = activeFindMatchIds.has(d.id);
 		const isHighlightRootNode = highlightState.rootIds.has(d.id);
 		const isHighlightHopNode = highlightState.hopNodeIds.has(d.id);
@@ -12534,11 +12535,11 @@ function updateNodeVisuals(
 
 // Refreshes colors for all nodes dynamically to ensure nodes and links correctly reflect state
 function refreshGraphColors() {
-	if (!nodeSel || !layoutLinks || !linkSel) return;
+	if (!globalState.nodeSel || !globalState.layoutLinks || !globalState.linkSel) return;
 
-	updateNodeVisuals(nodeSel);
+	updateNodeVisuals(globalState.nodeSel);
 
-	linkSel.attr('stroke', (d) => getLinkColor(d)).attr('stroke-dasharray', (d) => getLinkDash(d));
+	globalState.linkSel.attr('stroke', (d) => getLinkColor(d)).attr('stroke-dasharray', (d) => getLinkDash(d));
 
 	highlightLinks(computeHighlightState());
 }
@@ -12606,7 +12607,7 @@ function scheduleFirmConnectionCountHydration(nodes) {
 			}
 			const payload = await response.json().catch(() => null);
 			const counts = payload?.counts && typeof payload.counts === 'object' ? payload.counts : {};
-			const targetNodes = (Array.isArray(layoutNodes) && layoutNodes.length ? layoutNodes : graphData?.nodes) || [];
+			const targetNodes = (Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.length ? globalState.layoutNodes : globalState.graphData?.nodes) || [];
 			const changedIds: string[] = [];
 			for (const node of targetNodes) {
 				if (!node || node.group !== 'firm') continue;
@@ -12621,8 +12622,8 @@ function scheduleFirmConnectionCountHydration(nodes) {
 				changedIds.push(String(node.id));
 			}
 			if (!changedIds.length) return;
-			if (Array.isArray(layoutNodes) && Array.isArray(layoutLinks)) {
-				applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+			if (Array.isArray(globalState.layoutNodes) && Array.isArray(globalState.layoutLinks)) {
+				applyGraphDerivedNodeMetrics(globalState.layoutNodes, globalState.layoutLinks);
 				rerenderGraphNodesByIds(changedIds);
 			}
 			try {
@@ -12637,7 +12638,7 @@ function scheduleFirmConnectionCountHydration(nodes) {
 }
 
 function scheduleSidecarFirmLabelHydration(nodes) {
-	const placeholders = (Array.isArray(nodes) ? nodes : []).filter((node) => node?.group === 'firm' && isGenericOrPlaceholderLabel(node.label, 'firm'));
+	const placeholders = (Array.isArray(nodes) ? nodes : []).filter((node) => (node as any)?.group === 'firm' && isGenericOrPlaceholderLabel(node.label, 'firm'));
 	if (!placeholders.length) return;
 	const ids = Array.from(
 		new Set(
@@ -12692,7 +12693,7 @@ function scheduleSidecarFirmLabelHydration(nodes) {
 			for (const node of placeholders) {
 				if (applyName(node)) changedIds.push(node.id);
 			}
-			for (const node of graphData?.nodes || []) {
+			for (const node of globalState.graphData?.nodes || []) {
 				applyName(node);
 			}
 			if (!changedIds.length) return;
@@ -12712,19 +12713,19 @@ function scheduleSidecarFirmLabelHydration(nodes) {
 function appendFetchedImpl(newNodes, newLinks) {
 	if (!Array.isArray(newNodes)) newNodes = [];
 	if (!Array.isArray(newLinks)) newLinks = [];
-	if (!layoutNodes || !layoutLinks) {
-		if (graphData && Array.isArray(newNodes) && Array.isArray(newLinks)) {
+	if (!globalState.layoutNodes || !globalState.layoutLinks) {
+		if (globalState.graphData && Array.isArray(newNodes) && Array.isArray(newLinks)) {
 			mergeIntoGraphData(newNodes, newLinks);
-			scheduleSidecarFirmLabelHydration(graphData.nodes);
-			scheduleFirmConnectionCountHydration(graphData.nodes);
+			scheduleSidecarFirmLabelHydration(globalState.graphData.nodes);
+			scheduleFirmConnectionCountHydration(globalState.graphData.nodes);
 		}
 		return;
 	}
 	normalizeNodeLabelsInPlace(newNodes);
 
-	const mergeResult = mergeIncomingNodesIntoExistingNodes(layoutNodes, newNodes);
+	const mergeResult = mergeIncomingNodesIntoExistingNodes(globalState.layoutNodes, newNodes);
 	const mergedNodes = mergeResult.nodes;
-	const uniqNodes = mergedNodes.filter((node) => !layoutNodes.some((entry) => entry?.id === node?.id));
+	const uniqNodes = mergedNodes.filter((node) => !globalState.layoutNodes.some((entry) => entry?.id === node?.id));
 	const incomingNodeIdRewrites = mergeResult.idRewriteMap;
 	const allIncomingLinks = Array.isArray(newLinks) ? newLinks : [];
 	const rewrittenLinks = rewriteLinksForNodeIdMap(allIncomingLinks, incomingNodeIdRewrites);
@@ -12739,8 +12740,8 @@ function appendFetchedImpl(newNodes, newLinks) {
 		const main = document.getElementById('fg-main');
 		const W = main?.clientWidth || 800;
 		const H = main?.clientHeight || 600;
-		const originX = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.x) ? lastExpandOriginNode.x : W / 2;
-		const originY = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.y) ? lastExpandOriginNode.y : H / 2;
+		const originX = globalState.lastExpandOriginNode && Number.isFinite(globalState.lastExpandOriginNode.x) ? globalState.lastExpandOriginNode.x : W / 2;
+		const originY = globalState.lastExpandOriginNode && Number.isFinite(globalState.lastExpandOriginNode.y) ? globalState.lastExpandOriginNode.y : H / 2;
 		uniqNodes.forEach((n, idx) => {
 			if (n.x == null && n.y == null) {
 				const ringRadius = Math.max(34, 42 + idx * 12);
@@ -12751,18 +12752,18 @@ function appendFetchedImpl(newNodes, newLinks) {
 		});
 	}
 
-	layoutNodes = mergedNodes;
-	ensureQueueGraphSeedLinks(layoutNodes);
+	globalState.layoutNodes = mergedNodes;
+	ensureQueueGraphSeedLinks(globalState.layoutNodes);
 	scheduleSidecarFirmLabelHydration(mergedNodes);
 	scheduleFirmConnectionCountHydration(mergedNodes);
 	// Rebind any pre-existing links to the merged node objects so the visualization
 	// keeps them attached after a fetch updates the node list.
-	resolveLinkEndpoints(layoutLinks, layoutNodes);
-	const potentialLinks = [...rewrittenLinks, ...(graphData && Array.isArray(graphData.links) ? graphData.links : [])];
-	const resolvedPotentialLinks = resolveLinkEndpoints(potentialLinks, layoutNodes);
-	const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
+	resolveLinkEndpoints(globalState.layoutLinks, globalState.layoutNodes);
+	const potentialLinks = [...rewrittenLinks, ...(globalState.graphData && Array.isArray(globalState.graphData.links) ? globalState.graphData.links : [])];
+	const resolvedPotentialLinks = resolveLinkEndpoints(potentialLinks, globalState.layoutNodes);
+	const currentLayoutNodeIds = new Set(globalState.layoutNodes.map((n) => n.id));
 	ensureLayoutLinkIndexes();
-	layoutLinks.push(
+	globalState.layoutLinks.push(
 		...resolvedPotentialLinks.filter((l) => {
 			const s = l.source?.id ?? l.source;
 			const t = l.target?.id ?? l.target;
@@ -12771,15 +12772,15 @@ function appendFetchedImpl(newNodes, newLinks) {
 			return !layoutHasLinkIdentity(l);
 		}),
 	);
-	layoutLinks = deduplicateLayoutLinks(layoutLinks);
-	rebuildLayoutLinkIndexes(layoutLinks);
-	applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
-	setGraphLabelRenderMode(layoutNodes.length);
+	globalState.layoutLinks = deduplicateLayoutLinks(globalState.layoutLinks);
+	rebuildLayoutLinkIndexes(globalState.layoutLinks);
+	applyGraphDerivedNodeMetrics(globalState.layoutNodes, globalState.layoutLinks);
+	setGraphLabelRenderMode(globalState.layoutNodes.length);
 
 	// Rebuild neighbor cache and update info
-	neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
-	if (layoutNodes.length || layoutLinks.length) showEmpty(false);
-	if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
+	globalState.neighborMap = buildNeighborMap(globalState.layoutNodes, globalState.layoutLinks);
+	if (globalState.layoutNodes.length || globalState.layoutLinks.length) showEmpty(false);
+	if (globalState.graphData) updateSubsetInfo(globalState.layoutNodes.length, globalState.graphData.nodes.length);
 	updateMeta();
 
 	// Persist session so reload restores these nodes
@@ -12787,8 +12788,8 @@ function appendFetchedImpl(newNodes, newLinks) {
 
 	refreshLayeredLinkSelections({ enterDuration: 400 });
 
-	if (!simulation) {
-		if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
+	if (!globalState.simulation) {
+		if (globalState.graphData) updateSubsetInfo(globalState.layoutNodes.length, globalState.graphData.nodes.length);
 		refreshGraphColors();
 		if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
 		refreshTraceState();
@@ -12797,8 +12798,8 @@ function appendFetchedImpl(newNodes, newLinks) {
 
 	const impactedIds = getImpactedNodeIds(uniqNodes, newLinks);
 
-	if (!canvasModeActive && nodeGroup && linkGroup) {
-		const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
+	if (!globalState.canvasModeActive && globalState.nodeGroup && globalState.linkGroup) {
+		const allNodes = globalState.nodeGroup.selectAll('g.fg-node').data(globalState.layoutNodes, (d) => d.id);
 		const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
 
 		// Apply initial transform so new nodes appear at their placed position
@@ -12806,8 +12807,8 @@ function appendFetchedImpl(newNodes, newLinks) {
 		enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 
 		enteredNodes.transition().duration(520).ease(d3.easeCubicOut).attr('opacity', 1);
-		nodeSel = nodeGroup.selectAll('g.fg-node');
-		linkSel = selectRenderedLinkLines();
+		globalState.nodeSel = globalState.nodeGroup.selectAll('g.fg-node');
+		globalState.linkSel = selectRenderedLinkLines();
 		rerenderGraphNodesByIds(impactedIds);
 		reapplySelectionState();
 	}
@@ -12820,8 +12821,8 @@ function appendFetchedImpl(newNodes, newLinks) {
 	// re-render the sidebar so any newly-merged detail (owners/children)
 	// appears without requiring a full page refresh — only while the menu is open.
 	try {
-		if (selectedId && Array.isArray(impactedIds) && impactedIds.includes(selectedId) && shouldRevealSidebarPanel()) {
-			const selectedNode = layoutNodes?.find((node) => node.id === selectedId) || graphData?.nodes?.find((node) => node.id === selectedId);
+		if (globalState.selectedId && Array.isArray(impactedIds) && impactedIds.includes(globalState.selectedId) && shouldRevealSidebarPanel()) {
+			const selectedNode = globalState.layoutNodes?.find((node) => node.id === globalState.selectedId) || globalState.graphData?.nodes?.find((node) => node.id === globalState.selectedId);
 			if (selectedNode) renderSidebar(selectedNode, { reveal: true });
 		}
 	} catch (e) {
@@ -12830,40 +12831,40 @@ function appendFetchedImpl(newNodes, newLinks) {
 
 	// Replace tick handler so it covers the full updated selections.
 	let _appendTick = 0;
-	bindSimulationTickHandler(simulation, () => {
+	bindSimulationTickHandler(globalState.simulation, () => {
 		_appendTick += 1;
-		if (_appendTick === 1 || _appendTick % 20 === 0) estimateLocalCrowdFactors(layoutNodes);
-		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
+		if (_appendTick === 1 || _appendTick % 20 === 0) estimateLocalCrowdFactors(globalState.layoutNodes);
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	});
 
 	// Restart simulation with new nodes/links
-	refreshSoftLocationGroupingForces(layoutNodes);
-	estimateLocalCrowdFactors(layoutNodes);
-	simulation.nodes(layoutNodes);
-	simulation.force('link').links(layoutLinks);
-	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+	refreshSoftLocationGroupingForces(globalState.layoutNodes);
+	estimateLocalCrowdFactors(globalState.layoutNodes);
+	globalState.simulation.nodes(globalState.layoutNodes);
+	globalState.simulation.force('link').links(globalState.layoutLinks);
+	globalState.simulation.force('collision').radius((d) => getNodeCollisionRadius(d, globalState.layoutNodes.length));
 
 	const allowedMoving = new Set(impactedIds || []);
-	if (typeof lastExpandOriginNode !== 'undefined' && lastExpandOriginNode?.id) {
-		allowedMoving.add(lastExpandOriginNode.id);
+	if (typeof globalState.lastExpandOriginNode !== 'undefined' && globalState.lastExpandOriginNode?.id) {
+		allowedMoving.add(globalState.lastExpandOriginNode.id);
 	}
-	if (activeSpreadFrozenNodes.length) {
-		releaseFrozenNodes(activeSpreadFrozenNodes);
-		activeSpreadFrozenNodes = [];
+	if (globalState.activeSpreadFrozenNodes.length) {
+		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
+		globalState.activeSpreadFrozenNodes = [];
 	}
-	activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
+	globalState.activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
 
-	simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, uniqNodes.length)).restart();
+	globalState.simulation.alpha(getIncrementalRestartAlpha(globalState.layoutNodes.length, uniqNodes.length)).restart();
 
-	if (typeof spreadReleaseTimer !== 'undefined' && spreadReleaseTimer) {
-		clearTimeout(spreadReleaseTimer);
-		spreadReleaseTimer = null;
+	if (typeof globalState.spreadReleaseTimer !== 'undefined' && globalState.spreadReleaseTimer) {
+		clearTimeout(globalState.spreadReleaseTimer);
+		globalState.spreadReleaseTimer = null;
 	}
-	spreadReleaseTimer = setTimeout(() => {
-		simulation?.alphaTarget?.(0);
-		releaseFrozenNodes(activeSpreadFrozenNodes);
-		activeSpreadFrozenNodes = [];
-		spreadReleaseTimer = null;
+	globalState.spreadReleaseTimer = setTimeout(() => {
+		globalState.simulation?.alphaTarget?.(0);
+		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
+		globalState.activeSpreadFrozenNodes = [];
+		globalState.spreadReleaseTimer = null;
 	}, 300);
 }
 
@@ -12872,23 +12873,23 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	const preferFrozenLayout = Boolean(options.freezeLayout);
 	const skipInitialZoom = Boolean(options.skipInitialZoom);
 	invalidateFullAdjacencyMap();
-	if (simulation) simulation.stop();
+	if (globalState.simulation) globalState.simulation.stop();
 	cancelGraphTickPositions();
-	if (spreadAnimId) {
-		cancelAnimationFrame(spreadAnimId);
-		spreadAnimId = null;
+	if (globalState.spreadAnimId) {
+		cancelAnimationFrame(globalState.spreadAnimId);
+		globalState.spreadAnimId = null;
 	}
-	if (spreadReleaseTimer) {
-		clearTimeout(spreadReleaseTimer);
-		spreadReleaseTimer = null;
+	if (globalState.spreadReleaseTimer) {
+		clearTimeout(globalState.spreadReleaseTimer);
+		globalState.spreadReleaseTimer = null;
 	}
-	if (nodePinReleaseTimer) {
-		clearTimeout(nodePinReleaseTimer);
-		nodePinReleaseTimer = null;
+	if (globalState.nodePinReleaseTimer) {
+		clearTimeout(globalState.nodePinReleaseTimer);
+		globalState.nodePinReleaseTimer = null;
 	}
-	if (activeSpreadFrozenNodes.length) {
-		releaseFrozenNodes(activeSpreadFrozenNodes);
-		activeSpreadFrozenNodes = [];
+	if (globalState.activeSpreadFrozenNodes.length) {
+		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
+		globalState.activeSpreadFrozenNodes = [];
 	}
 	const svg = d3.select('#fg-main');
 
@@ -12912,10 +12913,10 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 		const t = l.target?.id ?? l.target;
 		return nodeIdSet.has(s) && nodeIdSet.has(t);
 	});
-	layoutNodes = nodes;
+	globalState.layoutNodes = nodes;
 	const resolvedLinks = resolveLinkEndpoints(links, nodes);
-	layoutLinks = deduplicateLayoutLinks(resolvedLinks);
-	rebuildLayoutLinkIndexes(layoutLinks);
+	globalState.layoutLinks = deduplicateLayoutLinks(resolvedLinks);
+	rebuildLayoutLinkIndexes(globalState.layoutLinks);
 	// Async-resolve any orphaned link endpoints so they appear once fetched
 	if (orphanLinks.length) fetchAndInjectOrphanNodes(orphanLinks, nodeIdSet);
 
@@ -12955,17 +12956,17 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	const isHuge = nodeCount > 1000;
 	setGraphLabelRenderMode(nodeCount);
 
-	canvasModeActive = true; // Use Canvas rendering
-	pixiModeActive = false;
+	globalState.canvasModeActive = true; // Use Canvas rendering
+	globalState.pixiModeActive = false;
 	try {
-		if (canvasApi && canvasApi.destroy) canvasApi.destroy();
-		if (overlayApi && overlayApi.destroy) overlayApi.destroy();
+		if (globalState.canvasApi && globalState.canvasApi.destroy) globalState.canvasApi.destroy();
+		if (globalState.overlayApi && globalState.overlayApi.destroy) globalState.overlayApi.destroy();
 	} catch (e) {}
-	overlayApi = null;
-	canvasApi = null;
+	globalState.overlayApi = null;
+	globalState.canvasApi = null;
 
-	if (!canvasApi) {
-		canvasApi = createCanvasOverlay(document.getElementById('fg-main')!);
+	if (!globalState.canvasApi) {
+		globalState.canvasApi = createCanvasOverlay(document.getElementById('fg-main')!);
 		scheduleGraphTickPositions(null, null, null);
 	}
 
@@ -12975,9 +12976,9 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 		isHuge ? 0.45
 		: isLarge ? 0.35
 		: 0.3;
-	activeLabelZoomThreshold = labelZoomThreshold;
-	inactiveLabelCompactZoomThreshold = labelZoomThreshold * 1.35;
-	inactiveLabelCompactMode = initialScaleForCompactState(nodeCount) < inactiveLabelCompactZoomThreshold;
+	globalState.activeLabelZoomThreshold = labelZoomThreshold;
+	globalState.inactiveLabelCompactZoomThreshold = labelZoomThreshold * 1.35;
+	globalState.inactiveLabelCompactMode = initialScaleForCompactState(nodeCount) < globalState.inactiveLabelCompactZoomThreshold;
 
 	function initialScaleForCompactState(count) {
 		return count > 1000 ? 0.18 : 0.25;
@@ -13006,11 +13007,11 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			refreshRenderedLinkStrokeWidthsForZoom();
 			syncTraceLabelPresentation(event.transform.k);
 
-			if (canvasModeActive) {
+			if (globalState.canvasModeActive) {
 				scheduleGraphTickPositions(null, null, null);
 			}
-			if (zoomSaveTimer) clearTimeout(zoomSaveTimer);
-			zoomSaveTimer = setTimeout(() => {
+			if (globalState.zoomSaveTimer) clearTimeout(globalState.zoomSaveTimer);
+			globalState.zoomSaveTimer = setTimeout(() => {
 				try {
 					saveSession();
 				} catch {
@@ -13020,12 +13021,12 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 		});
 
 	// expose zoom and svg to module scope so saved transforms can be replayed
-	zoomBehavior = zoom;
-	svgSel = svg;
+	globalState.zoomBehavior = zoom;
+	globalState.svgSel = svg;
 
 	const root = svg.append('g').attr('class', 'fg-root');
 	svg.classed('fg-huge-graph', isHuge);
-	rootGroup = root;
+	globalState.rootGroup = root;
 
 	svg.call(zoom);
 
@@ -13048,8 +13049,8 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	}
 
 	// Use root as the logical parent for link selections (individual layered groups exist separately)
-	linkGroup = root;
-	arrowGroup = root;
+	globalState.linkGroup = root;
+	globalState.arrowGroup = root;
 	syncTraceLabelPresentation(initialScale);
 
 	// ── Arrow markers ─────────────────────────────────────────────────────────
@@ -13083,7 +13084,7 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 		isHuge ? 0.004
 		: isLarge ? 0.006
 		: 0.01;
-	simulation = d3
+	globalState.simulation = d3
 		.forceSimulation<GraphSimulationNode>(nodes)
 		.alphaDecay(
 			isHuge ? 0.06
@@ -13161,13 +13162,13 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	scheduleWasmLayoutSnapshot(nodes, links, W, H);
 
 	// Build neighbor adjacency cache after D3 has resolved link source/target objects
-	neighborMap = buildNeighborMap(nodes, links);
+	globalState.neighborMap = buildNeighborMap(nodes, links);
 
 	// ── Links (split into three stacked layers so some links can render above nodes) ──
 	// create bottom/mid link layers first; the top layer is still kept under
 	// the node group so hover emphasis stays visible without covering nodes
-	linkBottomGroup = root.append('g').attr('class', 'fg-links-bottom');
-	linkMidGroup = root.append('g').attr('class', 'fg-links-mid');
+	globalState.linkBottomGroup = root.append('g').attr('class', 'fg-links-bottom');
+	globalState.linkMidGroup = root.append('g').attr('class', 'fg-links-mid');
 
 	// partition links by initial render priority
 	const initialHighlight = computeHighlightState();
@@ -13191,15 +13192,15 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			.style('pointer-events', 'none');
 	}
 
-	joinLinkSelection(linkBottomGroup, bottomLinks);
-	joinLinkSelection(linkMidGroup, midLinks);
+	joinLinkSelection(globalState.linkBottomGroup, bottomLinks);
+	joinLinkSelection(globalState.linkMidGroup, midLinks);
 	// topLinks will be joined after node group is created
-	linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
+	globalState.linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
 
 	// ── Arrowheads (also split to mirror link stacking)
 	// create bottom/mid arrow layers now; top arrow layer will be created after nodes
-	arrowBottomGroup = root.append('g').attr('class', 'fg-arrowheads-bottom').style('pointer-events', 'none');
-	arrowMidGroup = root.append('g').attr('class', 'fg-arrowheads-mid').style('pointer-events', 'none');
+	globalState.arrowBottomGroup = root.append('g').attr('class', 'fg-arrowheads-bottom').style('pointer-events', 'none');
+	globalState.arrowMidGroup = root.append('g').attr('class', 'fg-arrowheads-mid').style('pointer-events', 'none');
 
 	function joinArrowSelection(groupSel, data) {
 		return groupSel
@@ -13211,14 +13212,14 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			.style('pointer-events', 'none');
 	}
 
-	joinArrowSelection(arrowBottomGroup, bottomLinks);
-	joinArrowSelection(arrowMidGroup, midLinks);
+	joinArrowSelection(globalState.arrowBottomGroup, bottomLinks);
+	joinArrowSelection(globalState.arrowMidGroup, midLinks);
 	// arrowTopGroup will be created and joined after node group creation
-	arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
+	globalState.arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
 
 	// ── Nodes ─────────────────────────────────────────────────────────────────
 	let node = null;
-	if (!canvasModeActive) {
+	if (!globalState.canvasModeActive) {
 		node = root
 			.append('g')
 			.attr('class', 'fg-nodes')
@@ -13229,16 +13230,16 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			.call(fluidDrag() as any)
 			.on('click', handleNodeOpen)
 			.call(bindHoverAndFocus);
-		nodeSel = node;
-		nodeGroup = root.select('.fg-nodes');
+		globalState.nodeSel = node;
+		globalState.nodeGroup = root.select('.fg-nodes');
 
 		renderNodeContents(node);
 	} else {
 		// In canvas mode we do not create per-node DOM elements — drawing is
 		// handled by the canvas renderer on each tick. Keep lightweight placeholders
 		// for selections to avoid breaking code paths that expect these vars.
-		nodeSel = null;
-		nodeGroup = null;
+		globalState.nodeSel = null;
+		globalState.nodeGroup = null;
 	}
 
 	// If the data payload included recently added node ids (set by mergeIntoGraphData),
@@ -13257,24 +13258,24 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	// but they still sit beneath the node layer so the hovered line glow never
 	// covers the node itself. Gray and inactive connections remain below nodes.
 	try {
-		linkTopGroup = root.append('g').attr('class', 'fg-links-top').style('pointer-events', 'none');
-		joinLinkSelection(linkTopGroup, topLinks);
-		arrowTopGroup = root.append('g').attr('class', 'fg-arrowheads-top').style('pointer-events', 'none');
-		joinArrowSelection(arrowTopGroup, topLinks);
+		globalState.linkTopGroup = root.append('g').attr('class', 'fg-links-top').style('pointer-events', 'none');
+		joinLinkSelection(globalState.linkTopGroup, topLinks);
+		globalState.arrowTopGroup = root.append('g').attr('class', 'fg-arrowheads-top').style('pointer-events', 'none');
+		joinArrowSelection(globalState.arrowTopGroup, topLinks);
 		// refresh combined selections to include top groups
-		linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
-		arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
+		globalState.linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
+		globalState.arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
 
 		// If canvas mode is active, hide the SVG link/arrow groups to avoid
 		// duplicate drawing and unnecessary DOM paint.
-		if (canvasModeActive) {
+		if (globalState.canvasModeActive) {
 			try {
-				if (linkBottomGroup) linkBottomGroup.style('display', 'none');
-				if (linkMidGroup) linkMidGroup.style('display', 'none');
-				if (linkTopGroup) linkTopGroup.style('display', 'none');
-				if (arrowBottomGroup) arrowBottomGroup.style('display', 'none');
-				if (arrowMidGroup) arrowMidGroup.style('display', 'none');
-				if (arrowTopGroup) arrowTopGroup.style('display', 'none');
+				if (globalState.linkBottomGroup) globalState.linkBottomGroup.style('display', 'none');
+				if (globalState.linkMidGroup) globalState.linkMidGroup.style('display', 'none');
+				if (globalState.linkTopGroup) globalState.linkTopGroup.style('display', 'none');
+				if (globalState.arrowBottomGroup) globalState.arrowBottomGroup.style('display', 'none');
+				if (globalState.arrowMidGroup) globalState.arrowMidGroup.style('display', 'none');
+				if (globalState.arrowTopGroup) globalState.arrowTopGroup.style('display', 'none');
 			} catch (e) {
 				/* ignore */
 			}
@@ -13288,41 +13289,41 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 
 	// ── Tick ──────────────────────────────────────────────────────────────────
 	let _tickN = 0;
-	bindSimulationTickHandler(simulation, () => {
+	bindSimulationTickHandler(globalState.simulation, () => {
 		_tickN++;
 		if (_tickN === 1 || (!isHuge && _tickN % 20 === 0) || (isHuge && _tickN % 60 === 0)) {
-			estimateLocalCrowdFactors(layoutNodes || nodes);
+			estimateLocalCrowdFactors(globalState.layoutNodes || nodes);
 		}
 		// During high-energy early layout, aggressively throttle SVG repaints
 		// to allow the main thread to handle user inputs and D3 physics calculations.
-		if (isHuge && simulation.alpha() > 0.05 && _tickN % 10 !== 0) return;
-		if (isLarge && simulation.alpha() > 0.1 && _tickN % 4 !== 0) return;
-		if (!isHuge && !isLarge && simulation.alpha() > 0.15 && _tickN % 2 !== 0) return;
+		if (isHuge && globalState.simulation.alpha() > 0.05 && _tickN % 10 !== 0) return;
+		if (isLarge && globalState.simulation.alpha() > 0.1 && _tickN % 4 !== 0) return;
+		if (!isHuge && !isLarge && globalState.simulation.alpha() > 0.15 && _tickN % 2 !== 0) return;
 
-		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	});
 
 	if (freezeLayout) {
 		// Keep the existing layout; a hot re-settle blocks zoom/drag for seconds on large graphs.
 		try {
-			simulation.alpha(0).alphaTarget(0).stop();
+			globalState.simulation.alpha(0).alphaTarget(0).stop();
 		} catch {
 			/* ignore */
 		}
-		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	} else {
 		// Stop simulation after a short settle window to prevent endless movement
 		const stopAfterMs =
 			isHuge ? 2500
 			: isLarge ? 3500
 			: 5000;
-		setTimeout(() => simulation.stop(), stopAfterMs);
+		setTimeout(() => globalState.simulation.stop(), stopAfterMs);
 	}
 
 	// Preserve the current selection on blank click; highlights must be cleared explicitly.
 	svg.on('click', (event) => {
 		const [px, py] = d3.pointer(event);
-		lastArrowNavCoord = { x: px, y: py };
+		globalState.lastArrowNavCoord = { x: px, y: py };
 
 		// Clicking the canvas hands arrow-key navigation over to "nearest node
 		// from click point" mode; disable any active in-page find/search so
@@ -13334,9 +13335,9 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: true } }));
 		}
 
-		if (selectionRestoreTimer) {
-			clearTimeout(selectionRestoreTimer);
-			selectionRestoreTimer = null;
+		if (globalState.selectionRestoreTimer) {
+			clearTimeout(globalState.selectionRestoreTimer);
+			globalState.selectionRestoreTimer = null;
 		}
 		stopNodePulseLoop();
 		// Keep selection + menu as-is on blank canvas clicks. The hamburger toggle closes the menu.
@@ -13364,23 +13365,23 @@ function fluidDrag() {
 		.drag()
 		.on('start', function (event, d: GraphSimulationNode) {
 			// Cancel any pending click-spread animation
-			if (spreadAnimId) {
-				cancelAnimationFrame(spreadAnimId);
-				spreadAnimId = null;
+			if (globalState.spreadAnimId) {
+				cancelAnimationFrame(globalState.spreadAnimId);
+				globalState.spreadAnimId = null;
 			}
 			// Pin the dragged node
 			d.fx = d.x;
 			d.fy = d.y;
 			// Unfix direct neighbors so the simulation can push them aside
 			const neighborIds = getNeighborIds(d.id);
-			layoutNodes.forEach((n) => {
+			globalState.layoutNodes.forEach((n) => {
 				if (neighborIds.has(n.id)) {
 					n.fx = null;
 					n.fy = null;
 				}
 			});
 			// Reheat just enough for fluid neighbor movement
-			simulation.alphaTarget(0.3).restart();
+			globalState.simulation.alphaTarget(0.3).restart();
 		})
 		.on('drag', function (event, d: GraphSimulationNode) {
 			// Calculate delta from previous position
@@ -13393,12 +13394,12 @@ function fluidDrag() {
 
 			// Move loose child nodes by the same delta
 			// A child is any node where this node is the source in a link
-			if (Array.isArray(layoutLinks) && Array.isArray(layoutNodes)) {
-				layoutLinks.forEach((l) => {
+			if (Array.isArray(globalState.layoutLinks) && Array.isArray(globalState.layoutNodes)) {
+				globalState.layoutLinks.forEach((l) => {
 					const srcId = l.source?.id ?? l.source;
 					const tgtId = l.target?.id ?? l.target;
 					if (srcId === d.id) {
-						const child = layoutNodes.find((n) => n.id === tgtId);
+						const child = globalState.layoutNodes.find((n) => n.id === tgtId);
 						if (child && child.fx == null && child.fy == null) {
 							// Only move if not fixed
 							child.x = (child.x ?? 0) + dx;
@@ -13412,17 +13413,17 @@ function fluidDrag() {
 			// Release the dragged node so the simulation can continue moving fluidly
 			d.fx = null;
 			d.fy = null;
-			simulation.alphaTarget(0);
+			globalState.simulation.alphaTarget(0);
 		});
 }
 
 // Returns the set of node ids directly connected to the given node id
 function getNeighborIds(nodeId) {
-	if (neighborMap) return neighborMap.get(nodeId) ?? new Set();
+	if (globalState.neighborMap) return globalState.neighborMap.get(nodeId) ?? new Set();
 	// Fallback if map is not yet built
 	const ids = new Set();
-	if (!layoutLinks) return ids;
-	layoutLinks.forEach((l) => {
+	if (!globalState.layoutLinks) return ids;
+	globalState.layoutLinks.forEach((l) => {
 		const srcId = l.source?.id ?? l.source;
 		const tgtId = l.target?.id ?? l.target;
 		if (srcId === nodeId) ids.add(tgtId);
@@ -13463,69 +13464,69 @@ export function resolveNodeByIdOrIdentity(nodeId, candidates = []) {
 function getNodeById(nodeId) {
 	const normalizedNodeId = String(nodeId || '').trim();
 	if (!normalizedNodeId) return null;
-	if (Array.isArray(layoutNodes)) {
-		const found = resolveNodeByIdOrIdentity(normalizedNodeId, layoutNodes);
+	if (Array.isArray(globalState.layoutNodes)) {
+		const found = resolveNodeByIdOrIdentity(normalizedNodeId, globalState.layoutNodes);
 		if (found) return found;
 	}
-	if (graphData?.nodes) {
-		return Array.isArray(graphData.nodes) ? resolveNodeByIdOrIdentity(normalizedNodeId, graphData.nodes) || null : null;
+	if (globalState.graphData?.nodes) {
+		return Array.isArray(globalState.graphData.nodes) ? resolveNodeByIdOrIdentity(normalizedNodeId, globalState.graphData.nodes) || null : null;
 	}
 	return null;
 }
 
 function invalidateFullAdjacencyMap() {
-	fullAdjacencyMap = null;
+	globalState.fullAdjacencyMap = null;
 }
 
-export function rebuildLayoutLinkIndexes(links = layoutLinks) {
-	layoutLinkIdentityKeys = new Set<string>();
-	layoutLinksByNodeId = new Map<string, any[]>();
+export function rebuildLayoutLinkIndexes(links = globalState.layoutLinks) {
+	globalState.layoutLinkIdentityKeys = new Set<string>();
+	globalState.layoutLinksByNodeId = new Map<string, any[]>();
 	const list = Array.isArray(links) ? links : [];
 	for (const link of list) {
 		if (!link) continue;
 		const key = getLinkIdentityKey(link);
-		if (key) layoutLinkIdentityKeys.add(key);
+		if (key) globalState.layoutLinkIdentityKeys.add(key);
 		const sourceId = String(link.source?.id ?? link.source ?? '').trim();
 		const targetId = String(link.target?.id ?? link.target ?? '').trim();
 		if (sourceId) {
-			if (!layoutLinksByNodeId.has(sourceId)) layoutLinksByNodeId.set(sourceId, []);
-			layoutLinksByNodeId.get(sourceId)!.push(link);
+			if (!globalState.layoutLinksByNodeId.has(sourceId)) globalState.layoutLinksByNodeId.set(sourceId, []);
+			globalState.layoutLinksByNodeId.get(sourceId)!.push(link);
 		}
 		if (targetId) {
-			if (!layoutLinksByNodeId.has(targetId)) layoutLinksByNodeId.set(targetId, []);
-			layoutLinksByNodeId.get(targetId)!.push(link);
+			if (!globalState.layoutLinksByNodeId.has(targetId)) globalState.layoutLinksByNodeId.set(targetId, []);
+			globalState.layoutLinksByNodeId.get(targetId)!.push(link);
 		}
 	}
-	layoutLinkIndexLinkCount = list.length;
-	selectionPredicateCacheGen += 1;
+	globalState.layoutLinkIndexLinkCount = list.length;
+	globalState.selectionPredicateCacheGen += 1;
 }
 
 function ensureLayoutLinkIndexes() {
-	const linkCount = Array.isArray(layoutLinks) ? layoutLinks.length : 0;
+	const linkCount = Array.isArray(globalState.layoutLinks) ? globalState.layoutLinks.length : 0;
 	if (linkCount === 0) {
 		// Do not auto-clear here: unit tests and interim callers may rebuild indexes from an
 		// explicit link list. Clearing empty layoutLinks goes through rebuildLayoutLinkIndexes([]).
 		return;
 	}
-	if (layoutLinkIndexLinkCount !== linkCount) {
-		rebuildLayoutLinkIndexes(layoutLinks);
+	if (globalState.layoutLinkIndexLinkCount !== linkCount) {
+		rebuildLayoutLinkIndexes(globalState.layoutLinks);
 	}
 }
 
 export function layoutHasLinkIdentity(link) {
-	if (Array.isArray(layoutLinks) && layoutLinks.length > 0) {
+	if (Array.isArray(globalState.layoutLinks) && globalState.layoutLinks.length > 0) {
 		ensureLayoutLinkIndexes();
 	}
-	return layoutLinkIdentityKeys.has(getLinkIdentityKey(link));
+	return globalState.layoutLinkIdentityKeys.has(getLinkIdentityKey(link));
 }
 
 function getFullAdjacencyMap() {
-	if (fullAdjacencyMap && graphData) return fullAdjacencyMap;
-	if (!graphData) return new Map();
+	if (globalState.fullAdjacencyMap && globalState.graphData) return globalState.fullAdjacencyMap;
+	if (!globalState.graphData) return new Map();
 
 	const adjacency = new Map();
-	(graphData.nodes || []).forEach((n) => adjacency.set(n.id, []));
-	(graphData.links || []).forEach((link) => {
+	(globalState.graphData.nodes || []).forEach((n) => adjacency.set(n.id, []));
+	(globalState.graphData.links || []).forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
 		if (!sourceId || !targetId) return;
@@ -13535,7 +13536,7 @@ function getFullAdjacencyMap() {
 		adjacency.get(targetId).push({ nodeId: sourceId, link });
 	});
 
-	fullAdjacencyMap = adjacency;
+	globalState.fullAdjacencyMap = adjacency;
 	return adjacency;
 }
 
@@ -13554,9 +13555,9 @@ function buildNeighborMap(nodes, links) {
 // Inject nodes (by id) from the full `graphData` into the live layout and DOM.
 // Safe to call when the graph is already rendered; will skip already-present ids.
 function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean } = {}) {
-	if (!graphData || !layoutNodes || !layoutLinks) return;
+	if (!globalState.graphData || !globalState.layoutNodes || !globalState.layoutLinks) return;
 	const idSet = new Set(ids || []);
-	const toAdd = selectNodesToInjectById(Array.from(idSet), { renderedNodes: layoutNodes, graphNodes: graphData.nodes });
+	const toAdd = selectNodesToInjectById(Array.from(idSet), { renderedNodes: globalState.layoutNodes, graphNodes: globalState.graphData.nodes });
 	if (!toAdd.length) return;
 
 	resetClearNonLogStageAfterNodesAdded();
@@ -13565,17 +13566,17 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	const main = document.getElementById('fg-main');
 	const W = main?.clientWidth || 800;
 	const H = main?.clientHeight || 600;
-	const originX = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.x) ? lastExpandOriginNode.x : W / 2;
-	const originY = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.y) ? lastExpandOriginNode.y : H / 2;
+	const originX = globalState.lastExpandOriginNode && Number.isFinite(globalState.lastExpandOriginNode.x) ? globalState.lastExpandOriginNode.x : W / 2;
+	const originY = globalState.lastExpandOriginNode && Number.isFinite(globalState.lastExpandOriginNode.y) ? globalState.lastExpandOriginNode.y : H / 2;
 	toAdd.forEach((n, i) => {
 		n.x = originX + (Math.random() - 0.5) * 120 + (i % 5) * 8;
 		n.y = originY + (Math.random() - 0.5) * 120 + (i % 7) * 6;
 	});
 
 	// find links that connect now-rendered nodes
-	const nowIds = new Set([...layoutNodes.map((n) => n.id), ...toAdd.map((n) => n.id)]);
+	const nowIds = new Set([...globalState.layoutNodes.map((n) => n.id), ...toAdd.map((n) => n.id)]);
 	ensureLayoutLinkIndexes();
-	const newLinks = graphData.links
+	const newLinks = globalState.graphData.links
 		.filter((l) => {
 			const s = l.source?.id ?? l.source;
 			const t = l.target?.id ?? l.target;
@@ -13583,19 +13584,19 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 		})
 		.map((l) => ({ ...l }));
 
-	layoutNodes.push(...toAdd);
-	layoutLinks.push(...newLinks);
-	resolveLinkEndpoints(layoutLinks, layoutNodes);
-	rebuildLayoutLinkIndexes(layoutLinks);
-	applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
-	setGraphLabelRenderMode(layoutNodes.length);
+	globalState.layoutNodes.push(...toAdd);
+	globalState.layoutLinks.push(...newLinks);
+	resolveLinkEndpoints(globalState.layoutLinks, globalState.layoutNodes);
+	rebuildLayoutLinkIndexes(globalState.layoutLinks);
+	applyGraphDerivedNodeMetrics(globalState.layoutNodes, globalState.layoutLinks);
+	setGraphLabelRenderMode(globalState.layoutNodes.length);
 
-	neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
-	if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
+	globalState.neighborMap = buildNeighborMap(globalState.layoutNodes, globalState.layoutLinks);
+	if (globalState.graphData) updateSubsetInfo(globalState.layoutNodes.length, globalState.graphData.nodes.length);
 
 	refreshLayeredLinkSelections({ enterDuration: 400 });
 
-	if (!simulation) {
+	if (!globalState.simulation) {
 		refreshGraphColors();
 		if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
 		refreshTraceState();
@@ -13616,15 +13617,15 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 		}
 	}
 
-	if (!canvasModeActive && nodeGroup && linkGroup) {
-		const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
+	if (!globalState.canvasModeActive && globalState.nodeGroup && globalState.linkGroup) {
+		const allNodes = globalState.nodeGroup.selectAll('g.fg-node').data(globalState.layoutNodes, (d) => d.id);
 		const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
 
 		enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 
 		enteredNodes.transition().duration(400).attr('opacity', 1);
-		nodeSel = nodeGroup.selectAll('g.fg-node');
-		linkSel = selectRenderedLinkLines();
+		globalState.nodeSel = globalState.nodeGroup.selectAll('g.fg-node');
+		globalState.linkSel = selectRenderedLinkLines();
 		rerenderGraphNodesByIds(getImpactedNodeIds(toAdd, newLinks));
 		reapplySelectionState();
 	}
@@ -13645,47 +13646,47 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
 	refreshTraceState();
 
-	refreshSoftLocationGroupingForces(layoutNodes);
-	simulation.nodes(layoutNodes);
-	simulation.force('link').links(layoutLinks);
-	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+	refreshSoftLocationGroupingForces(globalState.layoutNodes);
+	globalState.simulation.nodes(globalState.layoutNodes);
+	globalState.simulation.force('link').links(globalState.layoutLinks);
+	globalState.simulation.force('collision').radius((d) => getNodeCollisionRadius(d, globalState.layoutNodes.length));
 
 	const allowedMoving = new Set(toAdd.map((n) => n.id));
-	if (typeof lastExpandOriginNode !== 'undefined' && lastExpandOriginNode?.id) {
-		allowedMoving.add(lastExpandOriginNode.id);
+	if (typeof globalState.lastExpandOriginNode !== 'undefined' && globalState.lastExpandOriginNode?.id) {
+		allowedMoving.add(globalState.lastExpandOriginNode.id);
 	}
-	if (activeSpreadFrozenNodes.length) {
-		releaseFrozenNodes(activeSpreadFrozenNodes);
-		activeSpreadFrozenNodes = [];
+	if (globalState.activeSpreadFrozenNodes.length) {
+		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
+		globalState.activeSpreadFrozenNodes = [];
 	}
-	activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
+	globalState.activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
 
-	simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, toAdd.length)).restart();
+	globalState.simulation.alpha(getIncrementalRestartAlpha(globalState.layoutNodes.length, toAdd.length)).restart();
 
-	if (typeof spreadReleaseTimer !== 'undefined' && spreadReleaseTimer) {
-		clearTimeout(spreadReleaseTimer);
-		spreadReleaseTimer = null;
+	if (typeof globalState.spreadReleaseTimer !== 'undefined' && globalState.spreadReleaseTimer) {
+		clearTimeout(globalState.spreadReleaseTimer);
+		globalState.spreadReleaseTimer = null;
 	}
-	spreadReleaseTimer = setTimeout(() => {
-		simulation?.alphaTarget?.(0);
-		releaseFrozenNodes(activeSpreadFrozenNodes);
-		activeSpreadFrozenNodes = [];
-		spreadReleaseTimer = null;
+	globalState.spreadReleaseTimer = setTimeout(() => {
+		globalState.simulation?.alphaTarget?.(0);
+		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
+		globalState.activeSpreadFrozenNodes = [];
+		globalState.spreadReleaseTimer = null;
 	}, 300);
 
 	// Persist session so reload restores these nodes
 	saveSession();
 
 	let _updTick = 0;
-	estimateLocalCrowdFactors(layoutNodes);
-	bindSimulationTickHandler(simulation, () => {
+	estimateLocalCrowdFactors(globalState.layoutNodes);
+	bindSimulationTickHandler(globalState.simulation, () => {
 		_updTick++;
-		const count = layoutNodes?.length || 0;
-		if (_updTick === 1 || (_updTick % (count > 1000 ? 60 : 20) === 0)) estimateLocalCrowdFactors(layoutNodes);
-		if (count > 1000 && simulation.alpha() > 0.05 && _updTick % 10 !== 0) return;
-		if (count > 300 && simulation.alpha() > 0.1 && _updTick % 4 !== 0) return;
+		const count = globalState.layoutNodes?.length || 0;
+		if (_updTick === 1 || (_updTick % (count > 1000 ? 60 : 20) === 0)) estimateLocalCrowdFactors(globalState.layoutNodes);
+		if (count > 1000 && globalState.simulation.alpha() > 0.05 && _updTick % 10 !== 0) return;
+		if (count > 300 && globalState.simulation.alpha() > 0.1 && _updTick % 4 !== 0) return;
 
-		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	});
 
 	// Persist session so reload restores these revealed neighbors
@@ -13698,11 +13699,11 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	// stop immediately when nodes are revealed — helps visibility of progressive
 	// reveals. If a refresh timer exists, extend it by a small delay.
 	try {
-		if (refreshLayoutStopTimer && refreshFinalizeLayoutFn) {
+		if (globalState.refreshLayoutStopTimer && globalState.refreshFinalizeLayoutFn) {
 			// clear existing and schedule a short extra delay before finalizing
-			clearTimeout(refreshLayoutStopTimer);
-			refreshLayoutStopTimer = setTimeout(() => {
-				if (refreshFinalizeLayoutFn) refreshFinalizeLayoutFn();
+			clearTimeout(globalState.refreshLayoutStopTimer);
+			globalState.refreshLayoutStopTimer = setTimeout(() => {
+				if (globalState.refreshFinalizeLayoutFn) globalState.refreshFinalizeLayoutFn();
 			}, 700);
 		}
 	} catch (e) {
@@ -13854,8 +13855,8 @@ function personHasRelationship(personNode, relationships) {
 	const relSet = new Set((Array.isArray(relationships) ? relationships : [relationships]).filter(Boolean));
 	if (!relSet.size) return false;
 
-	const allLinks = [...(Array.isArray(layoutLinks) ? layoutLinks : [])].concat(
-		...Array.from(graphData?.links || []).map((l: any) => {
+	const allLinks = [...(Array.isArray(globalState.layoutLinks) ? globalState.layoutLinks : [])].concat(
+		...Array.from(globalState.graphData?.links || []).map((l: any) => {
 			const sourceId = l.source?.id ?? l.source;
 			const targetId = l.target?.id ?? l.target;
 			return { sourceId, targetId };
@@ -13891,7 +13892,7 @@ export function shouldFetchFirmDetailForOwnerEvidence(options: { allowFirmDetail
 }
 
 async function mergeIndividualOwnerEvidence(personNode, options: { allowFirmDetailFetch?: boolean } = {}) {
-	if (!personNode || !graphData) return false;
+	if (!personNode || !globalState.graphData) return false;
 	const { allowFirmDetailFetch = true } = options;
 
 	const personId = personNode.id;
@@ -13899,7 +13900,7 @@ async function mergeIndividualOwnerEvidence(personNode, options: { allowFirmDeta
 	const personName = normalizeComparableName(personNode.label);
 	const connectedFirmIds = new Set();
 
-	for (const link of layoutLinks || []) {
+	for (const link of globalState.layoutLinks || []) {
 		if (link.relationship !== 'controls') continue;
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
@@ -13909,7 +13910,7 @@ async function mergeIndividualOwnerEvidence(personNode, options: { allowFirmDeta
 
 	let merged = false;
 	for (const firmNodeId of connectedFirmIds) {
-		const firmNode = layoutNodes?.find((node) => node.id === firmNodeId) || graphData.nodes?.find((node) => node.id === firmNodeId);
+		const firmNode = globalState.layoutNodes?.find((node) => node.id === firmNodeId) || globalState.graphData.nodes?.find((node) => node.id === firmNodeId);
 		if (!firmNode || firmNode.group !== 'firm') continue;
 
 		if (shouldFetchFirmDetailForOwnerEvidence({ allowFirmDetailFetch }) && (!Array.isArray(firmNode.directOwners) || !firmNode.directOwners.length)) {
@@ -14198,7 +14199,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 			if (!layoutHasLinkIdentity(candidateLink)) newLinks.push(candidateLink);
 		}
 		if (!newNodes.length && !newLinks.length) return;
-		appendFetched(newNodes, newLinks);
+		globalState.appendFetched(newNodes, newLinks);
 		mergeIntoGraphData(newNodes, newLinks);
 		return;
 	}
@@ -14374,7 +14375,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 			return changed;
 		};
 
-		const layoutControlLink = layoutLinks.find((link) => {
+		const layoutControlLink = globalState.layoutLinks.find((link) => {
 			const sourceId = link.source?.id ?? link.source;
 			const targetId = link.target?.id ?? link.target;
 			return sourceId === personId && targetId === firmNodeId && link.relationship === 'controls';
@@ -14384,7 +14385,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 			const targetId = link.target?.id ?? link.target;
 			return sourceId === personId && targetId === firmNodeId && link.relationship === 'controls';
 		});
-		const graphControlLink = graphData?.links?.find((link) => {
+		const graphControlLink = globalState.graphData?.links?.find((link) => {
 			const sourceId = link.source?.id ?? link.source;
 			const targetId = link.target?.id ?? link.target;
 			return sourceId === personId && targetId === firmNodeId && link.relationship === 'controls';
@@ -14413,7 +14414,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 	}
 
 	if (!newNodes.length && !newLinks.length) {
-		applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+		applyGraphDerivedNodeMetrics(globalState.layoutNodes, globalState.layoutLinks);
 		rerenderGraphNodesByIds([personId]);
 		refreshGraphColors();
 		if (updatedExistingControlData) {
@@ -14425,7 +14426,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 		}
 		return;
 	}
-	appendFetched(newNodes, newLinks);
+	globalState.appendFetched(newNodes, newLinks);
 	mergeIntoGraphData(newNodes, newLinks);
 }
 
@@ -14471,7 +14472,7 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 			if (!layoutHasLinkIdentity(candidateLink)) newLinks.push(candidateLink);
 		}
 		if (!newNodes.length && !newLinks.length) return;
-		appendFetched(newNodes, newLinks);
+		globalState.appendFetched(newNodes, newLinks);
 		mergeIntoGraphData(newNodes, newLinks);
 		return;
 	}
@@ -14491,7 +14492,7 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 		const parentFirmActive = !/inactive|terminated|revoked|suspended/i.test(
 			String(detail?.basicInformation?.bcScope || detail?.bcScope || firmNode?.bcScope || firmNode?.firmStatus || 'ACTIVE').replace(/\s+/g, ''),
 		);
-		if (!layoutNodes.some((node) => node.id === personNodeId) && !newNodes.some((node) => node.id === personNodeId)) {
+		if (!globalState.layoutNodes.some((node) => node.id === personNodeId) && !newNodes.some((node) => node.id === personNodeId)) {
 			newNodes.push({
 				id: personNodeId,
 				label: normalizePersonLabel(owner?.legalName || owner?.name || `Person ${personId}`),
@@ -14513,7 +14514,7 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 		}
 
 		ensureLayoutLinkIndexes();
-		const hasLayoutLink = (layoutLinksByNodeId.get(String(personNodeId)) || []).some((link) => {
+		const hasLayoutLink = (globalState.layoutLinksByNodeId.get(String(personNodeId)) || []).some((link) => {
 			const sourceId = link.source?.id ?? link.source;
 			const targetId = link.target?.id ?? link.target;
 			return sourceId === personNodeId && targetId === firmNodeId && link.relationship === 'controls';
@@ -14537,12 +14538,12 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 	const dedupedLinks = dedupeGraphLinksByIdentity(newLinks, dedupedNodes.idRewriteMap);
 
 	if (!dedupedNodes.nodes.length && !dedupedLinks.length) {
-		applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+		applyGraphDerivedNodeMetrics(globalState.layoutNodes, globalState.layoutLinks);
 		rerenderGraphNodesByIds([firmNodeId]);
 		refreshGraphColors();
 		return;
 	}
-	appendFetched(dedupedNodes.nodes, dedupedLinks);
+	globalState.appendFetched(dedupedNodes.nodes, dedupedLinks);
 	mergeIntoGraphData(dedupedNodes.nodes, dedupedLinks);
 }
 
@@ -14559,7 +14560,7 @@ function scheduleFirmConnectionsLoad(_firmNode: any) {
 
 /** Load rich side-panel detail only when Info is expanded (not when collapsed to chrome). */
 async function hydrateSidebarDetailsForSelectedNode(node = sidebarSelectedNode) {
-	const target = node || (selectedId ? layoutNodes?.find((entry) => entry.id === selectedId) || graphData?.nodes?.find((entry) => entry.id === selectedId) : null);
+	const target = node || (globalState.selectedId ? globalState.layoutNodes?.find((entry) => entry.id === globalState.selectedId) || globalState.graphData?.nodes?.find((entry) => entry.id === globalState.selectedId) : null);
 	if (!target) {
 		renderSidebar(null, { reveal: true });
 		return;
@@ -14582,7 +14583,7 @@ async function hydrateSidebarDetailsForSelectedNode(node = sidebarSelectedNode) 
 		console.warn('Failed to hydrate sidebar details:', error);
 	}
 	if (sidebarViewMode !== 'info') return;
-	if (selectedId === target.id || sidebarSelectedNode?.id === target.id) {
+	if (globalState.selectedId === target.id || sidebarSelectedNode?.id === target.id) {
 		renderSidebar(target, { reveal: true });
 	}
 }
@@ -14790,7 +14791,7 @@ async function ensureFirmDetail(firmNode) {
 					firmNode._detailLoaded = true;
 					firmNode._detailMissing = false;
 					firmNode._detailValidated = true;
-					if (selectedId === firmNode.id && shouldRevealSidebarPanel()) renderSidebar(firmNode, { reveal: true });
+					if (globalState.selectedId === firmNode.id && shouldRevealSidebarPanel()) renderSidebar(firmNode, { reveal: true });
 					return;
 				}
 				firmNode._detailMissing = true;
@@ -14918,7 +14919,7 @@ async function ensureFirmDetail(firmNode) {
 			firmNode._detailMissing = false;
 			firmNode._detailValidated = true;
 			logDetailLoadDebug(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
-			if (selectedId === firmNode.id && shouldRevealSidebarPanel()) renderSidebar(firmNode, { reveal: true });
+			if (globalState.selectedId === firmNode.id && shouldRevealSidebarPanel()) renderSidebar(firmNode, { reveal: true });
 		} catch (err) {
 			console.error(`Error fetching firm detail for ${firmId}:`, err);
 		}
@@ -14934,7 +14935,7 @@ async function ensureFirmDetail(firmNode) {
 	}
 }
 
-export function releasePinnedSelectedNodeAnchor(nodeId, nodes = layoutNodes) {
+export function releasePinnedSelectedNodeAnchor(nodeId, nodes = globalState.layoutNodes) {
 	if (!nodeId || !Array.isArray(nodes)) return false;
 	let released = false;
 	nodes.forEach((node) => {
@@ -15115,7 +15116,7 @@ async function hydrateExpansionFrontierNodes(
 		const chunk = uniqueIds.slice(index, index + NON_GRAY_DETAIL_BATCH_SIZE);
 		const results = await Promise.allSettled(
 			chunk.map(async (nodeId) => {
-				const liveNode = layoutNodes?.find((node) => node.id === nodeId) || graphData?.nodes?.find((node) => node.id === nodeId);
+				const liveNode = globalState.layoutNodes?.find((node) => node.id === nodeId) || globalState.graphData?.nodes?.find((node) => node.id === nodeId);
 				if (!liveNode) return null;
 				if (!shouldHydrateExpansionFrontierNodeDetail(liveNode, { includeFirmDetails })) return null;
 				if (liveNode.group === 'individual') {
@@ -15146,8 +15147,8 @@ async function hydrateExpansionFrontierNodes(
 		rerenderGraphNodesByIds(impactedIds);
 		refreshGraphColors();
 		refreshTraceState();
-		if (selectedId && impactedIds.includes(selectedId) && shouldRevealSidebarPanel()) {
-			const selectedNode = layoutNodes?.find((node) => node.id === selectedId) || graphData?.nodes?.find((node) => node.id === selectedId);
+		if (globalState.selectedId && impactedIds.includes(globalState.selectedId) && shouldRevealSidebarPanel()) {
+			const selectedNode = globalState.layoutNodes?.find((node) => node.id === globalState.selectedId) || globalState.graphData?.nodes?.find((node) => node.id === globalState.selectedId);
 			if (selectedNode) {
 				renderSidebar(selectedNode, { reveal: true });
 			}
@@ -15158,8 +15159,8 @@ async function hydrateExpansionFrontierNodes(
 }
 
 function revealIncidentRenderedLinks(clickedNode, linkFilter: ((link: any) => boolean) | null = null) {
-	if (!clickedNode?.id || !graphData || !layoutNodes || !layoutLinks) return 0;
-	const renderedIds = new Set(layoutNodes.map((node) => node.id));
+	if (!clickedNode?.id || !globalState.graphData || !globalState.layoutNodes || !globalState.layoutLinks) return 0;
+	const renderedIds = new Set(globalState.layoutNodes.map((node) => node.id));
 	const clickedId = clickedNode.id;
 	const nextLinks = [];
 	ensureLayoutLinkIndexes();
@@ -15167,7 +15168,7 @@ function revealIncidentRenderedLinks(clickedNode, linkFilter: ((link: any) => bo
 		const adjacency = getFullAdjacencyMap();
 		const fromAdj = adjacency.get(clickedId) || [];
 		if (fromAdj.length) return fromAdj.map((entry) => entry.link).filter(Boolean);
-		return graphData.links || [];
+		return globalState.graphData.links || [];
 	})();
 	for (const link of incidentCandidates) {
 		if (typeof linkFilter === 'function' && !linkFilter(link)) continue;
@@ -15176,16 +15177,16 @@ function revealIncidentRenderedLinks(clickedNode, linkFilter: ((link: any) => bo
 		if (sourceId !== clickedId && targetId !== clickedId) continue;
 		if (!renderedIds.has(sourceId) || !renderedIds.has(targetId)) continue;
 		if (layoutHasLinkIdentity(link)) continue;
-		const endpointAlreadyConnected = (neighborMap?.get(String(sourceId)) || new Set()).has(String(targetId));
+		const endpointAlreadyConnected = (globalState.neighborMap?.get(String(sourceId)) || new Set()).has(String(targetId));
 		if (endpointAlreadyConnected) continue;
 		nextLinks.push({ ...link });
 	}
 	if (!nextLinks.length) return 0;
-	layoutLinks.push(...resolveLinkEndpoints(nextLinks, layoutNodes));
-	rebuildLayoutLinkIndexes(layoutLinks);
-	neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
+	globalState.layoutLinks.push(...resolveLinkEndpoints(nextLinks, globalState.layoutNodes));
+	rebuildLayoutLinkIndexes(globalState.layoutLinks);
+	globalState.neighborMap = buildNeighborMap(globalState.layoutNodes, globalState.layoutLinks);
 	refreshLayeredLinkSelections({ enterDuration: 220 });
-	linkSel = selectRenderedLinkLines();
+	globalState.linkSel = selectRenderedLinkLines();
 	rerenderGraphNodesByIds(getImpactedNodeIds([], nextLinks));
 	reapplySelectionState();
 	refreshGraphColors();
@@ -15193,21 +15194,21 @@ function revealIncidentRenderedLinks(clickedNode, linkFilter: ((link: any) => bo
 }
 
 function revealPersonEmploymentNeighbors(personNode) {
-	if (!personNode?.id || personNode.group !== 'individual' || !graphData || !layoutNodes) return;
+	if (!personNode?.id || personNode.group !== 'individual' || !globalState.graphData || !globalState.layoutNodes) return;
 	const employmentFirmIds = new Set<string>();
 	for (const employment of flattenEmploymentRecords(personNode)) {
 		if (employment._isCurrent === false) continue;
 		const firmNodeId = resolveEmploymentConnectionFirmNodeId(employment);
 		if (firmNodeId) employmentFirmIds.add(firmNodeId);
 	}
-	for (const link of graphData.links || []) {
+	for (const link of globalState.graphData.links || []) {
 		if (!isAutoExpansionLink(link)) continue;
 		const sourceId = String(link.source?.id ?? link.source ?? '').trim();
 		const targetId = String(link.target?.id ?? link.target ?? '').trim();
 		if (sourceId === personNode.id && targetId) employmentFirmIds.add(targetId);
 		if (targetId === personNode.id && sourceId) employmentFirmIds.add(sourceId);
 	}
-	const renderedIds = new Set(layoutNodes.map((node) => node.id));
+	const renderedIds = new Set(globalState.layoutNodes.map((node) => node.id));
 	// Cap how many employer firms land on the canvas from one person click.
 	const hiddenIds = Array.from(employmentFirmIds)
 		.filter((id) => id && !renderedIds.has(id))
@@ -15223,13 +15224,13 @@ function revealPersonEmploymentNeighbors(personNode) {
 }
 
 async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = getDefaultExpansionHops()) {
-	if (!clickedNode?.id || !graphData) return;
+	if (!clickedNode?.id || !globalState.graphData) return;
 
-	const runId = ++nonGrayExpandRunId;
-	lastExpandOriginNode = clickedNode;
+	const runId = ++globalState.nonGrayExpandRunId;
+	globalState.lastExpandOriginNode = clickedNode;
 	const normalizedHops = normalizeHighlightHops(hops);
 	const maxHops = normalizedHops === 'all' ? 100 : Math.max(1, Number(normalizedHops) || 1);
-	const revealTiming = getNodeExpansionRevealTiming(layoutNodes?.length || 0, { isUserInitiated: true });
+	const revealTiming = getNodeExpansionRevealTiming(globalState.layoutNodes?.length || 0, { isUserInitiated: true });
 	// Firms only reveal Form BD "controls" connections on click — employment/registration
 	// history and other relationship types stay hidden (dashboard-only, see ensureFirmConnections).
 	const expansionLinkFilter = clickedNode.group === 'firm' ? isFirmControlOnlyExpansionLink : isAutoExpansionLink;
@@ -15240,15 +15241,15 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 			allowOwnerEvidenceFirmFetch: true,
 			injectEmploymentGraph: true,
 		});
-		if (runId !== nonGrayExpandRunId) return;
-		const beforeCount = layoutNodes?.length || 0;
+		if (runId !== globalState.nonGrayExpandRunId) return;
+		const beforeCount = globalState.layoutNodes?.length || 0;
 		revealPersonEmploymentNeighbors(clickedNode);
-		didRevealOrMerge = didRevealOrMerge || (layoutNodes?.length || 0) > beforeCount;
+		didRevealOrMerge = didRevealOrMerge || (globalState.layoutNodes?.length || 0) > beforeCount;
 	} else if (clickedNode.group === 'firm') {
 		// Owners/officers come from Form BD detail, not the employment expand API.
 		await ensureFirmDetail(clickedNode);
-		if (runId !== nonGrayExpandRunId) return;
-		const beforeCount = layoutNodes?.length || 0;
+		if (runId !== globalState.nonGrayExpandRunId) return;
+		const beforeCount = globalState.layoutNodes?.length || 0;
 		// Always (re)inject BD Direct Owners & Executive Officers as red control nodes.
 		// ensureFirmDetail may no-op when detail is already cached without canvas links.
 		if (Array.isArray(clickedNode.directOwners) && clickedNode.directOwners.length) {
@@ -15263,10 +15264,10 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 				bcScope: clickedNode.bcScope,
 			});
 		}
-		didRevealOrMerge = didRevealOrMerge || (layoutNodes?.length || 0) > beforeCount;
+		didRevealOrMerge = didRevealOrMerge || (globalState.layoutNodes?.length || 0) > beforeCount;
 		didRevealOrMerge = revealIncidentRenderedLinks(clickedNode, expansionLinkFilter) > 0 || didRevealOrMerge;
 		try {
-			applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+			applyGraphDerivedNodeMetrics(globalState.layoutNodes, globalState.layoutLinks);
 			refreshGraphColors();
 			reapplySelectionState();
 		} catch {
@@ -15278,12 +15279,12 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 	let currentWaveIds = [clickedNode.id];
 
 	for (let wave = 1; wave <= maxHops; wave++) {
-		if (runId !== nonGrayExpandRunId) return;
+		if (runId !== globalState.nonGrayExpandRunId) return;
 
 		// Pass 1: Reveal already-known neighbors in graphData
 		const fullAdj = getFullAdjacencyMap();
 		const waveFoundIds = [];
-		const renderedIds = new Set((layoutNodes || []).map((node) => node.id));
+		const renderedIds = new Set((globalState.layoutNodes || []).map((node) => node.id));
 
 		currentWaveIds.forEach((fId) => {
 			// If this is NOT the root node, and it is already dense, skip expanding FROM it
@@ -15311,7 +15312,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 				markSelected: true,
 			});
 			didRevealOrMerge = true;
-			if (runId !== nonGrayExpandRunId) return;
+			if (runId !== globalState.nonGrayExpandRunId) return;
 			spreadNeighbors(clickedNode, new Set(hiddenIds), { duration: revealTiming.animationMs });
 		} else if (wave === 1) {
 			didRevealOrMerge = revealIncidentRenderedLinks(clickedNode, expansionLinkFilter) > 0 || didRevealOrMerge;
@@ -15341,12 +15342,12 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 			}),
 		]);
 
-		if (runId !== nonGrayExpandRunId) return;
+		if (runId !== globalState.nonGrayExpandRunId) return;
 
 		// Pass 3: Reveal any newly discovered neighbors after fetch
 		const postFetchAdj = getFullAdjacencyMap();
 		const newlyFoundIds = [];
-		const postRenderedIds = new Set((layoutNodes || []).map((node) => node.id));
+		const postRenderedIds = new Set((globalState.layoutNodes || []).map((node) => node.id));
 
 		currentWaveIds.forEach((fId) => {
 			// Prevent "dense bridges" after fetch as well
@@ -15372,7 +15373,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 				markSelected: true,
 			});
 			didRevealOrMerge = true;
-			if (runId !== nonGrayExpandRunId) return;
+			if (runId !== globalState.nonGrayExpandRunId) return;
 			spreadNeighbors(clickedNode, new Set(hiddenAfterFetchIds), { duration: revealTiming.animationMs });
 		} else if (wave === 1) {
 			didRevealOrMerge = revealIncidentRenderedLinks(clickedNode, expansionLinkFilter) > 0 || didRevealOrMerge;
@@ -15383,7 +15384,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 		if (hiddenIds.length || hiddenAfterFetchIds.length) {
 			await delay(revealTiming.delayMs);
-			if (runId !== nonGrayExpandRunId) return;
+			if (runId !== globalState.nonGrayExpandRunId) return;
 		}
 
 		currentWaveIds = nextWaveIds;
@@ -15391,7 +15392,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 	// Final hydration: labels/scopes only — never inject employment graphs on leaf nodes
 	// (that was revealing "past direct connections" when a firm was clicked).
-	if (didRevealOrMerge && currentWaveIds.length && runId === nonGrayExpandRunId) {
+	if (didRevealOrMerge && currentWaveIds.length && runId === globalState.nonGrayExpandRunId) {
 		await hydrateExpansionFrontierNodes(currentWaveIds, { includeFirmDetails: false, injectEmploymentGraph: false });
 	}
 
@@ -15407,7 +15408,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 	}
 }
 
-export function getNodeExpansionRevealTiming(currentNodeCount = layoutNodes?.length || 0, options: { isUserInitiated?: boolean } = {}) {
+export function getNodeExpansionRevealTiming(currentNodeCount = globalState.layoutNodes?.length || 0, options: { isUserInitiated?: boolean } = {}) {
 	const { isUserInitiated = false } = options;
 	const nodeCount = Math.max(0, Number(currentNodeCount) || 0);
 	const isLargeGraph = nodeCount > 800;
@@ -15551,13 +15552,13 @@ function getRenderedNodeLabel(node, { skipTruncation = false }: { skipTruncation
 	const preferredLabel = getPreferredNodeLabel(node);
 	if (!preferredLabel) return '';
 	const isNodeIdLabel = /^Node\s+/i.test(preferredLabel);
-	if (!isNodeIdLabel && isPlaceholderExpansionLabel(preferredLabel, node?.group)) return '';
-	if (node?.group === 'firm') {
+	if (!isNodeIdLabel && isPlaceholderExpansionLabel(preferredLabel, (node as any)?.group)) return '';
+	if ((node as any)?.group === 'firm') {
 		const fullLabel = formatNodeLabel(preferredLabel, 'firm');
-		return !isNodeIdLabel && isPlaceholderExpansionLabel(fullLabel, node?.group) ? '' : fullLabel;
+		return !isNodeIdLabel && isPlaceholderExpansionLabel(fullLabel, (node as any)?.group) ? '' : fullLabel;
 	}
-	const formattedLabel = formatNodeLabel(preferredLabel, node?.group);
-	return !isNodeIdLabel && isPlaceholderExpansionLabel(formattedLabel, node?.group) ? '' : formattedLabel;
+	const formattedLabel = formatNodeLabel(preferredLabel, (node as any)?.group);
+	return !isNodeIdLabel && isPlaceholderExpansionLabel(formattedLabel, (node as any)?.group) ? '' : formattedLabel;
 }
 
 function normalizeNodeLabelInPlace(node) {
@@ -15653,12 +15654,12 @@ export { isNodeInactive, loadPersistedSidebarViewMode, loadSelectionLogBoldPrefe
 
 function mergeExpansionNodeIntoExistingNode(targetNodeId, incomingNode) {
 	if (!targetNodeId || !incomingNode) return;
-	const targets = [layoutNodes?.find((node) => node.id === targetNodeId), graphData?.nodes?.find((node) => node.id === targetNodeId)].filter(Boolean);
+	const targets = [globalState.layoutNodes?.find((node) => node.id === targetNodeId), globalState.graphData?.nodes?.find((node) => node.id === targetNodeId)].filter(Boolean);
 	const incomingLabel = getExpansionNodeMatchLabel(incomingNode);
 
 	targets.forEach((targetNode) => {
 		Object.entries(incomingNode).forEach(([key, value]) => {
-			if (key === 'id' || key.startsWith('_') || value == null) return;
+			if (key === 'id' || (key as string).startsWith('_') || value == null) return;
 			if (key === 'label') {
 				if (
 					incomingLabel &&
@@ -15689,7 +15690,7 @@ function mergeExpansionNodeIntoExistingNode(targetNodeId, incomingNode) {
 }
 
 function findRenderedExpansionMatch(node, renderedNodeById = new Map<string, any>()) {
-	if (!node || !Array.isArray(layoutNodes) || !layoutNodes.length) return null;
+	if (!node || !Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length) return null;
 	const exactMatch = renderedNodeById.get(node.id);
 	if (exactMatch) return exactMatch;
 
@@ -15701,7 +15702,7 @@ function findRenderedExpansionMatch(node, renderedNodeById = new Map<string, any
 		}
 		const comparableName = normalizeComparableName(getExpansionNodeMatchLabel(node));
 		if (comparableName) {
-			return layoutNodes.find((entry) => entry.group === 'individual' && normalizeComparableName(getExpansionNodeMatchLabel(entry)) === comparableName) || null;
+			return globalState.layoutNodes.find((entry) => entry.group === 'individual' && normalizeComparableName(getExpansionNodeMatchLabel(entry)) === comparableName) || null;
 		}
 		return null;
 	}
@@ -15719,11 +15720,11 @@ function findRenderedExpansionMatch(node, renderedNodeById = new Map<string, any
 
 	const comparableName = normalizeComparableName(getExpansionNodeMatchLabel(node));
 	if (!comparableName) return null;
-	return layoutNodes.find((entry) => entry.group === node.group && normalizeComparableName(getExpansionNodeMatchLabel(entry)) === comparableName) || null;
+	return globalState.layoutNodes.find((entry) => entry.group === node.group && normalizeComparableName(getExpansionNodeMatchLabel(entry)) === comparableName) || null;
 }
 
 function normalizeExpansionPayloadToRenderedMatches(clickedNodeId, nodes = [], links = []) {
-	const renderedNodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
+	const renderedNodeById = new Map<string, any>((globalState.layoutNodes || []).map((node) => [String(node.id), node]));
 	const renderedIds = new Set(renderedNodeById.keys());
 	const nodeById = new Map<string, any>((nodes || []).map((node) => [String(node.id), node]));
 	const remappedIds = new Map<string, string>();
@@ -15848,7 +15849,7 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 	const normalizedHops = Math.max(1, Number(normalizeHighlightHops(hops)) || 1);
 	markUserInitiatedGraphExpansion();
 	anchorNode(node);
-	lastExpandOriginNode = node;
+	globalState.lastExpandOriginNode = node;
 
 	try {
 		if (node.group === 'individual') {
@@ -15874,7 +15875,7 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 		markSelected: true,
 	});
 
-	if (selectedId === node.id && shouldRevealSidebarPanel()) {
+	if (globalState.selectedId === node.id && shouldRevealSidebarPanel()) {
 		renderSidebar(node, { reveal: true });
 	}
 
@@ -15906,9 +15907,9 @@ export function handleNodeKeyboardActivation(event, d, activateNode = handleNode
 // back into roughly the same layout. Returns the list of nodes it froze so
 // they can be released again once the reheat window ends.
 function freezeSettledNodesExcept(allowedMovingIds: Set<any>) {
-	if (!Array.isArray(layoutNodes)) return [];
+	if (!Array.isArray(globalState.layoutNodes)) return [];
 	const frozen = [];
-	for (const n of layoutNodes) {
+	for (const n of globalState.layoutNodes) {
 		if (allowedMovingIds.has(n?.id)) continue;
 		if (n.fx == null && n.fy == null && Number.isFinite(n.x) && Number.isFinite(n.y)) {
 			n.fx = n.x;
@@ -15929,7 +15930,7 @@ function releaseFrozenNodes(frozenNodes) {
 }
 
 function pinNodeAndReleaseOthers(pinnedNode) {
-	if (!pinnedNode?.id || !Array.isArray(layoutNodes)) return;
+	if (!pinnedNode?.id || !Array.isArray(globalState.layoutNodes)) return;
 
 	// Keep the clicked node anchored briefly so the selection remains easy to
 	// follow. Do not reheat the whole simulation here: freezing every other
@@ -15939,17 +15940,17 @@ function pinNodeAndReleaseOthers(pinnedNode) {
 		pinnedNode.fx = pinnedNode.x;
 		pinnedNode.fy = pinnedNode.y;
 	}
-	if (nodePinReleaseTimer) {
-		clearTimeout(nodePinReleaseTimer);
-		nodePinReleaseTimer = null;
+	if (globalState.nodePinReleaseTimer) {
+		clearTimeout(globalState.nodePinReleaseTimer);
+		globalState.nodePinReleaseTimer = null;
 	}
 
-	nodePinReleaseTimer = setTimeout(() => {
+	globalState.nodePinReleaseTimer = setTimeout(() => {
 		if (pinnedNode.fx != null && pinnedNode.fy != null) {
 			pinnedNode.fx = null;
 			pinnedNode.fy = null;
 		}
-		nodePinReleaseTimer = null;
+		globalState.nodePinReleaseTimer = null;
 	}, 450);
 }
 
@@ -15963,7 +15964,7 @@ export function shouldAutoRevealNodeConnections(node) {
 	// Firms must also auto-reveal: employment edges often live only in reverse indexes /
 	// /connections payloads, not the mono session graph. Returning false left firm nodes
 	// detail-only after the binary/primed cache update.
-	return Boolean(node?.group);
+	return Boolean((node as any)?.group);
 }
 
 export function shouldAutoExpandRouteSelection(targetNodeId: string | null | undefined, currentSelectedId: string | null | undefined) {
@@ -15988,7 +15989,7 @@ const nodeExpansionQueue: Array<{
 		focusDuration?: number;
 	};
 }> = [];
-let isProcessingNodeExpansion = false;
+// moved isProcessingNodeExpansion to globalState
 const NODE_EXPANSION_COOLDOWN_MS = 80; // Keep the interaction loop responsive on low-powered machines.
 const NODE_EXPANSION_DEFER_MS = 24;
 const pendingNodeExpansionIds = new Set<string>();
@@ -16013,7 +16014,7 @@ export function scheduleNodeExpansion(
 		});
 	};
 
-	const delayMs = (layoutNodes?.length || 0) > 250 ? NODE_EXPANSION_DEFER_MS : 0;
+	const delayMs = (globalState.layoutNodes?.length || 0) > 250 ? NODE_EXPANSION_DEFER_MS : 0;
 	if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
 		window.setTimeout(runTask, delayMs);
 	} else {
@@ -16025,9 +16026,9 @@ export function scheduleNodeExpansion(
 
 async function enqueueNodeExpansion(node: any, options: any = {}) {
 	nodeExpansionQueue.push({ node, options });
-	if (isProcessingNodeExpansion) return;
+	if (globalState.isProcessingNodeExpansion) return;
 
-	isProcessingNodeExpansion = true;
+	globalState.isProcessingNodeExpansion = true;
 	try {
 		while (nodeExpansionQueue.length > 0) {
 			const task = nodeExpansionQueue.shift();
@@ -16043,7 +16044,7 @@ async function enqueueNodeExpansion(node: any, options: any = {}) {
 			}
 		}
 	} finally {
-		isProcessingNodeExpansion = false;
+		globalState.isProcessingNodeExpansion = false;
 	}
 }
 
@@ -16082,8 +16083,8 @@ async function openNodeWithExpansionTask(
 	const clickExpansionHops = getAutoExpansionHopsForNode(d);
 	markUserInitiatedGraphExpansion();
 	anchorNode(d);
-	lastExpandOriginNode = d;
-	const shouldReapplySelection = !selectedId || String(selectedId) === String(d?.id || '');
+	globalState.lastExpandOriginNode = d;
+	const shouldReapplySelection = !globalState.selectedId || String(globalState.selectedId) === String(d?.id || '');
 	if (shouldReapplySelection) {
 		selectNode(d, {
 			skipAutoExpand: true,
@@ -16108,7 +16109,7 @@ async function openNodeWithExpansionTask(
 					markSelected: true,
 				});
 			}
-			if (selectedId === d.id && shouldRevealSidebarPanel()) {
+			if (globalState.selectedId === d.id && shouldRevealSidebarPanel()) {
 				renderSidebar(d, { reveal: true });
 			}
 		}
@@ -16133,7 +16134,7 @@ function selectNode(
 		preserveRestoreTimer?: boolean;
 	} = {},
 ) {
-	lastArrowNavCoord = null;
+	globalState.lastArrowNavCoord = null;
 	stopSearchPulseLoop();
 	updateFocusReadout(d);
 	const {
@@ -16155,24 +16156,24 @@ function selectNode(
 	// Clear any previous transient locator pulse immediately so the blue ring can
 	// move cleanly to the newly selected node.
 	stopNodePulseLoop();
-	if (selectionRestoreTimer && !preserveRestoreTimer) {
-		clearTimeout(selectionRestoreTimer);
-		selectionRestoreTimer = null;
+	if (globalState.selectionRestoreTimer && !preserveRestoreTimer) {
+		clearTimeout(globalState.selectionRestoreTimer);
+		globalState.selectionRestoreTimer = null;
 	}
 
-	if (selectedId && String(selectedId) !== String(d?.id || '')) {
-		releasePinnedSelectedNodeAnchor(selectedId);
+	if (globalState.selectedId && String(globalState.selectedId) !== String(d?.id || '')) {
+		releasePinnedSelectedNodeAnchor(globalState.selectedId);
 	}
 
 	// Accumulate highlight roots: each selection stays lit (node + 1-hop neighbors/links)
 	// alongside prior selections. Clear Highlight resets the set. Force 1 hop on click
 	// even if runtime selection hops were raised (sliders are currently hidden).
 	upsertHighlightedSelection(d.id, 1, { replace: false });
-	selectedId = d.id;
-	visitedNodeIds.add(d.id);
+	globalState.selectedId = d.id;
+	globalState.visitedNodeIds.add(d.id);
 	// Keep hover on the clicked node so firm→child lines light while the cursor stays put
 	// (mouseenter may not re-fire after click).
-	hoveredNodeId = String(d.id || '');
+	globalState.hoveredNodeId = String(d.id || '');
 	if (syncRoute) {
 		emitSelectedNodeRoute(d.id);
 	}
@@ -16218,7 +16219,7 @@ function selectNode(
 		const clickExpansionHops = getAutoExpansionHopsForNode(d);
 		markUserInitiatedGraphExpansion();
 		anchorNode(d);
-		lastExpandOriginNode = d;
+		globalState.lastExpandOriginNode = d;
 		// Expand path already awaits ensureIndividualDetail / ensureFirmDetail — do not
 		// kick a duplicate detail fetch here (that doubled Redis/API work on every click).
 		expansionPromise = (
@@ -16240,7 +16241,7 @@ function selectNode(
 				})())
 			.then(() => {
 				// Side-panel details only refresh when the hamburger menu is open.
-				if (selectedId === d.id && shouldRevealSidebarPanel()) {
+				if (globalState.selectedId === d.id && shouldRevealSidebarPanel()) {
 					renderSidebar(d, { reveal: true });
 				}
 			})
@@ -16278,8 +16279,8 @@ function hashAngleSeed(value) {
 }
 
 function getRevealPlacementRadius(node) {
-	const isLargeLayout = (layoutNodes?.length || 0) > 300;
-	const baseRadius = node?._vizHalf != null ? node._vizHalf : NODE_R[node?.group] || 10;
+	const isLargeLayout = (globalState.layoutNodes?.length || 0) > 300;
+	const baseRadius = node?._vizHalf != null ? node._vizHalf : NODE_R[(node as any)?.group] || 10;
 	return baseRadius + (isLargeLayout ? 34 : 26);
 }
 
@@ -16321,7 +16322,7 @@ function placeNodesNearConnections(anchorNode, nodesToPlace, candidateLinks, hop
 		return Array.isArray(nodesToPlace) ? nodesToPlace : [];
 	}
 
-	const liveNodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
+	const liveNodeById = new Map<string, any>((globalState.layoutNodes || []).map((node) => [String(node.id), node]));
 	const linksByNode = new Map<string, Set<string>>();
 	(Array.isArray(candidateLinks) ? candidateLinks : []).forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
@@ -16335,7 +16336,7 @@ function placeNodesNearConnections(anchorNode, nodesToPlace, candidateLinks, hop
 
 	const placedNodeById = new Map<string, any>();
 	const slotCounts = new Map<string, number>();
-	const occupiedNodes = (layoutNodes || [])
+	const occupiedNodes = (globalState.layoutNodes || [])
 		.filter((node) => Number.isFinite(node?.x) && Number.isFinite(node?.y))
 		.map((node) => ({
 			...node,
@@ -16360,7 +16361,7 @@ function placeNodesNearConnections(anchorNode, nodesToPlace, candidateLinks, hop
 
 			const sharedAnchorCount = Math.max(0, anchors.length - 1);
 			const hopDistance = Math.max(1, node._hopDistance || 1);
-			const anchorSpreadBoost = Math.min(95, getNodeScatterBoost(anchorNode, layoutNodes?.length || 0) * 0.6);
+			const anchorSpreadBoost = Math.min(95, getNodeScatterBoost(anchorNode, globalState.layoutNodes?.length || 0) * 0.6);
 			const preferredDistance = 45 + (hopDistance - 1) * 20 + sharedAnchorCount * 10 + anchorSpreadBoost;
 			const maxDistanceFromAnchor = Math.min(240, getAnchorDistanceLimit(hopDistance) + anchorSpreadBoost);
 			const candidateRadius = getRevealPlacementRadius(node);
@@ -16455,15 +16456,15 @@ function getRevealParentNodeId(clickedNode, renderedIds) {
 		return explicitParentId;
 	}
 
-	const renderedNeighbors = (graphData?.links || [])
+	const renderedNeighbors = (globalState.graphData?.links || [])
 		.map((link) => {
 			const sourceId = link.source?.id ?? link.source;
 			const targetId = link.target?.id ?? link.target;
 			if (sourceId === clickedNode.id && renderedIds.has(targetId)) {
-				return layoutNodes.find((node) => node.id === targetId) || null;
+				return globalState.layoutNodes.find((node) => node.id === targetId) || null;
 			}
 			if (targetId === clickedNode.id && renderedIds.has(sourceId)) {
-				return layoutNodes.find((node) => node.id === sourceId) || null;
+				return globalState.layoutNodes.find((node) => node.id === sourceId) || null;
 			}
 			return null;
 		})
@@ -16500,7 +16501,7 @@ async function expandFromServer(
 	} = {},
 ) {
 	const normalizedHops = normalizeHighlightHops(hops);
-	if (!hasUserInitiatedGraphExpansion && normalizedHops !== 1) {
+	if (!globalState.hasUserInitiatedGraphExpansion && normalizedHops !== 1) {
 		return;
 	}
 	const { matchExistingOnly = false, markSelected = false } = options;
@@ -16520,9 +16521,9 @@ async function expandFromServer(
 }
 
 async function expandLoadedSeedNodes() {
-	if (!layoutNodes || !graphData) return;
-	const seedIds = new Set(layoutNodes.filter((n) => n.group === 'individual' || n.group === 'firm').map((n) => n.id));
-	for (const node of layoutNodes) {
+	if (!globalState.layoutNodes || !globalState.graphData) return;
+	const seedIds = new Set(globalState.layoutNodes.filter((n) => n.group === 'individual' || n.group === 'firm').map((n) => n.id));
+	for (const node of globalState.layoutNodes) {
 		if (!seedIds.has(node.id)) continue;
 		await expandFromServer(node, getDefaultExpansionHops(), { markSelected: true });
 	}
@@ -16541,10 +16542,10 @@ function revealNeighbors(
 		markSelected?: boolean;
 	} = {},
 ) {
-	if (!graphData || !layoutNodes || !layoutLinks) return;
+	if (!globalState.graphData || !globalState.layoutNodes || !globalState.layoutLinks) return;
 	const { linkFilter = null, restrictToIds = null, markSelected = false } = options;
 
-	const renderedIds = new Set(layoutNodes.map((n) => n.id));
+	const renderedIds = new Set(globalState.layoutNodes.map((n) => n.id));
 
 	// Use cached adjacency from the full graph data
 	const fullAdj = getFullAdjacencyMap();
@@ -16578,15 +16579,15 @@ function revealNeighbors(
 	// reveal batch path (metrics rebuild, layered rejoin, sim reheat, full restyle).
 	if (!hiddenIds.length) {
 		if (markSelected && clickedNode?.id) {
-			visitedNodeIds.add(clickedNode.id);
+			globalState.visitedNodeIds.add(clickedNode.id);
 			rememberPersistentSelection(clickedNode.id);
 		}
 		return;
 	}
 
-	const candidateLinks = (graphData.links || []).filter((link) => (typeof linkFilter === 'function' ? linkFilter(link) : true));
+	const candidateLinks = (globalState.graphData.links || []).filter((link) => (typeof linkFilter === 'function' ? linkFilter(link) : true));
 	const revealBatches = (() => {
-		const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, layoutNodes.length);
+		const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, globalState.layoutNodes.length);
 		if (!plan.shouldBatch || !hiddenIds.length) return [hiddenIds];
 		const batches = [];
 		for (let index = 0; index < hiddenIds.length; index += plan.batchSize) {
@@ -16603,22 +16604,22 @@ function revealNeighbors(
 				batchHiddenIds.length ?
 					placeNodesNearConnections(
 						clickedNode,
-						graphData.nodes.filter((n) => batchHiddenIds.includes(n.id)),
+						globalState.graphData.nodes.filter((n) => batchHiddenIds.includes(n.id)),
 						candidateLinks,
 						dist,
 					)
 				:	[];
-			const existingNodeIds = new Set((Array.isArray(layoutNodes) ? layoutNodes : []).map((node) => node.id));
-			const mergeResult = mergeIncomingNodesIntoExistingNodes(layoutNodes, batchNodes);
+			const existingNodeIds = new Set((Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes : []).map((node) => node.id));
+			const mergeResult = mergeIncomingNodesIntoExistingNodes(globalState.layoutNodes, batchNodes);
 			const newRenderNodes = mergeResult.nodes.filter((node) => !existingNodeIds.has(node.id));
-			layoutNodes = mergeResult.nodes;
-			activeRenderedIds = new Set(layoutNodes.map((node) => node.id));
+			globalState.layoutNodes = mergeResult.nodes;
+			activeRenderedIds = new Set(globalState.layoutNodes.map((node) => node.id));
 			const batchNodeIds = new Set(newRenderNodes.map((n) => n.id));
 			
 			// Precompute existing directed edges to avoid O(E * D) complexity
 			const renderedDirectedEdges = new Set();
-			if (layoutLinks) {
-				for (const ll of layoutLinks) {
+			if (globalState.layoutLinks) {
+				for (const ll of globalState.layoutLinks) {
 					const es = ll.source?.id ?? ll.source;
 					const et = ll.target?.id ?? ll.target;
 					if (es && et) renderedDirectedEdges.add(`${es}::${et}`);
@@ -16648,15 +16649,15 @@ function revealNeighbors(
 			);
 
 			if (markSelected && clickedNode?.id && batchIndex === 0) {
-				visitedNodeIds.add(clickedNode.id);
-				markNodeSelected(layoutNodes.find((node) => node.id === clickedNode.id) || clickedNode, { persist: false });
+				globalState.visitedNodeIds.add(clickedNode.id);
+				markNodeSelected(globalState.layoutNodes.find((node) => node.id === clickedNode.id) || clickedNode, { persist: false });
 				reapplySelectionState();
 				refreshGraphColors();
 			}
 
 			if (batchNodes.length === 0 && batchLinks.length === 0) {
 				if (batchIndex < revealBatches.length - 1) {
-					const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, layoutNodes.length);
+					const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, globalState.layoutNodes.length);
 					setTimeout(
 						() => {
 							if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -16671,8 +16672,8 @@ function revealNeighbors(
 					reapplySelectionState();
 					try {
 						if (typeof window !== 'undefined') {
-							if (selectedId) {
-								window.dispatchEvent(new CustomEvent(ROUTE_NODE_REQUEST_EVENT, { detail: { nodeId: selectedId } }));
+							if (globalState.selectedId) {
+								window.dispatchEvent(new CustomEvent(ROUTE_NODE_REQUEST_EVENT, { detail: { nodeId: globalState.selectedId } }));
 							}
 						}
 					} catch (e) {
@@ -16688,10 +16689,10 @@ function revealNeighbors(
 				return;
 			}
 
-			layoutLinks.push(...batchLinks);
-			resolveLinkEndpoints(layoutLinks, layoutNodes);
-			rebuildLayoutLinkIndexes(layoutLinks);
-			applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+			globalState.layoutLinks.push(...batchLinks);
+			resolveLinkEndpoints(globalState.layoutLinks, globalState.layoutNodes);
+			rebuildLayoutLinkIndexes(globalState.layoutLinks);
+			applyGraphDerivedNodeMetrics(globalState.layoutNodes, globalState.layoutLinks);
 
 			newRenderNodes.forEach((node) => {
 				activeRenderedIds.add(node.id);
@@ -16709,14 +16710,14 @@ function revealNeighbors(
 				syncProfileSelection({ individuals, firms });
 			}
 
-			neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
+			globalState.neighborMap = buildNeighborMap(globalState.layoutNodes, globalState.layoutLinks);
 
-			if (graphData && batchIndex === 0) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
+			if (globalState.graphData && batchIndex === 0) updateSubsetInfo(globalState.layoutNodes.length, globalState.graphData.nodes.length);
 
 			refreshLayeredLinkSelections({ enterDuration: batchIndex === 0 ? 220 : 90 });
 
-			if (nodeGroup && linkGroup) {
-				const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
+			if (globalState.nodeGroup && globalState.linkGroup) {
+				const allNodes = globalState.nodeGroup.selectAll('g.fg-node').data(globalState.layoutNodes, (d) => d.id);
 				const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
 
 				if (batchIndex === 0) {
@@ -16724,8 +16725,8 @@ function revealNeighbors(
 				} else {
 					enteredNodes.attr('opacity', 1);
 				}
-				nodeSel = nodeGroup.selectAll('g.fg-node');
-				linkSel = selectRenderedLinkLines();
+				globalState.nodeSel = globalState.nodeGroup.selectAll('g.fg-node');
+				globalState.linkSel = selectRenderedLinkLines();
 				rerenderGraphNodesByIds(getImpactedNodeIds(batchNodes, batchLinks));
 				reapplySelectionState();
 			}
@@ -16735,43 +16736,43 @@ function revealNeighbors(
 			refreshTraceState();
 
 			let _revealTick = 0;
-			bindSimulationTickHandler(simulation, () => {
+			bindSimulationTickHandler(globalState.simulation, () => {
 				_revealTick++;
-				if (_revealTick === 1 || _revealTick % 20 === 0) estimateLocalCrowdFactors(layoutNodes);
-				if (layoutNodes.length > 1000 && simulation.alpha() > 0.05 && _revealTick % 10 !== 0) return;
-				if (layoutNodes.length > 300 && simulation.alpha() > 0.1 && _revealTick % 4 !== 0) return;
+				if (_revealTick === 1 || _revealTick % 20 === 0) estimateLocalCrowdFactors(globalState.layoutNodes);
+				if (globalState.layoutNodes.length > 1000 && globalState.simulation.alpha() > 0.05 && _revealTick % 10 !== 0) return;
+				if (globalState.layoutNodes.length > 300 && globalState.simulation.alpha() > 0.1 && _revealTick % 4 !== 0) return;
 
-				scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
+				scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 			});
 
-			refreshSoftLocationGroupingForces(layoutNodes);
-			estimateLocalCrowdFactors(layoutNodes);
-			simulation.nodes(layoutNodes);
-			simulation.force('link').links(layoutLinks);
-			simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+			refreshSoftLocationGroupingForces(globalState.layoutNodes);
+			estimateLocalCrowdFactors(globalState.layoutNodes);
+			globalState.simulation.nodes(globalState.layoutNodes);
+			globalState.simulation.force('link').links(globalState.layoutLinks);
+			globalState.simulation.force('collision').radius((d) => getNodeCollisionRadius(d, globalState.layoutNodes.length));
 
 			// Freeze settled nodes before reheat so only the clicked node + this batch move.
 			const allowedMoving = new Set(batchNodeIds);
 			if (clickedNode?.id) allowedMoving.add(clickedNode.id);
-			if (activeSpreadFrozenNodes.length) {
-				releaseFrozenNodes(activeSpreadFrozenNodes);
-				activeSpreadFrozenNodes = [];
+			if (globalState.activeSpreadFrozenNodes.length) {
+				releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
+				globalState.activeSpreadFrozenNodes = [];
 			}
-			activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
-			simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, batchNodes.length)).restart();
-			if (spreadReleaseTimer) {
-				clearTimeout(spreadReleaseTimer);
-				spreadReleaseTimer = null;
+			globalState.activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
+			globalState.simulation.alpha(getIncrementalRestartAlpha(globalState.layoutNodes.length, batchNodes.length)).restart();
+			if (globalState.spreadReleaseTimer) {
+				clearTimeout(globalState.spreadReleaseTimer);
+				globalState.spreadReleaseTimer = null;
 			}
-			spreadReleaseTimer = setTimeout(() => {
-				simulation?.alphaTarget?.(0);
-				releaseFrozenNodes(activeSpreadFrozenNodes);
-				activeSpreadFrozenNodes = [];
-				spreadReleaseTimer = null;
+			globalState.spreadReleaseTimer = setTimeout(() => {
+				globalState.simulation?.alphaTarget?.(0);
+				releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
+				globalState.activeSpreadFrozenNodes = [];
+				globalState.spreadReleaseTimer = null;
 			}, 300);
 
 			if (batchIndex < revealBatches.length - 1) {
-				const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, layoutNodes.length);
+				const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, globalState.layoutNodes.length);
 				setTimeout(
 					() => {
 						if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -16872,16 +16873,16 @@ function updateShortDetail(d) {
 function clearHighlights() {
 	// Clear both the line emphasis and durable selected-node chrome.
 	disableAllTraceModes();
-	selectedId = null;
-	persistentSelectedIds.clear();
-	if (selectionRestoreTimer) {
-		clearTimeout(selectionRestoreTimer);
-		selectionRestoreTimer = null;
+	globalState.selectedId = null;
+	globalState.persistentSelectedIds.clear();
+	if (globalState.selectionRestoreTimer) {
+		clearTimeout(globalState.selectionRestoreTimer);
+		globalState.selectionRestoreTimer = null;
 	}
 	stopNodePulseLoop();
-	hoveredNodeId = null;
-	focusedNodeId = null;
-	highlightedSelections = [];
+	globalState.hoveredNodeId = null;
+	globalState.focusedNodeId = null;
+	globalState.highlightedSelections = [];
 	clearFindMatches();
 	// While Log Bold is on, every selection-log individual normally acts as a highlight
 	// root (computeHighlightState), which would otherwise make Clear Highlight a no-op.
@@ -16905,7 +16906,7 @@ function clearHighlights() {
 // activeId = null  → reset all lines to their default appearance
 // activeId = id    → brighten connected lines by type; dim unconnected ones
 function highlightLinks(highlightState = null) {
-	if (!linkSel) return;
+	if (!globalState.linkSel) return;
 	const state = highlightState && typeof highlightState === 'object' ? highlightState : computeHighlightState();
 
 	const hasNormalHighlights = state.linkKeys.size > 0;
@@ -16914,7 +16915,7 @@ function highlightLinks(highlightState = null) {
 		// Restore true default appearance — do NOT leave selection/highlight stroke widths
 		// behind, or the next interaction/zoom refresh will reapply them and every line
 		// looks boldly thick after Clear Highlight.
-		linkSel
+		globalState.linkSel
 			.style('filter', 'none')
 			.style('stroke-opacity', null)
 			.style('opacity', null)
@@ -16933,7 +16934,7 @@ function highlightLinks(highlightState = null) {
 		return;
 	}
 
-	linkSel.each(function (d) {
+	globalState.linkSel.each(function (d) {
 		const srcId = d.source?.id ?? d.source;
 		const tgtId = d.target?.id ?? d.target;
 		const linkKey = getLinkKey(d);
@@ -17034,18 +17035,18 @@ function spreadNeighbors(
 		duration?: number;
 	} = {},
 ) {
-	if (!layoutNodes || !layoutLinks || !nodeSel || !linkSel || !simulation) return;
-	if (spreadAnimId) {
-		cancelAnimationFrame(spreadAnimId);
-		spreadAnimId = null;
+	if (!globalState.layoutNodes || !globalState.layoutLinks || !globalState.nodeSel || !globalState.linkSel || !globalState.simulation) return;
+	if (globalState.spreadAnimId) {
+		cancelAnimationFrame(globalState.spreadAnimId);
+		globalState.spreadAnimId = null;
 	}
-	if (spreadReleaseTimer) {
-		clearTimeout(spreadReleaseTimer);
-		spreadReleaseTimer = null;
+	if (globalState.spreadReleaseTimer) {
+		clearTimeout(globalState.spreadReleaseTimer);
+		globalState.spreadReleaseTimer = null;
 	}
-	if (activeSpreadFrozenNodes.length) {
-		releaseFrozenNodes(activeSpreadFrozenNodes);
-		activeSpreadFrozenNodes = [];
+	if (globalState.activeSpreadFrozenNodes.length) {
+		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
+		globalState.activeSpreadFrozenNodes = [];
 	}
 
 	const { duration = 240 } = options;
@@ -17065,18 +17066,18 @@ function spreadNeighbors(
 	const allowedMoving = new Set(neighborIdSet);
 	allowedMoving.add(clickedNode.id);
 	const frozen = freezeSettledNodesExcept(allowedMoving);
-	activeSpreadFrozenNodes = frozen;
-	simulation.alpha(0.1).restart();
-	spreadReleaseTimer = setTimeout(() => {
-		simulation.alphaTarget(0);
-		releaseFrozenNodes(activeSpreadFrozenNodes);
-		activeSpreadFrozenNodes = [];
-		spreadReleaseTimer = null;
+	globalState.activeSpreadFrozenNodes = frozen;
+	globalState.simulation.alpha(0.1).restart();
+	globalState.spreadReleaseTimer = setTimeout(() => {
+		globalState.simulation.alphaTarget(0);
+		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
+		globalState.activeSpreadFrozenNodes = [];
+		globalState.spreadReleaseTimer = null;
 	}, 300);
 	return;
 
 	// The animation code below is being bypassed for performance.
-	const nodeById = new Map<string, any>(layoutNodes.map((d) => [String(d.id), d]));
+	const nodeById = new Map<string, any>(globalState.layoutNodes.map((d) => [String(d.id), d]));
 
 	// Capture start and target positions for each neighbor
 	const snapshots = new Map<string, { x0: number; y0: number; x1: number; y1: number }>();
@@ -17116,10 +17117,10 @@ function spreadNeighbors(
 		});
 
 		// Re-render affected nodes
-		nodeSel.filter((d) => neighborIdSet.has(d.id)).attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
+		globalState.nodeSel.filter((d) => neighborIdSet.has(d.id)).attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 
 		// Re-render all links touching the clicked node or any neighbor
-		linkSel
+		globalState.linkSel
 			.filter((l) => {
 				const srcId = l.source?.id ?? l.source;
 				const tgtId = l.target?.id ?? l.target;
@@ -17131,9 +17132,9 @@ function spreadNeighbors(
 			.attr('y2', (l) => l.target.y);
 
 		if (raw < 1) {
-			spreadAnimId = requestAnimationFrame(frame);
+			globalState.spreadAnimId = requestAnimationFrame(frame);
 		} else {
-			spreadAnimId = null;
+			globalState.spreadAnimId = null;
 			snapshots.forEach((snap, id) => {
 				const d = nodeById.get(id);
 				if (!d) return;
@@ -17145,7 +17146,7 @@ function spreadNeighbors(
 		}
 	}
 
-	spreadAnimId = requestAnimationFrame(frame);
+	globalState.spreadAnimId = requestAnimationFrame(frame);
 }
 
 function focusNodeById(
@@ -17157,22 +17158,22 @@ function focusNodeById(
 ) {
 	const { duration = 440, pulse = false } = options;
 	try {
-		if (!zoomBehavior || !svgSel) return;
+		if (!globalState.zoomBehavior || !globalState.svgSel) return;
 		// layoutNodes is the current array of node objects in the visualization
-		const node = (Array.isArray(layoutNodes) && layoutNodes.find((n) => n.id === id)) || null;
+		const node = (Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.find((n) => n.id === id)) || null;
 		if (!node) return;
 		const viewport = getVisibleGraphViewport();
-		const transform = d3.zoomTransform(svgSel.node());
+		const transform = d3.zoomTransform(globalState.svgSel.node());
 		const k = transform.k || 1;
 		const x = node.x || 0;
 		const y = node.y || 0;
 		const tx = viewport.centerX - x * k;
 		const ty = viewport.centerY - y * k;
-		svgSel.transition().duration(duration).ease(d3.easeCubicInOut).call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
+		globalState.svgSel.transition().duration(duration).ease(d3.easeCubicInOut).call(globalState.zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
 
 		// transient highlight: enlarge circle briefly
 		try {
-			nodeSel
+			globalState.nodeSel
 				.filter((n) => n.id === id)
 				.select('circle')
 				.transition()
@@ -17188,13 +17189,13 @@ function focusNodeById(
 		}
 
 		if (pulse) {
-			if (nodePulseTimer) {
-				clearTimeout(nodePulseTimer);
-				nodePulseTimer = null;
+			if (globalState.nodePulseTimer) {
+				clearTimeout(globalState.nodePulseTimer);
+				globalState.nodePulseTimer = null;
 			}
-			nodePulseTimer = setTimeout(
+			globalState.nodePulseTimer = setTimeout(
 				() => {
-					nodePulseTimer = null;
+					globalState.nodePulseTimer = null;
 					pulseNodeHighlightById(id);
 				},
 				Math.max(180, Math.min(duration, 320)),
@@ -17207,13 +17208,13 @@ function focusNodeById(
 
 function focusNodesInMainArea(nodeIds, { duration = 720, maxScale = 1.1 }: { duration?: number; maxScale?: number } = {}) {
 	try {
-		if (!zoomBehavior || !svgSel || !Array.isArray(layoutNodes) || !layoutNodes.length) {
+		if (!globalState.zoomBehavior || !globalState.svgSel || !Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length) {
 			return false;
 		}
 
 		const ids = Array.isArray(nodeIds) ? nodeIds.filter(Boolean) : [nodeIds].filter(Boolean);
 		const idSet = new Set(ids);
-		const targetNodes = (idSet.size ? layoutNodes.filter((node) => idSet.has(node.id)) : layoutNodes).filter((node) => Number.isFinite(node?.x) && Number.isFinite(node?.y));
+		const targetNodes = (idSet.size ? globalState.layoutNodes.filter((node) => idSet.has(node.id)) : globalState.layoutNodes).filter((node) => Number.isFinite(node?.x) && Number.isFinite(node?.y));
 		if (!targetNodes.length) return false;
 
 		const bounds = getLayoutBounds(targetNodes);
@@ -17229,9 +17230,9 @@ function focusNodesInMainArea(nodeIds, { duration = 720, maxScale = 1.1 }: { dur
 		const target = d3.zoomIdentity.translate(viewport.centerX - bounds.centerX * targetScale, viewport.centerY - bounds.centerY * targetScale).scale(targetScale);
 
 		if (duration > 0) {
-			svgSel.transition().duration(duration).ease(d3.easeCubicInOut).call(zoomBehavior.transform, target);
+			globalState.svgSel.transition().duration(duration).ease(d3.easeCubicInOut).call(globalState.zoomBehavior.transform, target);
 		} else {
-			svgSel.call(zoomBehavior.transform, target);
+			globalState.svgSel.call(globalState.zoomBehavior.transform, target);
 		}
 		return true;
 	} catch (err) {
@@ -17261,9 +17262,9 @@ function scheduleFirstFetchFocusIfAvailable(
 		maxScale?: number;
 	} = {},
 ) {
-	if (!allowFirstFetchZoom) return;
-	if (!Array.isArray(layoutNodes) || layoutNodes.length > 0) return;
-	allowFirstFetchZoom = false;
+	if (!globalState.allowFirstFetchZoom) return;
+	if (!Array.isArray(globalState.layoutNodes) || globalState.layoutNodes.length > 0) return;
+	globalState.allowFirstFetchZoom = false;
 
 	scheduleFocusNodesInMainArea(nodeIds, options);
 }
@@ -17852,7 +17853,7 @@ function renderPersonDetail(d: any) {
 	const showFinra = hasFinraPage;
 	const showSec = hasSecPage;
 	const showSecReferences = hasSecPage;
-	const links = (graphData?.links || []).filter((l: any) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
+	const links = (globalState.graphData?.links || []).filter((l: any) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
 	const controlLinks = links.filter((l) => l.relationship === 'controls');
 
 	const stubBadge = d.stub ? `<span class="fg-badge stub">Form BD stub</span>` : '';
@@ -18221,7 +18222,7 @@ function renderPersonDetail(d: any) {
 	} else {
 		const empLinks = links.filter((l) => l.relationship === 'employed_by');
 		empEntries = empLinks.map((l) => {
-			const firmNode = graphData.nodes.find((n) => n.id === (l.target?.id || l.target));
+			const firmNode = globalState.graphData.nodes.find((n) => n.id === (l.target?.id || l.target));
 			return {
 				firmName: firmNode?.label || l.firmName || '',
 				firmId: firmNode?.firmId || l.firmId || null,
@@ -18435,7 +18436,7 @@ function renderPersonDetail(d: any) {
 					.replace(/^node[:_]/, '')
 					.trim()
 			:	'';
-		const firmNode = graphData?.nodes?.find((n: any) => {
+		const firmNode = globalState.graphData?.nodes?.find((n: any) => {
 			const nid = String(n?.firmId || n?.id || '')
 				.replace(/^firm[:_]/, '')
 				.replace(/^node[:_]/, '')
@@ -18693,7 +18694,7 @@ function renderPersonDetail(d: any) {
 								),
 							)
 							.map((l) => {
-								const firmNode = graphData.nodes.find((n) => n.id === (l.target?.id || l.target));
+								const firmNode = globalState.graphData.nodes.find((n) => n.id === (l.target?.id || l.target));
 								const employmentMatch = findEmploymentMatchForControl(l, firmNode);
 								const firmAddress =
 									firmNode?.officeAddress ||
@@ -19121,10 +19122,10 @@ function renderFirmDetail(d: any) {
 		ENABLE_GRAPH_DERIVED_CONNECTIONS ?
 			collectFirmConnectionEntries({
 				firmNode: d,
-				layoutNodes,
-				graphNodes: graphData?.nodes || [],
-				layoutLinks,
-				graphLinks: graphData?.links || [],
+				layoutNodes: globalState.layoutNodes,
+				graphNodes: globalState.graphData?.nodes || [],
+				layoutLinks: globalState.layoutLinks,
+				graphLinks: globalState.graphData?.links || [],
 			})
 		:	[];
 
@@ -19670,7 +19671,7 @@ function renderLegend() {
 
 // ── Resize ────────────────────────────────────────────────────────────────────
 function onResize() {
-	if (!graphData) return;
+	if (!globalState.graphData) return;
 	// Just update the viewBox — no re-simulation, positions stay frozen
 	const main = document.getElementById('fg-main');
 	const W = main?.clientWidth || 800;

@@ -1,0 +1,181 @@
+export const GRAPH_COLORS = {
+	nodeIndividual: 'var(--color-highlight-individual)',
+	nodeFirm: 'var(--color-highlight-firm)',
+	nodeEntity: 'var(--color-highlight-entity)',
+	nodeStub: 'var(--color-node-stub)',
+	nodeInactive: 'var(--color-node-inactive)',
+	nodeInactiveStroke: 'var(--color-node-inactive-stroke)',
+	nodeInactiveLabel: 'var(--color-node-inactive-label)',
+	nodeDefault: 'var(--color-default-text)',
+	nodeBorder: 'var(--color-node-border)',
+	nodeLabel: '#1e293b',
+	nodeLabelHalo: 'rgba(246,248,252,0.92)',
+	nodePulse: 'var(--color-node-pulse)',
+	nodeControls: 'var(--color-highlight-controls)',
+	lineEmployedBy: 'var(--color-highlight-employed)',
+	lineControls: 'var(--color-highlight-controls)',
+	// Fully opaque — semi-transparent red blends purple where it crosses blue employment lines.
+	lineControlsHighlight: '#c82d02',
+	lineDisclosure: 'rgba(57, 243, 10, 0.818)',
+	lineInactive: 'var(--color-default-line)',
+	lineNeutral: 'var(--color-default-line)',
+	linePreviousEmployment: 'var(--color-default-line)',
+	nodeFirmEmployedStroke: 'var(--color-node-firm-employed-stroke)',
+	nodeFirmControlsStroke: 'var(--color-node-firm-controls-stroke)',
+};
+
+export const ENABLE_DETAIL_LOAD_DEBUG_LOGS = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_FINRA_GRAPH_DEBUG === '1';
+
+export const NODE_STROKE_WIDTH_DEFAULT = 'var(--stroke-width-node-default)';
+export const NODE_OPACITY_STUB = 'var(--opacity-node-stub)';
+export const SOFT_LOCATION_GROUPING_ENABLED = true;
+
+export const STATE_NAME_TO_CODE = {
+	'alabama': 'AL',
+	'alaska': 'AK',
+	'arizona': 'AZ',
+	'arkansas': 'AR',
+	'california': 'CA',
+	'colorado': 'CO',
+	'connecticut': 'CT',
+	'delaware': 'DE',
+	'district of columbia': 'DC',
+	'florida': 'FL',
+	'georgia': 'GA',
+	'hawaii': 'HI',
+	'idaho': 'ID',
+	'illinois': 'IL',
+	'indiana': 'IN',
+	'iowa': 'IA',
+	'kansas': 'KS',
+	'kentucky': 'KY',
+	'louisiana': 'LA',
+	'maine': 'ME',
+	'maryland': 'MD',
+	'massachusetts': 'MA',
+	'michigan': 'MI',
+	'minnesota': 'MN',
+	'mississippi': 'MS',
+	'missouri': 'MO',
+	'montana': 'MT',
+	'nebraska': 'NE',
+	'nevada': 'NV',
+	'new hampshire': 'NH',
+	'new jersey': 'NJ',
+	'new mexico': 'NM',
+	'new york': 'NY',
+	'north carolina': 'NC',
+	'north dakota': 'ND',
+	'ohio': 'OH',
+	'oklahoma': 'OK',
+	'oregon': 'OR',
+	'pennsylvania': 'PA',
+	'rhode island': 'RI',
+	'south carolina': 'SC',
+	'south dakota': 'SD',
+	'tennessee': 'TN',
+	'texas': 'TX',
+	'utah': 'UT',
+	'vermont': 'VT',
+	'virginia': 'VA',
+	'washington': 'WA',
+	'west virginia': 'WV',
+	'wisconsin': 'WI',
+	'wyoming': 'WY',
+	'puerto rico': 'PR',
+	'virgin islands': 'VI',
+	'guam': 'GU',
+	'american samoa': 'AS',
+	'northern mariana islands': 'MP',
+};
+
+// Toggle: enable graph-derived connections (layout/graph inference) in the
+// sidebar. Default is disabled to avoid surfacing inferred/derived edges that
+// come from cache/graph artifacts. Enable by setting
+// NEXT_PUBLIC_ENABLE_GRAPH_DERIVED_CONNECTIONS=1 in the environment if you
+// explicitly want graph-derived connections back.
+export const ENABLE_GRAPH_DERIVED_CONNECTIONS =
+	typeof process !== 'undefined' &&
+	(String(process.env.NEXT_PUBLIC_ENABLE_GRAPH_DERIVED_CONNECTIONS || '').trim() === '1' ||
+		String(process.env.NEXT_PUBLIC_ENABLE_GRAPH_DERIVED_CONNECTIONS || '')
+			.trim()
+			.toLowerCase() === 'true');
+
+export const STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
+
+export const LOCATION_REGION_ANCHORS = {
+	west: { x: 0.19, y: 0.43 },
+	midwest: { x: 0.45, y: 0.34 },
+	northeast: { x: 0.73, y: 0.25 },
+	southeast: { x: 0.72, y: 0.66 },
+	southwest: { x: 0.42, y: 0.72 },
+	territory: { x: 0.56, y: 0.82 },
+};
+
+export const STATE_REGION_MAP = {
+	WA: 'west',
+	OR: 'west',
+	CA: 'west',
+	NV: 'west',
+	ID: 'west',
+	UT: 'west',
+	AZ: 'west',
+	AK: 'west',
+	HI: 'west',
+	MT: 'west',
+	WY: 'west',
+	CO: 'west',
+	NM: 'southwest',
+	TX: 'southwest',
+	OK: 'southwest',
+	KS: 'midwest',
+	NE: 'midwest',
+	SD: 'midwest',
+	ND: 'midwest',
+	MN: 'midwest',
+	IA: 'midwest',
+	MO: 'midwest',
+	WI: 'midwest',
+	IL: 'midwest',
+	IN: 'midwest',
+	MI: 'midwest',
+	OH: 'midwest',
+	KY: 'southeast',
+	TN: 'southeast',
+	AR: 'southeast',
+	LA: 'southeast',
+	MS: 'southeast',
+	AL: 'southeast',
+	GA: 'southeast',
+	FL: 'southeast',
+	SC: 'southeast',
+	NC: 'southeast',
+	VA: 'southeast',
+	WV: 'southeast',
+	MD: 'northeast',
+	DE: 'northeast',
+	PA: 'northeast',
+	NJ: 'northeast',
+	NY: 'northeast',
+	CT: 'northeast',
+	RI: 'northeast',
+	MA: 'northeast',
+	VT: 'northeast',
+	NH: 'northeast',
+	ME: 'northeast',
+	DC: 'northeast',
+	PR: 'territory',
+	VI: 'territory',
+	GU: 'territory',
+	AS: 'territory',
+	MP: 'territory',
+};
+
+export const LOCATION_SOURCE_STRENGTH = {
+	current_office: 0.92,
+	office_address: 0.88,
+	registered_state: 0.72,
+	basic_state: 0.62,
+	formed_state: 0.5,
+	district: 0.46,
+};
