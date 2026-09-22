@@ -166,7 +166,7 @@ export function createCanvasOverlay(parent: HTMLElement) {
 
 export function destroyCanvas() {
 	if (canvas && canvas.parentElement) canvas.parentElement.removeChild(canvas);
-	if (window && typeof window !== 'undefined') window.removeEventListener('resize', resize);
+	if (typeof window !== 'undefined') window.removeEventListener('resize', resize);
 	if (canvas) {
 		canvas.removeEventListener('click', onCanvasClick);
 		canvas.removeEventListener('pointerdown', onCanvasPointerDown);
@@ -176,6 +176,11 @@ export function destroyCanvas() {
 	}
 	activeCanvasDrag = null;
 	suppressNextCanvasClick = false;
+	currentNodes = [];
+	currentLinks = [];
+	currentOpts = {};
+	currentTransform = { x: 0, y: 0, k: 1 };
+	hoverNodeId = null;
 	canvas = null;
 	ctx = null;
 	parentEl = null;
@@ -292,7 +297,7 @@ function getColorForGroup(g: string) {
 	return colors.defaultText;
 }
 
-function getLinkStyle(link: Link, selectedId: string | number | undefined, selectedNodeIds: Set<string>, selectedPersonSelected: boolean) {
+function getLinkStyle(link: Link, selectedId: string | number | undefined, selectedNodeIds: Set<string>, selectedNodeActive: boolean) {
 	const colors = resolveCachedThemeColors();
 	const source = endpointNode(link?.source);
 	const target = endpointNode(link?.target);
@@ -315,7 +320,7 @@ function getLinkStyle(link: Link, selectedId: string | number | undefined, selec
 		selectedWidthMultiplier: selected ? 1.5 : 1,
 		opacity:
 			selected ? 1
-			: selectedPersonSelected ? 0.22
+			: selectedNodeActive ? 0.34
 			: inactive ? 0.92
 			: control ? 1
 			: previous ? 0.92
@@ -338,7 +343,7 @@ export function drawCanvasFrame(
 	currentOpts = opts;
 	currentTransform = transform;
 	const selectedNodeIds = new Set((opts.selectedNodeIds || []).map((id) => String(id)));
-	const selectedPersonSelected = nodes.some((node) => node?.group === 'individual' && (selectedNodeIds.has(String(node.id)) || String(node.id) === String(opts.selectedId)));
+	const selectedNodeActive = Boolean(opts.selectedId) || selectedNodeIds.size > 0;
 	if (!canvas || !ctx || !parentEl) return;
 	const rect = parentEl.getBoundingClientRect();
 	const w = rect.width;
@@ -371,7 +376,7 @@ export function drawCanvasFrame(
 		if (a.y > maxY && b.y > maxY) continue;
 		const sa = worldToScreen(a.x, a.y, transform);
 		const sb = worldToScreen(b.x, b.y, transform);
-		const style = getLinkStyle(l, opts.selectedId, selectedNodeIds, selectedPersonSelected);
+		const style = getLinkStyle(l, opts.selectedId, selectedNodeIds, selectedNodeActive);
 		ctx.beginPath();
 		ctx.setLineDash(style.dash);
 		// Keep links thin at every zoom; only taper further when the graph is zoomed out.
@@ -503,6 +508,7 @@ let PixiCore: any = null;
 let renderRequested = false;
 let renderFrameId: number | null = null;
 let forceWorker: Worker | null = null;
+let forceWorkerObjectUrl: string | null = null;
 // Track new nodes for blue ring highlight
 let newNodeIds = new Set<string>();
 
@@ -543,8 +549,8 @@ function buildGraphMaps(nodes: any[], links: any[]) {
 
 export function requestRender() {
 	if (renderRequested) return;
-	renderRequested = true;
 	if (typeof window === 'undefined') return;
+	renderRequested = true;
 	renderFrameId = window.requestAnimationFrame(() => {
 		renderFrameId = null;
 		renderRequested = false;
@@ -939,6 +945,9 @@ async function createCanvasRenderer(pixi: any) {
 
 export async function init(_d3: any, options: { initialRouteNodeId?: string | null } = {}) {
 	if (typeof window === 'undefined') return;
+	// init can be called again after route/navigation changes; tear down the
+	// previous RAF, worker, and global listeners before installing new ones.
+	destroy();
 
 	const initialRouteNodeId = String(options.initialRouteNodeId || '').trim() || null;
 	const PIXI = await import('pixi.js');
@@ -1095,7 +1104,8 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 					};
 				`;
 				const blob = new Blob([workerCode], { type: 'application/javascript' });
-				forceWorker = new Worker(URL.createObjectURL(blob));
+				forceWorkerObjectUrl = URL.createObjectURL(blob);
+				forceWorker = new Worker(forceWorkerObjectUrl);
 				forceWorker.onmessage = (ev) => {
 					const msg = ev.data || {};
 					if (msg.type === 'tick' && Array.isArray(msg.nodes)) {
@@ -1119,6 +1129,16 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 				forceWorker.postMessage({ type: 'start' });
 			} catch (e2) {
 				console.warn('Fallback worker failed; falling back to main-thread d3.', e2);
+				if (forceWorker) {
+					try {
+						forceWorker.terminate();
+					} catch (e3) {}
+					forceWorker = null;
+				}
+				if (forceWorkerObjectUrl) {
+					URL.revokeObjectURL(forceWorkerObjectUrl);
+					forceWorkerObjectUrl = null;
+				}
 				simulation = _d3
 					.forceSimulation(graphNodes)
 					.force(
@@ -1214,6 +1234,10 @@ export function destroy() {
 		} catch (e) {}
 		forceWorker = null;
 	}
+	if (forceWorkerObjectUrl) {
+		URL.revokeObjectURL(forceWorkerObjectUrl);
+		forceWorkerObjectUrl = null;
+	}
 	if (pixiApp) {
 		pixiApp.destroy(true, { children: true, texture: true, baseTexture: true });
 		pixiApp = null;
@@ -1223,6 +1247,10 @@ export function destroy() {
 	graphNeighborIds.clear();
 	graphNodes = [];
 	graphLinks = [];
+	selectedNodeId = null;
+	selectedNodeIds.clear();
+	activeDrag = null;
+	newNodeIds.clear();
 	if (clearNewNodeHighlightListener && typeof window !== 'undefined') {
 		window.removeEventListener('click', clearNewNodeHighlightListener, true);
 		clearNewNodeHighlightListener = null;
@@ -1291,10 +1319,7 @@ export async function createPixiRenderer(parent: HTMLElement) {
 			}
 		},
 		destroy: () => {
-			if (pixiApp) {
-				pixiApp.destroy(true, { children: true, texture: true, baseTexture: true });
-				pixiApp = null;
-			}
+			destroy();
 			if (canvas && canvas.parentNode) {
 				canvas.parentNode.removeChild(canvas);
 			}

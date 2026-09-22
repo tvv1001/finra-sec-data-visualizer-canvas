@@ -396,6 +396,9 @@ let inactiveLabelCompactZoomThreshold = 0.42;
 let inactiveLabelCompactMode = false;
 let graphTickFrameId: number | null = null;
 let networkStatusListenerBound = false;
+let resizeListenerBound = false;
+let metaPollId: ReturnType<typeof setInterval> | null = null;
+let networkStatusListeners: Array<[string, EventListener]> = [];
 const OFFLINE_FETCH_STATUS_MESSAGE = 'Offline — reconnect to load graph data.';
 const FIND_NODE_MIN_SCALE = 1.35;
 
@@ -7077,6 +7080,19 @@ export function destroy() {
 		nodePulseInteractionCleanup();
 		nodePulseInteractionCleanup = null;
 	}
+	if (metaPollId != null) {
+		clearInterval(metaPollId);
+		metaPollId = null;
+	}
+	if (resizeListenerBound && typeof window !== 'undefined') {
+		window.removeEventListener('resize', onResize);
+		resizeListenerBound = false;
+	}
+	for (const [eventName, listener] of networkStatusListeners) {
+		if (typeof window !== 'undefined') window.removeEventListener(eventName, listener);
+	}
+	networkStatusListeners = [];
+	networkStatusListenerBound = false;
 	if (simulation) {
 		simulation.stop();
 		simulation.on('tick', null);
@@ -7098,6 +7114,20 @@ export function destroy() {
 	layoutLinks = [];
 	graphData = null;
 	neighborMap = new Map();
+	selectedId = null;
+	hoveredNodeId = null;
+	focusedNodeId = null;
+	highlightedSelections = [];
+	activeSpreadFrozenNodes = [];
+	nodeExpansionQueue.length = 0;
+	pendingNodeExpansionIds.clear();
+	pendingRouteNodeId = null;
+	pendingRoutePulseDuration = null;
+	pendingRouteAutoExpand = false;
+	pendingRouteForceAutoExpand = false;
+	pendingSelectedNodeIds = [];
+	pendingCanvasNodeIds = [];
+	pendingQueueGraphSeed = null;
 }
 
 export function init(
@@ -7642,7 +7672,10 @@ export function init(
 			}
 		});
 	}
-	window.addEventListener('resize', onResize);
+	if (!resizeListenerBound) {
+		window.addEventListener('resize', onResize);
+		resizeListenerBound = true;
+	}
 
 	// Database search button – search ALL results, inject every hit, persist to server
 	const fetchBtn = document.getElementById('fg-database-search') as HTMLButtonElement | null;
@@ -8390,7 +8423,6 @@ export function init(
 	}
 	// Poll lightweight meta/cache endpoints so externally updated Redis totals
 	// appear in the UI without a hard refresh.
-	let _metaPollId = null;
 	// Keep meta polling infrequent — click path must not compete with this.
 	const META_POLL_MS = 60000;
 
@@ -8410,24 +8442,27 @@ export function init(
 	}
 
 	function startMetaPolling() {
-		if (_metaPollId) return;
+		if (metaPollId != null) return;
 		void fetchMetaOnce();
-		_metaPollId = setInterval(() => {
+		metaPollId = setInterval(() => {
 			void fetchMetaOnce();
 		}, META_POLL_MS);
 	}
 
 	if (typeof window !== 'undefined' && !networkStatusListenerBound) {
-		window.addEventListener('offline', () => {
+		const offlineListener = () => {
 			showOfflineFetchStatus();
-		});
-		window.addEventListener('online', () => {
+		};
+		const onlineListener = () => {
 			clearOfflineFetchStatus();
 			void loadGraph().finally(() => {
 				void fetchMetaOnce();
 				void fetchCacheStats();
 			});
-		});
+		};
+		window.addEventListener('offline', offlineListener);
+		window.addEventListener('online', onlineListener);
+		networkStatusListeners = [['offline', offlineListener], ['online', onlineListener]];
 		networkStatusListenerBound = true;
 	}
 	if (isBrowserOffline()) {
@@ -15852,8 +15887,10 @@ function releaseFrozenNodes(frozenNodes) {
 function pinNodeAndReleaseOthers(pinnedNode) {
 	if (!pinnedNode?.id || !Array.isArray(layoutNodes)) return;
 
-	// Keep the clicked node anchored while giving only its immediate neighborhood
-	// enough force energy to separate overlapping nodes.
+	// Keep the clicked node anchored briefly so the selection remains easy to
+	// follow. Do not reheat the whole simulation here: freezing every other
+	// node and restarting the force caused the settled graph to jump on every
+	// click, and the subsequent unfreeze caused a second layout shift.
 	if (Number.isFinite(pinnedNode.x) && Number.isFinite(pinnedNode.y)) {
 		pinnedNode.fx = pinnedNode.x;
 		pinnedNode.fy = pinnedNode.y;
@@ -15863,18 +15900,11 @@ function pinNodeAndReleaseOthers(pinnedNode) {
 		nodePinReleaseTimer = null;
 	}
 
-	if (!simulation) return;
-	const movingIds = new Set([pinnedNode.id, ...getNeighborIds(pinnedNode.id)]);
-	if (activeSpreadFrozenNodes.length) {
-		releaseFrozenNodes(activeSpreadFrozenNodes);
-		activeSpreadFrozenNodes = [];
-	}
-	activeSpreadFrozenNodes = freezeSettledNodesExcept(movingIds);
-	simulation.alphaTarget(0.035).alpha(Math.max(simulation.alpha(), 0.08)).restart();
 	nodePinReleaseTimer = setTimeout(() => {
-		simulation?.alphaTarget?.(0);
-		releaseFrozenNodes(activeSpreadFrozenNodes);
-		activeSpreadFrozenNodes = [];
+		if (pinnedNode.fx != null && pinnedNode.fy != null) {
+			pinnedNode.fx = null;
+			pinnedNode.fy = null;
+		}
 		nodePinReleaseTimer = null;
 	}, 450);
 }
