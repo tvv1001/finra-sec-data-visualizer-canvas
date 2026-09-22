@@ -18,6 +18,7 @@ let currentOpts: any = {};
 let currentTransform = { x: 0, y: 0, k: 1 };
 let hoverNodeId: string | null = null;
 let canvasTooltip: HTMLDivElement | null = null;
+let canvasLabelVisibleIds = new Set<string>();
 let activeCanvasDrag: { node: Node; offsetX: number; offsetY: number; pointerId: number; moved: boolean } | null = null;
 let suppressNextCanvasClick = false;
 const CANVAS_NODE_SCALE = 1.5;
@@ -43,7 +44,7 @@ function hideCanvasTooltip() {
 }
 
 function updateCanvasTooltip(node: Node | null, clientX?: number, clientY?: number) {
-	if (!node || shouldShowCanvasLabel(node) || !parentEl) {
+	if (!node || (shouldShowCanvasLabel(node) && canvasLabelVisibleIds.has(String(node.id))) || !parentEl) {
 		hideCanvasTooltip();
 		return;
 	}
@@ -280,6 +281,7 @@ export function destroyCanvas() {
 	suppressNextCanvasClick = false;
 	currentNodes = [];
 	currentLinks = [];
+	canvasLabelVisibleIds = new Set();
 	currentOpts = {};
 	currentTransform = { x: 0, y: 0, k: 1 };
 	hoverNodeId = null;
@@ -501,6 +503,16 @@ export function drawCanvasFrame(
 	const globalCanvasLabelZoomThreshold = 0.45;
 	const selectedCanvasLabelZoomThreshold = globalCanvasLabelZoomThreshold;
 	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
+	const labelBudget = visibleNodes.length > 1000 ? 160 : visibleNodes.length > 600 ? 240 : visibleNodes.length > 300 ? 400 : Infinity;
+	const labelCandidates = visibleNodes
+		.filter((node) => {
+			const id = String(node.id);
+			return forcedLabelIds.has(id) || selectedNodeIds.has(id) || (opts.selectedId != null && String(opts.selectedId) === id) || hoverNodeId === id;
+		})
+		.map((node) => node.id);
+	const labelCandidateIds = new Set(labelCandidates);
+	let renderedLabelCount = 0;
+	canvasLabelVisibleIds = new Set();
 
 	for (const n of visibleNodes) {
 		const colors = resolveCachedThemeColors();
@@ -546,7 +558,10 @@ export function drawCanvasFrame(
 			: n.group === 'firm' ? 0.9
 			: n.group === 'individual' && Number(n?._deg?.total || 0) > 0 ? 1
 			: 1.5;
-		const shouldShowLabel = isForcedLabel || isNodeSelected || scale >= globalCanvasLabelZoomThreshold;
+		const isPriorityLabel = labelCandidateIds.has(n.id);
+		const shouldShowLabel =
+			isPriorityLabel ||
+			(scale >= globalCanvasLabelZoomThreshold && renderedLabelCount < labelBudget);
 
 		drawNode(ctx, n, transform, size, col, nodeStroke, nodeStrokeWidth);
 
@@ -560,6 +575,8 @@ export function drawCanvasFrame(
 		}
 
 		if (shouldShowLabel && (isForcedLabel || isNodeSelected || scale >= selectedCanvasLabelZoomThreshold)) {
+			renderedLabelCount += 1;
+			canvasLabelVisibleIds.add(String(n.id));
 			const p = worldToScreen(n.x, n.y, transform);
 
 			const baseLabelSize = isBoldLabel ? CANVAS_SELECTED_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;

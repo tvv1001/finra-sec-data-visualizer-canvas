@@ -61,6 +61,7 @@ import {
 	subscribeFilterText,
 } from './filterTags';
 import { readVisited, readVisitedSync, rememberVisited, visitConnectionsKey, visitDetailKey } from './clientVisitCache';
+import { createGraphLayoutWorker } from './graphLayoutWorker';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -424,6 +425,8 @@ let canvasApi: any = null;
 let pixiModeActive = false;
 let pixiApi: any = null;
 let overlayApi: any = null;
+let wasmLayoutWorker: ReturnType<typeof createGraphLayoutWorker> | null = null;
+let wasmLayoutRunId = 0;
 let overlayRefreshFrameCounter = 0;
 let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
 
@@ -583,6 +586,57 @@ function shouldRefreshOverlayLabels(nodeCount = layoutNodes?.length || 0) {
 	const shouldUpdate = overlayRefreshFrameCounter % interval === 0;
 	overlayRefreshFrameCounter += 1;
 	return shouldUpdate;
+}
+
+function scheduleWasmLayoutSnapshot(nodes: any[], links: any[], width: number, height: number) {
+	if (nodes.length < 1000 || typeof window === 'undefined' || typeof Worker !== 'function') return;
+	const runId = ++wasmLayoutRunId;
+	try {
+		wasmLayoutWorker?.dispose();
+		wasmLayoutWorker = createGraphLayoutWorker();
+		const worker = wasmLayoutWorker;
+		void worker
+			.compute(
+				nodes.map((node) => ({
+					id: String(node.id),
+					x: Number.isFinite(node.x) ? node.x : width / 2,
+					y: Number.isFinite(node.y) ? node.y : height / 2,
+					r: Number(node._vizHalf || 6),
+					locStrength: Number(node._locationBiasStrength || 0),
+					locX: Number.isFinite(node._locationBiasX) ? node._locationBiasX : width / 2,
+					locY: Number.isFinite(node._locationBiasY) ? node._locationBiasY : height / 2,
+				})),
+				links.map((link) => ({
+					source: String(link.source?.id || link.source),
+					target: String(link.target?.id || link.target),
+				})),
+				width,
+				height,
+			)
+			.then((positions) => {
+				if (runId !== wasmLayoutRunId || !simulation || !Array.isArray(positions)) return;
+				const positionsById = new Map(positions.map((position) => [String(position.id), position]));
+				for (const node of nodes) {
+					const position = positionsById.get(String(node.id));
+					if (!position) continue;
+					if (Number.isFinite(position.x)) node.x = position.x;
+					if (Number.isFinite(position.y)) node.y = position.y;
+				}
+				simulation.alpha(Math.min(0.16, Math.max(0.06, getIncrementalRestartAlpha(nodes.length, nodes.length)))).restart();
+				scheduleGraphTickPositions(null, null, null);
+			})
+			.catch(() => {
+				// The existing D3 simulation remains the fallback if WASM is unavailable.
+			})
+			.finally(() => {
+				if (runId === wasmLayoutRunId) {
+					worker.dispose();
+					wasmLayoutWorker = null;
+				}
+			});
+	} catch {
+		wasmLayoutWorker = null;
+	}
 }
 
 function resetProgressiveRevealState() {
@@ -7782,6 +7836,9 @@ export function init(
 				// ── 1. Search local indexed endpoints in parallel ─────────────
 				// These hit /api/finra/search and /api/finra/sec-search which query local indexes.
 				const PAGE_SIZE = 100; // FINRA Solr supports up to 100 per page
+				// Keep sidecar-backed search responsive; callers can still page through
+				// results explicitly instead of materializing an unbounded graph import.
+				const MAX_TEXT_SEARCH_HITS = 200;
 
 				const fetchSingleCrd = async (crd) => {
 					const SINGLE_PAGE_SIZE = 12;
@@ -7837,10 +7894,12 @@ export function init(
 							const sj = await sr.json();
 							const page = sj?.hits?.hits || sj?.response?.docs || sj?.results || [];
 							if (total === null) total = sj?.hits?.total ?? sj?.response?.numFound ?? page.length;
-							hits.push(...page);
-							if (page.length && onPage) await onPage(page);
+							const remaining = Math.max(0, MAX_TEXT_SEARCH_HITS - hits.length);
+							const boundedPage = page.slice(0, remaining);
+							hits.push(...boundedPage);
+							if (boundedPage.length && onPage) await onPage(boundedPage);
 							start += page.length;
-							if (page.length < PAGE_SIZE) break;
+							if (page.length < PAGE_SIZE || hits.length >= MAX_TEXT_SEARCH_HITS) break;
 						} while (start < total);
 					} catch (err) {
 						console.warn('Database search request failed', err);
@@ -7868,7 +7927,20 @@ export function init(
 
 				const fetchTextQueryHits = async (queryText, onPage: ((pageHits: any[]) => void | Promise<void>) | null = null) => {
 					const hits = [];
-					const results = await Promise.allSettled([fetchFinraAll(false, queryText, onPage), fetchFinraAll(true, queryText, onPage), fetchSec(queryText, onPage)]);
+					let emitted = 0;
+					const boundedOnPage = onPage ?
+						async (pageHits: any[]) => {
+							const remaining = Math.max(0, MAX_TEXT_SEARCH_HITS - emitted);
+							const page = pageHits.slice(0, remaining);
+							emitted += page.length;
+							if (page.length) await onPage(page);
+						}
+					:	null;
+					const results = await Promise.allSettled([
+						fetchFinraAll(false, queryText, boundedOnPage),
+						fetchFinraAll(true, queryText, boundedOnPage),
+						fetchSec(queryText, boundedOnPage),
+					]);
 					results.forEach((result, index) => {
 						if (result.status === 'fulfilled') {
 							hits.push(...result.value);
@@ -8521,7 +8593,7 @@ async function fetchAndInjectLocalQuery(q) {
  * Called during profile seed auto-loading on page load.
  */
 async function fetchAndInjectQuery(q) {
-	const ROWS = '1000';
+	const ROWS = '200';
 	const headers = { Accept: 'application/json' };
 
 	const [finraIndResp, finraFirmResp, secResp] = await Promise.allSettled([
@@ -8539,7 +8611,7 @@ async function fetchAndInjectQuery(q) {
 		return d?.hits?.hits || d?.response?.docs || d?.results || [];
 	};
 
-	const allHits = [...extractHits(finraIndResp), ...extractHits(finraFirmResp), ...extractHits(secResp)];
+	const allHits = [...extractHits(finraIndResp), ...extractHits(finraFirmResp), ...extractHits(secResp)].slice(0, 200);
 
 	if (!allHits.length) return;
 
@@ -8687,7 +8759,7 @@ async function fetchLocalQueryBatch(q) {
 // Batch variant of the full text query that returns nodes/links without
 // appending. Mirrors `fetchAndInjectQuery` logic but returns the results.
 async function fetchQueryBatch(q) {
-	const ROWS = '1000';
+	const ROWS = '200';
 	const headers = { Accept: 'application/json' };
 
 	const [finraIndResp, finraFirmResp, secResp] = await Promise.allSettled([
@@ -8705,7 +8777,7 @@ async function fetchQueryBatch(q) {
 		return d?.hits?.hits || d?.response?.docs || d?.results || [];
 	};
 
-	const allHits = [...extractHits(finraIndResp), ...extractHits(finraFirmResp), ...extractHits(secResp)];
+	const allHits = [...extractHits(finraIndResp), ...extractHits(finraFirmResp), ...extractHits(secResp)].slice(0, 200);
 
 	if (!allHits.length) return { nodes: [], links: [] };
 
@@ -13117,6 +13189,10 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 				.strength(1.0),
 		);
 
+	// Large imports get one Rust/WASM layout pass off the main thread. D3 remains
+	// responsible for incremental settling and is the automatic fallback.
+	scheduleWasmLayoutSnapshot(nodes, links, W, H);
+
 	// Build neighbor adjacency cache after D3 has resolved link source/target objects
 	neighborMap = buildNeighborMap(nodes, links);
 
@@ -13247,7 +13323,7 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	let _tickN = 0;
 	bindSimulationTickHandler(simulation, () => {
 		_tickN++;
-		if (_tickN === 1 || _tickN % 20 === 0) {
+		if (_tickN === 1 || (!isHuge && _tickN % 20 === 0) || (isHuge && _tickN % 60 === 0)) {
 			estimateLocalCrowdFactors(layoutNodes || nodes);
 		}
 		// During high-energy early layout, aggressively throttle SVG repaints
@@ -13637,8 +13713,8 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	estimateLocalCrowdFactors(layoutNodes);
 	bindSimulationTickHandler(simulation, () => {
 		_updTick++;
-		if (_updTick === 1 || _updTick % 20 === 0) estimateLocalCrowdFactors(layoutNodes);
 		const count = layoutNodes?.length || 0;
+		if (_updTick === 1 || (_updTick % (count > 1000 ? 60 : 20) === 0)) estimateLocalCrowdFactors(layoutNodes);
 		if (count > 1000 && simulation.alpha() > 0.05 && _updTick % 10 !== 0) return;
 		if (count > 300 && simulation.alpha() > 0.1 && _updTick % 4 !== 0) return;
 

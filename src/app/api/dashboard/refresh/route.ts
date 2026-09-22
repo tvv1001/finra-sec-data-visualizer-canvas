@@ -52,6 +52,7 @@ const DASHBOARD_DETAIL_FETCH_TIMEOUT_MS = Math.max(2_000, Number(process.env.DAS
 const DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS = Math.max(0, Number(process.env.DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS || 15_000) || 15_000);
 const DASHBOARD_CARD_LIST_CACHE_TTL_MS = Math.max(10_000, Number(process.env.DASHBOARD_CARD_LIST_CACHE_TTL_MS || 30_000) || 30_000);
 const DASHBOARD_NEW_CRDS_CACHE_TTL_MS = Math.max(30_000, Number(process.env.DASHBOARD_NEW_CRDS_CACHE_TTL_MS || 60_000) || 60_000);
+const DASHBOARD_NEW_CRDS_SOURCE_LIMIT = Math.max(8, Number(process.env.DASHBOARD_NEW_CRDS_SOURCE_LIMIT || 24) || 24);
 // Primed-bundle totals rarely change; reuse the last read within this window instead of
 // forcing a fresh sequential set of Redis reads on every list-cache-cards call (e.g. while
 // a user is typing into the CRD filter box, which bypasses the outer card-list cache below).
@@ -2303,13 +2304,13 @@ async function listNewCrds(force = false) {
 		}
 	} catch (err) {}
 
-	let topIndividualIds = (await redis.zrange('dashboard:highest-crds:individual', 0, 49, { rev: true })) as string[];
-	let topFirmIds = (await redis.zrange('dashboard:highest-crds:firm', 0, 49, { rev: true })) as string[];
+	let topIndividualIds = (await redis.zrange('dashboard:highest-crds:individual', 0, DASHBOARD_NEW_CRDS_SOURCE_LIMIT - 1, { rev: true })) as string[];
+	let topFirmIds = (await redis.zrange('dashboard:highest-crds:firm', 0, DASHBOARD_NEW_CRDS_SOURCE_LIMIT - 1, { rev: true })) as string[];
 
 	if (topIndividualIds.length === 0 && topFirmIds.length === 0) {
 		const recentSeeds = await getRecentSeedsFromStore();
-		topIndividualIds = recentSeeds.individualIds.slice(0, 50);
-		topFirmIds = recentSeeds.firmIds.slice(0, 50);
+		topIndividualIds = recentSeeds.individualIds.slice(0, DASHBOARD_NEW_CRDS_SOURCE_LIMIT);
+		topFirmIds = recentSeeds.firmIds.slice(0, DASHBOARD_NEW_CRDS_SOURCE_LIMIT);
 	}
 
 	// Fallback to CRD inventory sidecar if Redis ZSETs are empty or missing
@@ -2318,10 +2319,10 @@ async function listNewCrds(force = false) {
 			const { loadCrdInventorySync } = await import('@/lib/crdInventorySidecar');
 			const inventory = loadCrdInventorySync();
 			if (inventory.individuals.length > 0) {
-				topIndividualIds = [...inventory.individuals].sort((a, b) => b - a).slice(0, 50).map(String);
+				topIndividualIds = [...inventory.individuals].sort((a, b) => b - a).slice(0, DASHBOARD_NEW_CRDS_SOURCE_LIMIT).map(String);
 			}
 			if (inventory.firms.length > 0) {
-				topFirmIds = [...inventory.firms].sort((a, b) => b - a).slice(0, 50).map(String);
+				topFirmIds = [...inventory.firms].sort((a, b) => b - a).slice(0, DASHBOARD_NEW_CRDS_SOURCE_LIMIT).map(String);
 			}
 		} catch (e) {
 			// ignore
@@ -2336,8 +2337,8 @@ async function listNewCrds(force = false) {
 				.map((key) => parseCacheKey(key))
 				.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
 				.filter((entry) => entry.entity === 'individual' || entry.entity === 'firm');
-			topIndividualIds = parsed.filter((entry) => entry.entity === 'individual').map((entry) => entry.id).slice(0, 50);
-			topFirmIds = parsed.filter((entry) => entry.entity === 'firm').map((entry) => entry.id).slice(0, 50);
+			topIndividualIds = parsed.filter((entry) => entry.entity === 'individual').map((entry) => entry.id).slice(0, DASHBOARD_NEW_CRDS_SOURCE_LIMIT);
+			topFirmIds = parsed.filter((entry) => entry.entity === 'firm').map((entry) => entry.id).slice(0, DASHBOARD_NEW_CRDS_SOURCE_LIMIT);
 		} catch (e) {
 			// ignore fallback errors
 		}
