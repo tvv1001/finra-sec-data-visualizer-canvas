@@ -4,7 +4,7 @@ An interactive FINRA / SEC relationship explorer built with **Next.js 15**, **Re
 
 The app turns FINRA BrokerCheck and SEC AdviserInfo records into a navigable network of people, firms, and control relationships. You can search, expand the graph incrementally, inspect merged detail records, and keep your working session across reloads.
 
-Live demo: https://finra-data-chart-next-02.vercel.app
+Live demo: https://finra-sec-data-visualizer-canvas.vercel.app/
 
 ---
 
