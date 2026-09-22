@@ -16141,7 +16141,7 @@ async function openNodeWithExpansionTask(
 			const fetched = await ensureExpansionDataForNode(d.id, clickExpansionHops);
 			if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
 				revealNeighbors(d, clickExpansionHops, {
-					linkFilter: isAutoExpansionLink,
+					linkFilter: d.group === 'firm' ? isFirmControlOnlyExpansionLink : isAutoExpansionLink,
 					markSelected: true,
 				});
 			}
@@ -16270,7 +16270,7 @@ function selectNode(
 					const fetched = await ensureExpansionDataForNode(d.id, clickExpansionHops);
 					if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
 						revealNeighbors(d, clickExpansionHops, {
-							linkFilter: isAutoExpansionLink,
+							linkFilter: d.group === 'firm' ? isFirmControlOnlyExpansionLink : isAutoExpansionLink,
 							markSelected: true,
 						});
 					}
