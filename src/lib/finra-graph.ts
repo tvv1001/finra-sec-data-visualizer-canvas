@@ -13027,7 +13027,22 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	globalState.zoomBehavior = zoom;
 	globalState.svgSel = svg;
 
-	const root = svg.append('g').attr('class', 'fg-root');
+	let realSvg = svg.select<SVGSVGElement>('svg.fg-svg-layer');
+	if (realSvg.empty()) {
+		realSvg = svg.append('svg')
+			.attr('class', 'fg-svg-layer')
+			.style('position', 'absolute')
+			.style('top', '0')
+			.style('left', '0')
+			.style('width', '100%')
+			.style('height', '100%')
+			.style('pointer-events', 'none')
+			.style('z-index', '2');
+	} else {
+		realSvg.selectAll('*').remove();
+	}
+
+	const root = realSvg.append('g').attr('class', 'fg-root');
 	svg.classed('fg-huge-graph', isHuge);
 	globalState.rootGroup = root;
 
@@ -13057,7 +13072,7 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	syncTraceLabelPresentation(initialScale);
 
 	// ── Arrow markers ─────────────────────────────────────────────────────────
-	const defs = svg.append('defs');
+	const defs = realSvg.append('defs');
 
 	['employed_by', 'previous_employed_by', 'controls', 'current_employed_by', 'inactive'].forEach((rel) => {
 		defs
