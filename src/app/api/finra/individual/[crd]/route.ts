@@ -519,7 +519,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			logger.warn('failed to update local individual search index from detail route', { crd, error: searchIndexErr?.message || String(searchIndexErr) });
 		}
 
-		const responseData: any = { found: true, crd };
+		// Always return a normalized detail body (basicInformation at top level) so graph
+		// sidebar / dashboard clients that omit ?merged=1 still render the person correctly.
+		// Keep bccontent/iacontent for older callers that unwrap source wrappers.
+		const responseData: any = {
+			found: true,
+			crd,
+			hasFinraData: detail.hasFinraData,
+			hasSecData: detail.hasSecData,
+			...searchIndexDetail,
+			sources: {
+				finra: finraDetail ? { bccontent: finraDetail } : null,
+				sec: secDetail ? { iacontent: secDetail } : null,
+			},
+		};
 		if (finraDetail) responseData.bccontent = finraDetail;
 		if (secDetail) responseData.iacontent = secDetail;
 

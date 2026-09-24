@@ -32,7 +32,14 @@ function unwrapRecordPayload(value: unknown): unknown {
 	if (payload.finraBrokerCheck && typeof payload.finraBrokerCheck === 'object') return unwrapRecordPayload(payload.finraBrokerCheck);
 	if (payload.secInvestmentAdvisor && typeof payload.secInvestmentAdvisor === 'object') return unwrapRecordPayload(payload.secInvestmentAdvisor);
 	if (payload.content != null) return unwrapRecordPayload(payload.content);
-	if (payload.iacontent != null) return unwrapRecordPayload(payload.iacontent);
+	if (payload.bccontent != null || payload.iacontent != null) {
+		const finra = payload.bccontent != null ? unwrapRecordPayload(payload.bccontent) : null;
+		const sec = payload.iacontent != null ? unwrapRecordPayload(payload.iacontent) : null;
+		if (finra && typeof finra === 'object' && sec && typeof sec === 'object' && !Array.isArray(finra) && !Array.isArray(sec)) {
+			return { ...(sec as Record<string, unknown>), ...(finra as Record<string, unknown>) };
+		}
+		return finra ?? sec;
+	}
 	const firstHit = Array.isArray(payload.hits?.hits) ? payload.hits.hits[0] : null;
 	if (firstHit && typeof firstHit === 'object') {
 		const source = firstHit._source;

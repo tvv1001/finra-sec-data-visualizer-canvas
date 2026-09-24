@@ -836,7 +836,15 @@ function unwrapRecordPayload(input: unknown): any {
 	}
 
 	if (payload.content != null) return unwrapRecordPayload(payload.content);
-	if (payload.iacontent != null) return unwrapRecordPayload(payload.iacontent);
+	// Prefer FINRA bccontent when present; merge SEC iacontent underneath.
+	if (payload.bccontent != null || payload.iacontent != null) {
+		const finra = payload.bccontent != null ? unwrapRecordPayload(payload.bccontent) : null;
+		const sec = payload.iacontent != null ? unwrapRecordPayload(payload.iacontent) : null;
+		if (finra && typeof finra === 'object' && sec && typeof sec === 'object' && !Array.isArray(finra) && !Array.isArray(sec)) {
+			return { ...(sec as Record<string, unknown>), ...(finra as Record<string, unknown>) };
+		}
+		return finra ?? sec;
+	}
 
 	const firstHit = Array.isArray((payload.hits as any)?.hits) ? (payload.hits as any).hits[0] : null;
 	if (firstHit && typeof firstHit === 'object') {
