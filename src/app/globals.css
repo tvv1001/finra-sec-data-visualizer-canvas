@@ -5184,8 +5184,47 @@ html[data-theme='dark'] .fg-crd-paste-import {
 .fg-log-label {
 	display: inline;
 	font-size: 11px;
-	font-weight: 700;
+	font-weight: 500;
 	color: var(--text);
+}
+
+.fg-log-entry.is-bold-entry .fg-log-label {
+	font-weight: 700;
+}
+
+[data-log-bold='true'] .fg-log-entry.is-label-bold {
+	background: rgba(16, 185, 129, 0.12);
+}
+
+[data-log-bold='true'] .fg-log-entry.is-label-bold .fg-log-label {
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.fg-log-label-toggle-btn {
+	flex: 0 0 auto;
+	margin-left: 6px;
+	padding: 4px 6px;
+	border: 1px solid var(--border-strong);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-m);
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.fg-log-label-toggle-btn.is-on {
+	color: #047857;
+	border-color: rgba(16, 185, 129, 0.58);
+	background: rgba(16, 185, 129, 0.16);
+}
+
+.fg-log-label-toggle-btn.is-disabled,
+.fg-log-label-toggle-btn:disabled {
+	opacity: 0.45;
+	cursor: default;
 }
 
 .fg-log-subtext {
