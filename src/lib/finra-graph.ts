@@ -676,6 +676,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 				globalState.canvasApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
 					selectedId: globalState.selectedId,
 					selectedNodeIds: Array.from(new Set([globalState.selectedId, ...Array.from(globalState.persistentSelectedIds)].filter(Boolean))),
+					focusedNodeId: globalState.focusedNodeId,
 					linkFocusNodeIds,
 					labelScale: 1,
 					logLabelNodeIds,
@@ -3047,23 +3048,32 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 
 	const arrowable = getArrowableNodes();
 	if (!arrowable.length) return false;
+	const focusedId = globalState.focusedNodeId ? String(globalState.focusedNodeId) : '';
 	const currentNode =
+		(focusedId && Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.find((node) => String(node.id) === focusedId) : null) ||
 		(activeFindMatchIndex >= 0 && Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.find((node) => node.id === activeFindMatchOrder[activeFindMatchIndex]) : null) ||
-		(globalState.selectedId ? globalState.layoutNodes.find((n) => n.id === globalState.selectedId) : null);
+		(globalState.selectedId && Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.find((n) => n.id === globalState.selectedId) : null);
 	let nextNode = getDirectionalVisibleNode(currentNode, direction);
 	if (!nextNode) {
 		nextNode = getNearestArrowableNode(currentNode);
 	}
 	if (!nextNode) return false;
-	const nodeIds = arrowable.map((node) => String(node.id));
-	activeFindMatchOrder = nodeIds;
-	activeFindMatchIds = new Set(nodeIds);
-	activeFindMatchIndex = activeFindMatchOrder.indexOf(nextNode.id);
+	// Keyboard focus is a single node — do not mark every arrowable node as a find match.
+	activeFindMatchOrder = [String(nextNode.id)];
+	activeFindMatchIds = new Set([String(nextNode.id)]);
+	activeFindMatchIndex = 0;
 	globalState.lastArrowNavCoord = null; // Resume normal node-to-node nav after starting from whitespace
+	setFocusedNode(nextNode.id);
 	focusNodeById(nextNode.id, { duration: 520 });
-	startSearchPulseLoop(nextNode.id, { interval: 1400, immediate: true });
 	updateFocusReadout(nextNode);
-	refreshGraphColors();
+	// Canvas has no SVG pulse targets; schedule a frame so the focus ring paints.
+	scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
+	if (!globalState.canvasModeActive) {
+		startSearchPulseLoop(nextNode.id, { interval: 1400, immediate: true });
+		refreshGraphColors();
+	} else {
+		syncSelectionLogAuxiliaryRenderers();
+	}
 	emitFindState();
 	return true;
 }
@@ -3291,6 +3301,7 @@ function syncSelectionLogAuxiliaryRenderersNow() {
 			globalState.canvasApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
 				selectedId: globalState.selectedId,
 				selectedNodeIds: Array.from(new Set([globalState.selectedId, ...Array.from(globalState.persistentSelectedIds)].filter(Boolean))),
+				focusedNodeId: globalState.focusedNodeId,
 				linkFocusNodeIds,
 				labelScale: 1,
 				logLabelNodeIds,
@@ -5703,6 +5714,11 @@ function setFocusedNode(id) {
 	const nextId = id ? String(id).trim() : null;
 	if (globalState.focusedNodeId === nextId) return;
 	globalState.focusedNodeId = nextId;
+	if (globalState.canvasModeActive) {
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
+		syncSelectionLogAuxiliaryRenderers();
+		return;
+	}
 	reapplySelectionState();
 }
 
@@ -13592,10 +13608,10 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 		setTimeout(() => globalState.simulation.stop(), stopAfterMs);
 	}
 
-	// Preserve the current selection on blank click; highlights must be cleared explicitly.
-	svg.on('click', (event) => {
-		const [px, py] = d3.pointer(event);
+	const handleBlankGraphClick = (px: number, py: number) => {
 		globalState.lastArrowNavCoord = { x: px, y: py };
+		setFocusedNode(null);
+		updateFocusReadout(null);
 
 		// Clicking the canvas hands arrow-key navigation over to "nearest node
 		// from click point" mode; disable any active in-page find/search so
@@ -13612,8 +13628,26 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			globalState.selectionRestoreTimer = null;
 		}
 		stopNodePulseLoop();
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
+	};
+
+	// Preserve the current selection on blank click; highlights must be cleared explicitly.
+	svg.on('click', (event) => {
+		const [px, py] = d3.pointer(event);
+		handleBlankGraphClick(px, py);
 		// Keep selection + menu as-is on blank canvas clicks. The hamburger toggle closes the menu.
 	});
+
+	if (typeof window !== 'undefined' && !(window as any).__fgCanvasBlankClickBound) {
+		window.addEventListener('finra:canvas-blank-click', ((event: Event) => {
+			const detail = (event as CustomEvent<{ x?: number; y?: number }>).detail || {};
+			const px = Number(detail.x);
+			const py = Number(detail.y);
+			if (!Number.isFinite(px) || !Number.isFinite(py)) return;
+			handleBlankGraphClick(px, py);
+		}) as EventListener);
+		(window as any).__fgCanvasBlankClickBound = true;
+	}
 
 	refreshGraphColors();
 	reapplySelectionState();
@@ -16421,6 +16455,7 @@ function selectNode(
 ) {
 	globalState.lastArrowNavCoord = null;
 	stopSearchPulseLoop();
+	setFocusedNode(d?.id);
 	updateFocusReadout(d);
 	const {
 		persist = true,
@@ -17453,6 +17488,7 @@ function focusNodeById(
 		// layoutNodes is the current array of node objects in the visualization
 		const node = (Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.find((n) => n.id === id)) || null;
 		if (!node) return;
+		setFocusedNode(id);
 		const viewport = getVisibleGraphViewport();
 		const transform = d3.zoomTransform(globalState.svgSel.node());
 		const k = transform.k || 1;
@@ -17462,24 +17498,26 @@ function focusNodeById(
 		const ty = viewport.centerY - y * k;
 		globalState.svgSel.transition().duration(duration).ease(d3.easeCubicInOut).call(globalState.zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
 
-		// transient highlight: enlarge circle briefly
+		// transient highlight: enlarge circle briefly (SVG path only)
 		try {
-			globalState.nodeSel
-				.filter((n) => n.id === id)
-				.select('circle')
-				.transition()
-				.duration(320)
-				.ease(d3.easeCubicOut)
-				.attr('r', (n) => (n._vizHalf || 6) * 1.6)
-				.transition()
-				.duration(360)
-				.ease(d3.easeCubicInOut)
-				.attr('r', (n) => n._vizHalf || 6);
+			if (globalState.nodeSel) {
+				globalState.nodeSel
+					.filter((n) => n.id === id)
+					.select('circle')
+					.transition()
+					.duration(320)
+					.ease(d3.easeCubicOut)
+					.attr('r', (n) => (n._vizHalf || 6) * 1.6)
+					.transition()
+					.duration(360)
+					.ease(d3.easeCubicInOut)
+					.attr('r', (n) => n._vizHalf || 6);
+			}
 		} catch (e) {
 			/* ignore highlight errors */
 		}
 
-		if (pulse) {
+		if (pulse && !globalState.canvasModeActive) {
 			if (globalState.nodePulseTimer) {
 				clearTimeout(globalState.nodePulseTimer);
 				globalState.nodePulseTimer = null;

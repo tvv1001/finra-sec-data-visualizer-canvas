@@ -1,20 +1,36 @@
 {
   "firms": [
     {
-      "id": 134,
-      "name": "CANTOR FITZGERALD & CO."
+      "id": 12060,
+      "name": "COUNTRY CAPITAL MANAGEMENT COMPANY"
     },
     {
-      "id": 19660,
-      "name": "CANTOR FITZGERALD SECURITIES"
+      "id": 15776,
+      "name": "ABN AMRO INCORPORATED"
     },
     {
-      "id": 23741,
-      "name": "CHAPDELAINE CORPORATE SECURITIES & CO"
+      "id": 47414,
+      "name": "COLLINS STEWART INC."
+    },
+    {
+      "id": 24790,
+      "name": "COLLINS STEWART LLC."
+    },
+    {
+      "id": 7017,
+      "name": "CHAPDELAINE TULLETT PREBON, LLC"
     },
     {
       "id": 28196,
       "name": "TULLETT PREBON FINANCIAL SERVICES LLC"
+    },
+    {
+      "id": 19739,
+      "name": "ICAP SECURITIES USA LLC"
+    },
+    {
+      "id": 2762,
+      "name": "ICAP CORPORATES LLC"
     },
     {
       "id": 19982,
@@ -27,6 +43,18 @@
     {
       "id": 13681,
       "name": "MINT BROKERS"
+    },
+    {
+      "id": 134,
+      "name": "CANTOR FITZGERALD & CO."
+    },
+    {
+      "id": 19660,
+      "name": "CANTOR FITZGERALD SECURITIES"
+    },
+    {
+      "id": 23741,
+      "name": "CHAPDELAINE CORPORATE SECURITIES & CO"
     },
     {
       "id": 21774,
@@ -185,10 +213,6 @@
       "name": "NCMG LLC"
     },
     {
-      "id": 12060,
-      "name": "COUNTRY CAPITAL MANAGEMENT COMPANY"
-    },
-    {
       "id": 43036,
       "name": "STATE FARM VP MANAGEMENT CORP."
     },
@@ -303,10 +327,6 @@
     {
       "id": 2528,
       "name": "LAZARD FRERES & CO. LLC"
-    },
-    {
-      "id": 15776,
-      "name": "ABN AMRO INCORPORATED"
     },
     {
       "id": 37674,
@@ -6877,22 +6897,6 @@
       "name": "KPMG CORPORATE FINANCE LLC"
     },
     {
-      "id": 24790,
-      "name": "COLLINS STEWART LLC."
-    },
-    {
-      "id": 7017,
-      "name": "CHAPDELAINE TULLETT PREBON, LLC"
-    },
-    {
-      "id": 19739,
-      "name": "ICAP SECURITIES USA LLC"
-    },
-    {
-      "id": 2762,
-      "name": "ICAP CORPORATES LLC"
-    },
-    {
       "id": 104950,
       "name": "GAMCO ASSET MANAGEMENT INC."
     },
@@ -11158,6 +11162,14 @@
     }
   ],
   "individuals": [
+    {
+      "id": 6970583,
+      "name": "Jeremiah Dean Fletcher"
+    },
+    {
+      "id": 3265633,
+      "name": "JOHN JOSEPH ABULARRAGE"
+    },
     {
       "id": 2684821,
       "name": "THOMAS JOSEPH LEWIS"

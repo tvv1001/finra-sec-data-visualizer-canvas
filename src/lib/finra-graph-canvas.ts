@@ -148,6 +148,18 @@ function onCanvasClick(e: MouseEvent) {
 	const hit = getHitNode(e.clientX, e.clientY);
 	if (hit && onNodeClickCallback) {
 		onNodeClickCallback(e, hit);
+		canvas?.focus?.({ preventScroll: true });
+		return;
+	}
+	// Blank canvas click: seed arrow-key nav from this screen point and clear focus chrome.
+	if (canvas) {
+		const rect = canvas.getBoundingClientRect();
+		window.dispatchEvent(
+			new CustomEvent('finra:canvas-blank-click', {
+				detail: { x: e.clientX - rect.left, y: e.clientY - rect.top },
+			}),
+		);
+		canvas.focus?.({ preventScroll: true });
 	}
 }
 
@@ -259,6 +271,12 @@ export function createCanvasOverlay(parent: HTMLElement) {
 	canvas.style.pointerEvents = 'auto';
 	canvas.style.transform = 'none';
 	canvas.style.transformOrigin = '0 0';
+	canvas.tabIndex = 0;
+	canvas.setAttribute('role', 'application');
+	canvas.setAttribute('aria-label', 'Network graph canvas. Use arrow keys to move focus between nodes, Enter to open.');
+	// Avoid the browser's thick focus ring around the whole canvas.
+	canvas.style.outline = 'none';
+	canvas.style.boxShadow = 'none';
 	ctx = canvas.getContext('2d');
 	dpr = Math.max(1, window.devicePixelRatio || 1);
 	resize();
@@ -466,6 +484,7 @@ export function drawCanvasFrame(
 	opts: {
 		selectedId?: string | number;
 		selectedNodeIds?: Array<string | number>;
+		focusedNodeId?: string | number | null;
 		linkFocusNodeIds?: Array<string | number>;
 		labelScale?: number;
 		logLabelNodeIds?: Array<string | number>;
@@ -539,6 +558,7 @@ export function drawCanvasFrame(
 	const globalCanvasLabelZoomThreshold = 0.45;
 	const selectedCanvasLabelZoomThreshold = globalCanvasLabelZoomThreshold;
 	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
+	const focusedNodeId = opts.focusedNodeId != null ? String(opts.focusedNodeId).trim() : '';
 	const labelBudget =
 		visibleNodes.length > 1000 ? 160
 		: visibleNodes.length > 600 ? 240
@@ -547,7 +567,7 @@ export function drawCanvasFrame(
 	const labelCandidates = visibleNodes
 		.filter((node) => {
 			const id = String(node.id);
-			return forcedLabelIds.has(id) || hoverNodeId === id;
+			return forcedLabelIds.has(id) || hoverNodeId === id || (focusedNodeId && id === focusedNodeId);
 		})
 		.map((node) => node.id);
 	const labelCandidateIds = new Set(labelCandidates);
@@ -571,6 +591,7 @@ export function drawCanvasFrame(
 		const isPersistentlySelected = selectedNodeIds.has(String(n.id));
 		const isNodeSelected = Boolean(isSelected || isPersistentlySelected);
 		const isHovered = hoverNodeId === String(n.id);
+		const isFocused = Boolean(focusedNodeId && focusedNodeId === String(n.id));
 		const isForcedLabel = forcedLabelIds.has(String(n.id));
 		const isBoldLabel = isForcedLabel;
 		const isControlPosition = isControlPositionNode(n);
@@ -619,6 +640,23 @@ export function drawCanvasFrame(
 			ctx.arc(p.x, p.y, Math.max(6, size * transform.k + 4), 0, Math.PI * 2);
 			ctx.strokeStyle = '#18a0fb';
 			ctx.lineWidth = 1.5;
+			ctx.stroke();
+		}
+		// Keyboard / arrow-key focus chrome — distinct from selection (solid blue).
+		if (isFocused) {
+			const p = worldToScreen(n.x, n.y, transform);
+			const focusR = Math.max(8, size * transform.k + 7);
+			ctx.beginPath();
+			ctx.arc(p.x, p.y, focusR, 0, Math.PI * 2);
+			ctx.strokeStyle = '#fbbf24';
+			ctx.lineWidth = 2.5;
+			ctx.setLineDash([5, 4]);
+			ctx.stroke();
+			ctx.setLineDash([]);
+			ctx.beginPath();
+			ctx.arc(p.x, p.y, focusR + 3, 0, Math.PI * 2);
+			ctx.strokeStyle = '#000000';
+			ctx.lineWidth = 1.25;
 			ctx.stroke();
 		}
 

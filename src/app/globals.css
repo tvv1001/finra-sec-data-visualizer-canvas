@@ -3717,6 +3717,14 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	touch-action: none;
 }
 
+/* Canvas is tab-focusable for arrow-key node focus; suppress the browser's
+   full-area focus ring — the amber node focus chrome is the indicator. */
+#fg-canvas:focus,
+#fg-canvas:focus-visible {
+	outline: none !important;
+	box-shadow: none !important;
+}
+
 .fg-node .fg-node-shape--circle,
 .fg-node .fg-node-shape--firm,
 .fg-node .fg-node-shape--entity {

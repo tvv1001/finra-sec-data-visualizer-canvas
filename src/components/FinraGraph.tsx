@@ -850,6 +850,7 @@ export default function FinraGraph() {
 			if (isFindBarOpen) return;
 			const target = event.target as Element | null;
 			if (target?.closest('input,textarea,select') || (target instanceof HTMLElement && target.isContentEditable)) return;
+			// Arrow-key canvas focus emits find-state with the focused node as activeNodeId.
 			const nodeId = focusedFindNodeId || activeFindNodeId;
 
 			if (event.key === 'Enter' && nodeId) {
