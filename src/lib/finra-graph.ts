@@ -11718,7 +11718,26 @@ function isNodeInactive(node) {
 		const hasFinraActiveStates = finraSignalsEnabled && hasActiveRegisteredStates(node.registeredStates, ['bc', 'b', 'broker']);
 		const hasSecActiveStates = secSignalsEnabled && hasActiveRegisteredStates(node.registeredStates, ['ia']);
 		if (activityFlags.hasActive) return false;
-		if (node.stub) return false;
+		if (node.stub) {
+			if (activityFlags.hasInactive) return true;
+			const connectedLinks = (globalState.layoutLinks || []).filter((l) => {
+				const srcId = l.source?.id || l.source;
+				const tgtId = l.target?.id || l.target;
+				return srcId === node.id || tgtId === node.id;
+			});
+			if (connectedLinks.length > 0) {
+				const hasActiveLink = connectedLinks.some((l) => {
+					if (isPreviousEmploymentLink(l)) return false;
+					const otherId = (l.source?.id || l.source) === node.id ? (l.target?.id || l.target) : (l.source?.id || l.source);
+					const otherNode = globalState.layoutNodes?.find((n) => n.id === otherId);
+					if (!otherNode) return true;
+					if (otherNode.group === 'firm' && isNodeInactive(otherNode)) return false;
+					return true;
+				});
+				if (!hasActiveLink) return true;
+			}
+			return false;
+		}
 		if (hasFinraApprovedCounts || hasSecApprovedCounts) return false;
 		if ((finraSignalsEnabled && node.currentEmployments?.length) || (secSignalsEnabled && node.currentIAEmployments?.length)) return false;
 		if (hasFinraActiveStates || hasSecActiveStates) return false;
