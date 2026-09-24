@@ -1,6 +1,82 @@
 {
   "firms": [
     {
+      "id": 7556,
+      "name": "MORGAN STANLEY DW INC."
+    },
+    {
+      "id": 19794,
+      "name": "MORGAN STANLEY MARKET PRODUCTS INC."
+    },
+    {
+      "id": 8209,
+      "name": "MORGAN STANLEY & CO. INCORPORATED"
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
+    },
+    {
+      "id": 2347,
+      "name": "JEFFERIES LLC"
+    },
+    {
+      "id": 31194,
+      "name": "RBC CAPITAL MARKETS, LLC"
+    },
+    {
+      "id": 79,
+      "name": "BEAR, STEARNS & CO. INC."
+    },
+    {
+      "id": 129919,
+      "name": "SAGENT ADVISORS INC."
+    },
+    {
+      "id": 26091,
+      "name": "BANC OF AMERICA SECURITIES LLC"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 40638,
+      "name": "GUGGENHEIM SECURITIES, LLC"
+    },
+    {
+      "id": 28432,
+      "name": "J.P. MORGAN CLEARING CORP."
+    },
+    {
+      "id": 282107,
+      "name": "J.P. MORGAN PRIME INC."
+    },
+    {
+      "id": 361,
+      "name": "GOLDMAN, SACHS & CO."
+    },
+    {
+      "id": 7506,
+      "name": "LEHMAN BROTHERS INC."
+    },
+    {
+      "id": 6731,
+      "name": "MF GLOBAL INC."
+    },
+    {
+      "id": 103973,
+      "name": "KPMG CORPORATE FINANCE LLC"
+    },
+    {
+      "id": 816,
+      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
+    },
+    {
+      "id": 249,
+      "name": "OPPENHEIMER & CO. INC."
+    },
+    {
       "id": 24790,
       "name": "COLLINS STEWART LLC."
     },
@@ -45,32 +121,12 @@
       "name": "AQUA SECURITIES L.P."
     },
     {
-      "id": 816,
-      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
-    },
-    {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
-    },
-    {
-      "id": 282107,
-      "name": "J.P. MORGAN PRIME INC."
-    },
-    {
       "id": 25025,
       "name": "E*TRADE CLEARING LLC"
     },
     {
       "id": 29106,
       "name": "E*TRADE SECURITIES LLC"
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
-      "id": 149777,
-      "name": "MORGAN STANLEY"
     },
     {
       "id": 7870,
@@ -325,10 +381,6 @@
       "name": "LEHMAN BROTHERS KUHN LOEB INCORPORATED"
     },
     {
-      "id": 7506,
-      "name": "SHEARSON LEHMAN BROTHERS INC."
-    },
-    {
       "id": 17917,
       "name": "BLACKSTONE SECURITIES PARTNERS L.P."
     },
@@ -379,10 +431,6 @@
     {
       "id": 108928,
       "name": "BLACKROCK INVESTMENT MANAGEMENT, LLC"
-    },
-    {
-      "id": 361,
-      "name": "GOLDMAN SACHS & CO. LLC"
     },
     {
       "id": 6271,
@@ -1245,10 +1293,6 @@
       "name": "FERRIS, BAKER WATTS, LLC"
     },
     {
-      "id": 31194,
-      "name": "RBC CAPITAL MARKETS CORPORATION"
-    },
-    {
       "id": 29604,
       "name": "NATIONAL PLANNING CORPORATION"
     },
@@ -1507,18 +1551,6 @@
     {
       "id": 1141,
       "name": "JULIUS BAER SECURITIES INC."
-    },
-    {
-      "id": 2347,
-      "name": "JEFFERIES & COMPANY, INC."
-    },
-    {
-      "id": 7556,
-      "name": "MORGAN STANLEY DW INC."
-    },
-    {
-      "id": 8209,
-      "name": "MORGAN STANLEY & CO. INCORPORATED"
     },
     {
       "id": 47873,
@@ -1983,10 +2015,6 @@
     {
       "id": 25574,
       "name": "CHASE INVESTMENT SERVICES CORP."
-    },
-    {
-      "id": 26091,
-      "name": "BANC OF AMERICA SECURITIES LLC"
     },
     {
       "id": 283942,
@@ -2739,10 +2767,6 @@
     {
       "id": 3248,
       "name": "RYAN, BECK & CO., LLC."
-    },
-    {
-      "id": 249,
-      "name": "OPPENHEIMER & CO. INC."
     },
     {
       "id": 30935,
@@ -6301,10 +6325,6 @@
       "name": "MOSELEY, HALLGARTEN & ESTABROOK INC"
     },
     {
-      "id": 19794,
-      "name": "MORGAN STANLEY MARKET PRODUCTS INC."
-    },
-    {
       "id": 18472,
       "name": "CHASE FUTURES & OPTIONS, INC."
     },
@@ -6982,6 +7002,34 @@
     }
   ],
   "individuals": [
+    {
+      "id": 1530547,
+      "name": "ROBERT MICHAEL ARMSTRONG"
+    },
+    {
+      "id": 2523268,
+      "name": "BRETT LANE THORNE"
+    },
+    {
+      "id": 5121914,
+      "name": "Andrew Jon Schwartz"
+    },
+    {
+      "id": 1875615,
+      "name": "Mollie Colavita"
+    },
+    {
+      "id": 5082261,
+      "name": "Roger Klion"
+    },
+    {
+      "id": 2872693,
+      "name": "Tracy Lowery Whille"
+    },
+    {
+      "id": 6187001,
+      "name": "SUSAN TSOU"
+    },
     {
       "id": 5612726,
       "name": "MARTIN LYNCH"

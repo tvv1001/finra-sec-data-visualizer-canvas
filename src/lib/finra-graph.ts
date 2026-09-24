@@ -39,6 +39,7 @@ import {
 	DEFAULT_NODE_LABEL_FONT_WEIGHT,
 	DEFAULT_NODE_LABEL_GAP_PX,
 	DEFAULT_SELECTION_HOPS,
+	getDefaultNodeLabelScreenPx,
 	getRuntimeHopDefaults,
 	setRuntimeHopDefaults,
 } from './finra-graph-defaults';
@@ -11766,12 +11767,13 @@ export function getNodeLabelFontSize({
 	isEmphasized = false,
 	zoomScale: _zoomScale = getCurrentGraphZoomScale(),
 }: { isSelected?: boolean; isHovered?: boolean; isBolded?: boolean; isEmphasized?: boolean; zoomScale?: number } = {}) {
-	// Fixed sizes — no zoom scaling. Bold is only for Log Bold / per-CRD Bold.
+	// Default: static on-screen size. Bold (log-list): scales with zoom.
 	void isSelected;
 	void isHovered;
 	void isEmphasized;
-	void _zoomScale;
-	return isBolded ? 16 : 12;
+	const graphZoom = Math.max(0.01, Number(_zoomScale) || 1);
+	if (isBolded) return 16; // user units → scales with the zoom transform
+	return getDefaultNodeLabelScreenPx() / graphZoom;
 }
 
 export function getNodeTooltipTitle(node) {

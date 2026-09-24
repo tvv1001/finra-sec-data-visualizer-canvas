@@ -3,7 +3,12 @@
  * world coordinates by applying the same d3 zoom transform used by the renderer.
  */
 
-import { DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
+import {
+	DEFAULT_NODE_LABEL_FONT_SIZE,
+	DEFAULT_NODE_LABEL_FONT_WEIGHT,
+	DEFAULT_NODE_LABEL_GAP_PX,
+	getDefaultNodeLabelScreenPx,
+} from './finra-graph-defaults';
 import { handleNodeKeyboardActivation } from './finra-graph';
 import { buildNodeRoutePath } from './node-route';
 type Node = any;
@@ -23,8 +28,7 @@ let hoverTimerGlobal: number | null = null;
 let activeTooltipIdGlobal: string | null = null;
 const OVERLAY_LABEL_ZOOM_THRESHOLD = 0.8;
 const MAX_OVERLAY_LABELS = 100;
-const OVERLAY_DEFAULT_LABEL_SIZE_PX = 12;
-/** Log-bold overlay label size. No zoom scaling. */
+/** Log-bold overlay label base size; multiplied by zoom so bold scales with the view. */
 const OVERLAY_BOLD_LABEL_SIZE_PX = 16;
 
 function worldToScreen(x: number, y: number, transform: { x: number; y: number; k: number }) {
@@ -290,7 +294,10 @@ export function updateOverlay(
 		const visualHalf = getNodeVisualHalf(n) * Math.max(0.1, transform.k || 1);
 		el.style.left = `${Math.round(p.x)}px`;
 		el.style.top = `${Math.round(p.y + visualHalf + DEFAULT_NODE_LABEL_GAP_PX)}px`;
-		el.style.fontSize = `${isLogBoldLabel ? OVERLAY_BOLD_LABEL_SIZE_PX : OVERLAY_DEFAULT_LABEL_SIZE_PX}px`;
+		// Default: static screen size. Bold (log-list): scales with zoom.
+		const defaultSize = getDefaultNodeLabelScreenPx();
+		const boldSize = OVERLAY_BOLD_LABEL_SIZE_PX * Math.max(0.01, scale);
+		el.style.fontSize = `${isLogBoldLabel ? boldSize : defaultSize}px`;
 		el.style.fontWeight = isLogBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT;
 		el.style.zIndex = isLogBoldLabel ? '5' : '1';
 		el.classList.toggle('fg-overlay-label--bold', isLogBoldLabel);

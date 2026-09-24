@@ -3,7 +3,7 @@
  * overlay and is intended for large graphs where SVG DOM painting becomes too slow.
  */
 
-import { DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
+import { DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX, getDefaultNodeLabelScreenPx } from './finra-graph-defaults';
 
 type Node = any;
 type Link = any;
@@ -23,9 +23,7 @@ let activeCanvasDrag: { node: Node; offsetX: number; offsetY: number; pointerId:
 let suppressNextCanvasClick = false;
 
 const CANVAS_NODE_SCALE = 1.5;
-/** Normal canvas label size in screen pixels. No zoom scaling. */
-const CANVAS_DEFAULT_LABEL_SIZE = 16;
-/** Log-bold canvas label size in screen pixels. No zoom scaling. */
+/** Log-bold canvas label base size; multiplied by zoom so bold scales with the view. */
 const CANVAS_BOLD_LABEL_SIZE = 20;
 
 function shouldShowCanvasLabel(node: Node) {
@@ -124,7 +122,8 @@ function getHitNode(clientX: number, clientY: number) {
 			// Large/bold text follows Log Bold only — not selection or highlights.
 			const isBoldLabel = isForcedLabel;
 			// Font size is screen pixels (zoom is applied only by worldToScreen).
-			const labelSize = isBoldLabel ? CANVAS_BOLD_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
+			// Default: static screen size. Bold (log-list): scales with zoom.
+			const labelSize = isBoldLabel ? CANVAS_BOLD_LABEL_SIZE * Math.max(0.01, scale) : getDefaultNodeLabelScreenPx();
 			ctx.save();
 			ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;
 			const labelWidth = ctx.measureText(labelText).width;
@@ -621,7 +620,8 @@ export function drawCanvasFrame(
 	const paintLabel = ({ n, isBoldLabel, inactive, size }: PendingLabel) => {
 		const colors = resolveCachedThemeColors();
 		const p = worldToScreen(n.x, n.y, transform);
-		const labelSize = isBoldLabel ? CANVAS_BOLD_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
+		// Default: static screen size. Bold (log-list): scales with zoom.
+		const labelSize = isBoldLabel ? CANVAS_BOLD_LABEL_SIZE * Math.max(0.01, transform.k || 1) : getDefaultNodeLabelScreenPx();
 		ctx.save();
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;

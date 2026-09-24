@@ -24,3 +24,11 @@ export const DEFAULT_NODE_LABEL_FONT_SIZE_PX = 16;
 export const DEFAULT_NODE_LABEL_FONT_SIZE = `${DEFAULT_NODE_LABEL_FONT_SIZE_PX}px`;
 export const DEFAULT_NODE_LABEL_FONT_WEIGHT = '400';
 export const DEFAULT_NODE_LABEL_GAP_PX = 0;
+
+/** Static on-screen size for default (non-bold) node labels. Does not change with zoom. */
+export const DEFAULT_NODE_LABEL_SCREEN_PX = 20;
+
+/** Screen-pixel size for default (non-bold) node labels — always static. */
+export function getDefaultNodeLabelScreenPx(_zoomScale?: number | string | null) {
+	return DEFAULT_NODE_LABEL_SCREEN_PX;
+}
