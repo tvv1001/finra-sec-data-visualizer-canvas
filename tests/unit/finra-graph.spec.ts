@@ -626,15 +626,12 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(resolved).toBe('firm:8-29362');
 	});
 
-	it('getNodeLabelFontSize keeps default text static and lets bold scale with zoom', () => {
-		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(22);
-		expect(getNodeLabelFontSize({ zoomScale: 0.5 })).toBe(44);
-		expect(getNodeLabelFontSize({ zoomScale: 0.2 })).toBe(110);
-		expect(getNodeLabelFontSize({ zoomScale: 1 }) * 1).toBe(22);
-		expect(getNodeLabelFontSize({ zoomScale: 0.5 }) * 0.5).toBe(22);
-		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 1 })).toBe(48);
-		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 0.5 })).toBe(48);
-		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 2 })).toBe(48);
+	it('getNodeLabelFontSize caps bold screen size at 44px', () => {
+		// SVG user units: default is constant 26 (scales with view). Bold screen = min(44, 20*zoom).
+		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(26);
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 1 }) * 1).toBeCloseTo(20);
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 0.5 }) * 0.5).toBeCloseTo(10);
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 3 }) * 3).toBeCloseTo(44);
 	});
 
 	it('getNodeLabelFontSize ignores selection for default size', () => {
@@ -1025,10 +1022,9 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(getNodeLabelFontSize({ isHovered: true, zoomScale: 1.25 })).toBe(getNodeLabelFontSize({ zoomScale: 1.25 }));
 	});
 
-	it('keeps default screen size fixed while bold uses fixed user units', () => {
-		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 1.25 })).toBe(48);
-		expect(getNodeLabelFontSize({ zoomScale: 1.25 })).toBeCloseTo(17.6);
-		expect(getNodeLabelFontSize({ zoomScale: 1.25 }) * 1.25).toBeCloseTo(22);
+	it('keeps bold screen size at or under 44px', () => {
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 1.25 }) * 1.25).toBeCloseTo(25);
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 4 }) * 4).toBeCloseTo(44);
 	});
 
 	it('includes firm CRDs in the node tooltip title', () => {

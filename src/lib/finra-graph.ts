@@ -40,6 +40,9 @@ import {
 	DEFAULT_NODE_LABEL_FONT_WEIGHT,
 	DEFAULT_NODE_LABEL_GAP_PX,
 	DEFAULT_SELECTION_HOPS,
+	GRAPH_ZOOM_MAX,
+	GRAPH_ZOOM_MIN,
+	clampGraphZoom,
 	getRuntimeHopDefaults,
 	setRuntimeHopDefaults,
 } from './finra-graph-defaults';
@@ -4159,7 +4162,7 @@ function addToSelectionLog(d) {
 	if (isSelectionLogBold) rememberSelectionLogBoldId(clickedLogId);
 	saveClearedSelectionLogLabelsPreference();
 	saveSelectionLog();
-	updateSelectionLogUI();
+	scheduleSelectionLogUI();
 	syncSelectionLogAuxiliaryRenderers();
 }
 
@@ -4510,7 +4513,8 @@ function captureCurrentZoomTransform(): { x: number; y: number; k: number } | nu
 function restoreCapturedZoomTransform(saved: { x: number; y: number; k: number } | null) {
 	if (!saved || !globalState.zoomBehavior || !globalState.svgSel) return false;
 	try {
-		globalState.svgSel.call(globalState.zoomBehavior.transform, d3.zoomIdentity.translate(saved.x, saved.y).scale(saved.k));
+		const k = clampGraphZoom(saved.k);
+		globalState.svgSel.call(globalState.zoomBehavior.transform, d3.zoomIdentity.translate(saved.x, saved.y).scale(k));
 		return true;
 	} catch {
 		return false;
@@ -5061,6 +5065,20 @@ function applySelectToKeep(button?: HTMLButtonElement) {
 		toggleSelectToKeepMode();
 	}
 	if (button) flashSelectionLogActionButton(button, 'Pruned!');
+}
+
+let selectionLogUiFrame: number | null = null;
+
+function scheduleSelectionLogUI() {
+	if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+		updateSelectionLogUI();
+		return;
+	}
+	if (selectionLogUiFrame != null) return;
+	selectionLogUiFrame = window.requestAnimationFrame(() => {
+		selectionLogUiFrame = null;
+		updateSelectionLogUI();
+	});
 }
 
 function updateSelectionLogUI() {
@@ -5845,6 +5863,35 @@ export function selectHopHighlightRoots(
 	return tempRoots;
 }
 
+function ensureLayoutNodeByIdMap() {
+	const nodes = Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes : [];
+	const count = nodes.length;
+	if (globalState.layoutNodeById instanceof Map && globalState.layoutNodeByIdCount === count) {
+		return globalState.layoutNodeById as Map<string, any>;
+	}
+	const map = new Map<string, any>();
+	for (const node of nodes) {
+		const id = String(node?.id || '').trim();
+		if (id) map.set(id, node);
+	}
+	globalState.layoutNodeById = map;
+	globalState.layoutNodeByIdCount = count;
+	return map;
+}
+
+function getIndexedHighlightNeighbors(nodeId: string) {
+	const neighbors: Array<{ nodeId: string; link: any }> = [];
+	const links = globalState.layoutLinksByNodeId.get(String(nodeId)) || [];
+	for (const link of links) {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		if (!sourceId || !targetId) continue;
+		const otherId = sourceId === String(nodeId) ? targetId : sourceId;
+		neighbors.push({ nodeId: otherId, link });
+	}
+	return neighbors;
+}
+
 function computeHighlightState() {
 	const rootIds = new Set();
 	const nodeIds = new Set();
@@ -5853,7 +5900,9 @@ function computeHighlightState() {
 
 	const activeFindId = activeFindMatchIndex >= 0 && Array.isArray(activeFindMatchOrder) ? activeFindMatchOrder[activeFindMatchIndex] : null;
 
-	const nodeById = new Map<string, any>((globalState.layoutNodes || []).map((node) => [String(node.id), node]));
+	// Reuse indexed layout maps instead of rebuilding full adjacency on every click.
+	ensureLayoutLinkIndexes();
+	const nodeById = ensureLayoutNodeByIdMap();
 
 	const tempRoots = selectHopHighlightRoots(globalState.highlightedSelections, {
 		hoveredNodeId: globalState.hoveredNodeId,
@@ -5865,46 +5914,37 @@ function computeHighlightState() {
 		return { rootIds, nodeIds, hopNodeIds, linkKeys };
 	}
 
-	const adjacency = new Map<string, Array<{ nodeId: string; link: any }>>((globalState.layoutNodes || []).map((node) => [String(node.id), []]));
-	(globalState.layoutLinks || []).forEach((link) => {
-		const sourceId = link.source?.id ?? link.source;
-		const targetId = link.target?.id ?? link.target;
-		if (!adjacency.has(sourceId)) adjacency.set(sourceId, []);
-		if (!adjacency.has(targetId)) adjacency.set(targetId, []);
-		adjacency.get(sourceId).push({ nodeId: targetId, link });
-		adjacency.get(targetId).push({ nodeId: sourceId, link });
-	});
-
 	const walkHighlightRoot = (entry: { id: string; hops?: any; isSelection?: boolean }, options: { ignoreFirmSelectionSuppress?: boolean; isHoverOverride?: boolean } = {}) => {
 		if (!entry?.id) return;
-		const entryNode = nodeById.get(entry.id) || null;
+		const entryId = String(entry.id);
+		const entryNode = nodeById.get(entryId) || null;
 		const entryInactive = isNodeInactive(entryNode);
 
-		rootIds.add(entry.id);
-		nodeIds.add(entry.id);
+		rootIds.add(entryId);
+		nodeIds.add(entryId);
 
 		// Firm nodes do not keep lines highlighted on selection, only on hover
 		if (entryNode?.group === 'firm' && !options.isHoverOverride) return;
 
-		if (!adjacency.has(entry.id)) return;
+		if (!(globalState.layoutLinksByNodeId.get(entryId) || []).length) return;
 
 		// Use the entry's stored hops if they were explicitly requested (e.g. from an API expansion)
 		// but default to the global RUNTIME setting if we want the sliders to control existing highlights.
 		const runtime = getRuntimeHopDefaults();
 		const baseHops = Number(entry.hops || runtime.selection);
 		const maxHops = normalizeHighlightHops(baseHops);
-		const dist = new Map<string, number>([[entry.id, 0]]);
-		const queue = [entry.id];
+		const dist = new Map<string, number>([[entryId, 0]]);
+		const queue = [entryId];
 
 		for (let index = 0; index < queue.length; index += 1) {
 			const currentId = queue[index];
 			const currentDist = dist.get(currentId) ?? 0;
-			const neighbors = adjacency.get(currentId) || [];
+			const neighbors = getIndexedHighlightNeighbors(currentId);
 			neighbors.forEach(({ nodeId, link }) => {
 				const nextDist = currentDist + 1;
 				if (maxHops !== 'all' && nextDist > maxHops) return;
 
-				const neighborNode = nodeById.get(nodeId) || null;
+				const neighborNode = nodeById.get(String(nodeId)) || null;
 				if (!entryInactive && isNodeInactive(neighborNode)) return;
 
 				// Firm selection suppresses roster fan-out unless hover opts a line back in.
@@ -5914,7 +5954,7 @@ function computeHighlightState() {
 					shouldSuppressFirmSelectionPersonLink({
 						entryGroup: entryNode?.group,
 						isSelection: entry.isSelection,
-						entryId: entry.id,
+						entryId,
 						neighborGroup: neighborNode?.group,
 						neighborId: nodeId,
 						hoveredNodeId: globalState.hoveredNodeId,
@@ -6319,7 +6359,8 @@ async function restoreSavedSession(session) {
 	try {
 		const parsed = parseZoomTransformString(session.zoomTransform);
 		if (parsed && globalState.zoomBehavior && globalState.svgSel && typeof globalState.svgSel.call === 'function') {
-			globalState.svgSel.call(globalState.zoomBehavior.transform, d3.zoomIdentity.translate(parsed.x, parsed.y).scale(parsed.k));
+			const k = clampGraphZoom(parsed.k);
+			globalState.svgSel.call(globalState.zoomBehavior.transform, d3.zoomIdentity.translate(parsed.x, parsed.y).scale(k));
 		}
 	} catch {
 		// non-critical
@@ -11767,12 +11808,16 @@ export function getNodeLabelFontSize({
 	isEmphasized = false,
 	zoomScale: _zoomScale = getCurrentGraphZoomScale(),
 }: { isSelected?: boolean; isHovered?: boolean; isBolded?: boolean; isEmphasized?: boolean; zoomScale?: number } = {}) {
-	// Default: static 20px on screen. Log-bold: large user units that scale with zoom.
+	// Default and bold both track zoom in user units; bold screen size is capped at 44px.
 	void isSelected;
 	void isHovered;
 	void isEmphasized;
-	if (isBolded) return 'clamp(calc(24px / var(--fg-current-zoom, 1)), 29px, calc(66px / var(--fg-current-zoom, 1)))'; // clamp bold between 24-66px on screen
-	return `calc(${DEFAULT_NODE_LABEL_FONT_SIZE_PX}px / var(--fg-current-zoom, 1))`;
+	const graphZoom = Math.max(0.01, Number(_zoomScale) || 1);
+	if (isBolded) {
+		const screenPx = Math.min(44, 20 * graphZoom);
+		return screenPx / graphZoom;
+	}
+	return 26;
 }
 
 export function getNodeTooltipTitle(node) {
@@ -11950,8 +11995,8 @@ export function renderNodeContents(selection) {
 			.attr('y', labelY)
 			.attr('text-anchor', 'middle')
 			.attr('dominant-baseline', 'hanging')
-			.attr('font-size', null)
-			.style('font-size', labelFontSize)
+			.attr('font-size', labelFontSize)
+			.style('font-size', null)
 			.attr('font-family', 'var(--sans)')
 			.attr('font-weight', isBolded ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT)
 			.attr('fill', nodeLabelColor)
@@ -12377,15 +12422,17 @@ function reapplySelectionState() {
 		}
 	}
 
-	// Precompute expensive leaf/exhausted flags once per pass for nodes that are not
-	// already selected via cheap id-set membership. Skip nodes without trusted detail —
-	// those predicates always return false and dominated click cost on large graphs.
+	// Only evaluate leaf/exhausted flags for hop/highlight candidates — scanning every
+	// layout node on click dominated main-thread time on large graphs.
 	const fetchedLeafOrExhaustedIds = new Set<string>();
-	for (const node of globalState.layoutNodes || []) {
-		const id = String(node?.id || '');
+	const leafCandidates = highlightState.hopNodeIds.size ? highlightState.hopNodeIds : highlightState.nodeIds;
+	const nodeById = ensureLayoutNodeByIdMap();
+	for (const rawId of leafCandidates) {
+		const id = String(rawId || '');
 		if (!id) continue;
-		if (id === String(globalState.selectedId || '') || highlightState.rootIds.has(node.id)) continue;
-		if (!hasTrustedCurrentRelationshipData(node)) continue;
+		if (id === String(globalState.selectedId || '') || highlightState.rootIds.has(id)) continue;
+		const node = nodeById.get(id);
+		if (!node || !hasTrustedCurrentRelationshipData(node)) continue;
 		if (isFetchedLeafNode(node) || isFetchedExhaustedConnectedNode(node)) {
 			fetchedLeafOrExhaustedIds.add(id);
 		}
@@ -12624,8 +12671,8 @@ function updateNodeVisuals(
 				.attr('stroke', 'none')
 				.attr('stroke-width', 0)
 				.attr('opacity', inactive ? 0.86 : 1)
-				.attr('font-size', null)
-				.style('font-size', labelFontSize)
+				.attr('font-size', labelFontSize)
+				.style('font-size', null)
 				.attr('font-weight', isBolded ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT);
 		}
 	});
@@ -13096,8 +13143,8 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 
 	const zoom = d3
 		.zoom()
-		// Prevent zooming out too far — keep minimum consistent with label/trace thresholds
-		.scaleExtent([0.15, 2.6])
+		// Max 1× (natural size). Min keeps labels/trace thresholds usable.
+		.scaleExtent([GRAPH_ZOOM_MIN, GRAPH_ZOOM_MAX])
 		.on('zoom', (event) => {
 			root.attr('transform', event.transform);
 			updateTraceStrokeScale(event.transform.k);
@@ -13612,6 +13659,8 @@ export function rebuildLayoutLinkIndexes(links = globalState.layoutLinks) {
 	}
 	globalState.layoutLinkIndexLinkCount = list.length;
 	globalState.selectionPredicateCacheGen += 1;
+	// Node id map is cheap to rebuild on next click if the set changed.
+	globalState.layoutNodeByIdCount = -1;
 }
 
 function ensureLayoutLinkIndexes() {
@@ -17316,7 +17365,7 @@ function focusNodeById(
 	}
 }
 
-function focusNodesInMainArea(nodeIds, { duration = 720, maxScale = 1.1 }: { duration?: number; maxScale?: number } = {}) {
+function focusNodesInMainArea(nodeIds, { duration = 720, maxScale = GRAPH_ZOOM_MAX }: { duration?: number; maxScale?: number } = {}) {
 	try {
 		if (!globalState.zoomBehavior || !globalState.svgSel || !Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length) {
 			return false;
@@ -17335,7 +17384,7 @@ function focusNodesInMainArea(nodeIds, { duration = 720, maxScale = 1.1 }: { dur
 		const usableWidth = Math.max(viewport.visibleWidth - padding * 2, 1);
 		const usableHeight = Math.max(viewport.visibleHeight - padding * 2, 1);
 		const fitScale = Math.min(usableWidth / bounds.width, usableHeight / bounds.height);
-		const targetScale = Math.max(0.22, Math.min(maxScale, Number.isFinite(fitScale) ? fitScale : 1));
+		const targetScale = clampGraphZoom(Math.max(0.22, Math.min(maxScale, Number.isFinite(fitScale) ? fitScale : 1)));
 
 		const target = d3.zoomIdentity.translate(viewport.centerX - bounds.centerX * targetScale, viewport.centerY - bounds.centerY * targetScale).scale(targetScale);
 
