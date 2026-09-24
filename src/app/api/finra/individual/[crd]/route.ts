@@ -522,12 +522,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		// Always return a normalized detail body (basicInformation at top level) so graph
 		// sidebar / dashboard clients that omit ?merged=1 still render the person correctly.
 		// Keep bccontent/iacontent for older callers that unwrap source wrappers.
-		const responseData: any = {
+		const normalizedBody =
+			searchIndexDetail && typeof searchIndexDetail === 'object' && !Array.isArray(searchIndexDetail) ?
+				(searchIndexDetail as Record<string, unknown>)
+			:	detail && typeof detail === 'object' && !Array.isArray(detail) ? (detail as Record<string, unknown>)
+			:	{};
+		const responseData: Record<string, unknown> = {
+			...normalizedBody,
 			found: true,
 			crd,
 			hasFinraData: detail.hasFinraData,
 			hasSecData: detail.hasSecData,
-			...searchIndexDetail,
 			sources: {
 				finra: finraDetail ? { bccontent: finraDetail } : null,
 				sec: secDetail ? { iacontent: secDetail } : null,
