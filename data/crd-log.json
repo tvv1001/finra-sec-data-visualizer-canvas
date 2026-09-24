@@ -1,6 +1,30 @@
 {
   "firms": [
     {
+      "id": 16164,
+      "name": "TRANSAMERICA FINANCIAL ADVISORS, LLC"
+    },
+    {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
+      "id": 139067,
+      "name": "CPR INVESTMENTS INC"
+    },
+    {
+      "id": 159289,
+      "name": "FOCUS PARTNERS WEALTH, LLC"
+    },
+    {
+      "id": 140565,
+      "name": "CBRE CAPITAL ADVISORS, INC."
+    },
+    {
+      "id": 106766,
+      "name": "ONEDIGITAL"
+    },
+    {
       "id": 29299,
       "name": "ITG INC."
     },
@@ -87,10 +111,6 @@
     {
       "id": 149777,
       "name": "MORGAN STANLEY SMITH BARNEY"
-    },
-    {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
       "id": 7691,
@@ -2207,10 +2227,6 @@
     {
       "id": 29721,
       "name": "GLOBALINK SECURITIES, INC."
-    },
-    {
-      "id": 16164,
-      "name": "TRANSAMERICA FINANCIAL ADVISORS, INC"
     },
     {
       "id": 103728,
@@ -5601,10 +5617,6 @@
       "name": "ASPEN EQUITY PARTNERS, LLC"
     },
     {
-      "id": 140565,
-      "name": "CBRE CAPITAL CORPORATION"
-    },
-    {
       "id": 132643,
       "name": "MORETON BROKERAGE SERVICES, LLC"
     },
@@ -6215,10 +6227,6 @@
     {
       "id": 310912,
       "name": "CONNECTUS WEALTH"
-    },
-    {
-      "id": 159289,
-      "name": "FOCUS PARTNERS WEALTH, LLC"
     },
     {
       "id": 39262,
@@ -10614,6 +10622,30 @@
     }
   ],
   "individuals": [
+    {
+      "id": 8335647,
+      "name": "Diana Stefani Goldman"
+    },
+    {
+      "id": 8335613,
+      "name": "Corey Hairfield"
+    },
+    {
+      "id": 8335605,
+      "name": "Dominic Neal Stewart"
+    },
+    {
+      "id": 8335593,
+      "name": "MARCO NESRALLAH FERRARI"
+    },
+    {
+      "id": 8335581,
+      "name": "ELIZABETH ANN ATKIN"
+    },
+    {
+      "id": 8335575,
+      "name": "JAMIE ROSE MCGEHEE"
+    },
     {
       "id": 4890684,
       "name": "JANICE CELESTE SORIAL"

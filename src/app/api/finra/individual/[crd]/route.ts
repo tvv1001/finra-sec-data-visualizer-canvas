@@ -12,7 +12,7 @@ import { hasIndividualSourceCoverage, resolveIndividualSourceDetail } from '@/li
 import { queueHydration } from '@/lib/hydration';
 import { getRedisClientInstance } from '@/lib/redisClient';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
-import { lookupOwnerReference, recordFirmReferencesForIndividual } from '@/lib/ownerReferenceIndex';
+import { lookupOwnerReference, recordOwnerReference } from '@/lib/ownerReferenceIndex';
 import { extractIndividualEmployerLinksFromDetail, upsertIndividualIntoEmployerFirmConnections } from '@/lib/graphConnections';
 import { rememberCrdLogEntries } from '@/lib/crdLog';
 import { rememberInventoryEntities } from '@/lib/crdInventorySidecar';
@@ -397,6 +397,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			}
 
 			if (orphan) {
+				// Persist only for this CRD's detail page — never auto-index related search hits.
+				void recordOwnerReference({
+					crd: String(crd),
+					name: typeof (orphan as any).name === 'string' ? (orphan as any).name : undefined,
+					position: typeof (orphan as any).position === 'string' ? (orphan as any).position : undefined,
+					firmName: typeof (orphan as any).firmName === 'string' ? (orphan as any).firmName : undefined,
+					parentCrd: String((orphan as any).parentCrd || crd),
+					parentType: (orphan as any).parentType === 'individual' ? 'individual' : 'firm',
+					firmStatus: typeof (orphan as any).firmStatus === 'string' ? (orphan as any).firmStatus : undefined,
+				}).catch((err: any) => {
+					logger.warn('failed to persist non-live individual reference', { crd, error: err?.message || String(err) });
+				});
 				return NextResponse.json(
 					{
 						found: true,
@@ -445,27 +457,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		// Queue background hydration of the external API to ensure cache stays hydrated
 		queueHydration('individual', crd);
 
-		// Best-effort: index this individual's employers (many of which are scraped-only firm
-		// names/CRDs with no independent, searchable BrokerCheck/IAPD record) so a later lookup of
-		// one of those firm CRDs can resolve as an "orphan" reference instead of a bare not-found.
-		// Never blocks the response.
-		const employmentReferenceRows = [
-			...(Array.isArray(detail.currentEmployments) ? detail.currentEmployments : []),
-			...(Array.isArray(detail.currentIAEmployments) ? detail.currentIAEmployments : []),
-			...(Array.isArray(detail.previousEmployments) ? detail.previousEmployments : []),
-			...(Array.isArray(detail.previousIAEmployments) ? detail.previousIAEmployments : []),
-		];
-		if (employmentReferenceRows.length) {
+		// Do not auto-create non-live-crds for employer firms discovered in employment history.
+		// Those keys are only written when that firm's own detail page resolves as non-live.
+		{
 			const bi: any = detail.basicInformation || {};
 			const individualName = [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' ');
-			void recordFirmReferencesForIndividual({
-				parentCrd: crd,
-				individualName,
-				employments: employmentReferenceRows,
-			}).catch((err: any) => {
-				logger.warn('failed to record firm reference index for individual', { crd, error: err?.message || String(err) });
-			});
-
 			const employerLinks = extractIndividualEmployerLinksFromDetail(detail);
 			const logEntries: Array<{ kind: 'firm' | 'individual'; id: string | number; name?: string }> = [
 				{ kind: 'individual', id: crd, name: individualName },
