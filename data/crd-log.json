@@ -1,6 +1,94 @@
 {
   "firms": [
     {
+      "id": 143299,
+      "name": "SOLEBURY CAPITAL LLC"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 283942,
+      "name": "BOFA SECURITIES, INC."
+    },
+    {
+      "id": 30999,
+      "name": "LEGEND EQUITIES CORPORATION"
+    },
+    {
+      "id": 43399,
+      "name": "MEDALLION EQUITIES, INC."
+    },
+    {
+      "id": 121559,
+      "name": "WELLSTONE SECURITIES, LLC"
+    },
+    {
+      "id": 34815,
+      "name": "ING FINANCIAL ADVISERS, LLC"
+    },
+    {
+      "id": 10111,
+      "name": "PFS INVESTMENTS INC."
+    },
+    {
+      "id": 19660,
+      "name": "CANTOR FITZGERALD SECURITIES"
+    },
+    {
+      "id": 23745,
+      "name": "SBC CAPITAL MARKETS, INC."
+    },
+    {
+      "id": 19714,
+      "name": "BZW SECURITIES INC."
+    },
+    {
+      "id": 5285,
+      "name": "ING BARING (U.S.) SECURITIES, INC."
+    },
+    {
+      "id": 6540,
+      "name": "ABN AMRO SECURITIES LLC"
+    },
+    {
+      "id": 15776,
+      "name": "ABN AMRO INCORPORATED"
+    },
+    {
+      "id": 754,
+      "name": "SCUDDER INVESTOR SERVICES, INC."
+    },
+    {
+      "id": 37306,
+      "name": "SCUDDER DISTRIBUTORS, INC."
+    },
+    {
+      "id": 2525,
+      "name": "DEUTSCHE BANK SECURITIES INC."
+    },
+    {
+      "id": 142775,
+      "name": "DB SECURITIES SERVICES NJ INC."
+    },
+    {
+      "id": 4297,
+      "name": "NOMURA SECURITIES INTERNATIONAL, INC."
+    },
+    {
+      "id": 816,
+      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
+    },
+    {
+      "id": 7654,
+      "name": "UBS SECURITIES LLC"
+    },
+    {
+      "id": 8174,
+      "name": "UBS FINANCIAL SERVICES INC."
+    },
+    {
       "id": 7556,
       "name": "MORGAN STANLEY DW INC."
     },
@@ -37,10 +125,6 @@
       "name": "BANC OF AMERICA SECURITIES LLC"
     },
     {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
       "id": 40638,
       "name": "GUGGENHEIM SECURITIES, LLC"
     },
@@ -67,10 +151,6 @@
     {
       "id": 103973,
       "name": "KPMG CORPORATE FINANCE LLC"
-    },
-    {
-      "id": 816,
-      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
     },
     {
       "id": 249,
@@ -395,10 +475,6 @@
     {
       "id": 250,
       "name": "EDWARD JONES"
-    },
-    {
-      "id": 10111,
-      "name": "PFS INVESTMENTS INC."
     },
     {
       "id": 104381,
@@ -1233,10 +1309,6 @@
       "name": "INVESTORS CAPITAL CORP."
     },
     {
-      "id": 30999,
-      "name": "LEGEND EQUITIES CORPORATION"
-    },
-    {
       "id": 32444,
       "name": "FIRST ALLIED SECURITIES, INC."
     },
@@ -1451,10 +1523,6 @@
     {
       "id": 138164,
       "name": "FORTIGENT, LLC"
-    },
-    {
-      "id": 8174,
-      "name": "UBS FINANCIAL SERVICES INC."
     },
     {
       "id": 111528,
@@ -1741,14 +1809,6 @@
       "name": "LYTLE INVESTMENTS"
     },
     {
-      "id": 19714,
-      "name": "BARCLAYS CAPITAL INC."
-    },
-    {
-      "id": 2525,
-      "name": "DEUTSCHE BANK SECURITIES INC."
-    },
-    {
       "id": 18303,
       "name": "BNY CAPITAL MARKETS INC."
     },
@@ -2017,10 +2077,6 @@
       "name": "CHASE INVESTMENT SERVICES CORP."
     },
     {
-      "id": 283942,
-      "name": "BOFA SECURITIES, INC."
-    },
-    {
       "id": 16139,
       "name": "MERRILL LYNCH PROFESSIONAL CLEARING CORP."
     },
@@ -2043,10 +2099,6 @@
     {
       "id": 1650,
       "name": "SBC WARBURG DILLON READ INC."
-    },
-    {
-      "id": 7654,
-      "name": "WARBURG DILLON READ LLC"
     },
     {
       "id": 7172,
@@ -2809,10 +2861,6 @@
       "name": "BUSEY CAPITAL MANAGEMENT, INC."
     },
     {
-      "id": 6540,
-      "name": "FURMAN SELZ MAGER DIETZ & BIRNEY INCORPORATED"
-    },
-    {
       "id": 305,
       "name": "FIRST INVESTORS CORPORATION"
     },
@@ -3437,10 +3485,6 @@
       "name": "HARVEST CAPITAL LLC"
     },
     {
-      "id": 143299,
-      "name": "SOLEBURY CAPITAL LLC"
-    },
-    {
       "id": 141962,
       "name": "VETUS SECURITIES LLC"
     },
@@ -3985,10 +4029,6 @@
       "name": "THOMA BRAVO CAPITAL MARKETS, LLC"
     },
     {
-      "id": 15776,
-      "name": "ABN AMRO INCORPORATED"
-    },
-    {
       "id": 18476,
       "name": "TD SECURITIES (USA) LLC"
     },
@@ -4035,10 +4075,6 @@
     {
       "id": 17530,
       "name": "BOK FINANCIAL SECURITIES, INC."
-    },
-    {
-      "id": 19660,
-      "name": "CANTOR FITZGERALD SECURITIES"
     },
     {
       "id": 125334,
@@ -4205,10 +4241,6 @@
       "name": "WEALTHFRONT BROKERAGE LLC"
     },
     {
-      "id": 754,
-      "name": "SCUDDER INVESTOR SERVICES, INC."
-    },
-    {
       "id": 17580,
       "name": "STATE STREET RESEARCH INVESTMENT SERVICES, INC."
     },
@@ -4247,10 +4279,6 @@
     {
       "id": 39263,
       "name": "THE FIRST AMERICAN INVESTMENT BANKING CORPORATION"
-    },
-    {
-      "id": 43399,
-      "name": "MEDALLION EQUITIES, INC."
     },
     {
       "id": 44181,
@@ -5505,10 +5533,6 @@
       "name": "VERITY INVESTMENTS, INC."
     },
     {
-      "id": 34815,
-      "name": "VOYA FINANCIAL PARTNERS, LLC"
-    },
-    {
       "id": 24962,
       "name": "BNP PARIBAS PRIME BROKERAGE, INC."
     },
@@ -5519,10 +5543,6 @@
     {
       "id": 305908,
       "name": "FINALIS SECURITIES LLC"
-    },
-    {
-      "id": 37306,
-      "name": "DWS INVESTMENTS DISTRIBUTORS, INC"
     },
     {
       "id": 5300,
@@ -5539,10 +5559,6 @@
     {
       "id": 7369,
       "name": "INVESCO DISTRIBUTORS, INC."
-    },
-    {
-      "id": 4297,
-      "name": "NOMURA SECURITIES INTERNATIONAL, INC."
     },
     {
       "id": 127787,
@@ -5875,18 +5891,6 @@
     {
       "id": 7897,
       "name": "INSTINET, LLC"
-    },
-    {
-      "id": 23745,
-      "name": "SBC CAPITAL MARKETS, INC."
-    },
-    {
-      "id": 5285,
-      "name": "ING BARING (U.S.) SECURITIES, INC."
-    },
-    {
-      "id": 142775,
-      "name": "DB SECURITIES SERVICES NJ INC."
     },
     {
       "id": 110760,
@@ -7003,6 +7007,22 @@
   ],
   "individuals": [
     {
+      "id": 5749001,
+      "name": "Bryan Frederic Kliefoth"
+    },
+    {
+      "id": 1421124,
+      "name": "CONEY DARRELL BRYAN"
+    },
+    {
+      "id": 1840894,
+      "name": "RALPH MATTONE"
+    },
+    {
+      "id": 4429443,
+      "name": "LINDSAY DENARDO HANS"
+    },
+    {
       "id": 1530547,
       "name": "ROBERT MICHAEL ARMSTRONG"
     },
@@ -7721,10 +7741,6 @@
     {
       "id": 2494318,
       "name": "ERIC A SCHIMPF"
-    },
-    {
-      "id": 4429443,
-      "name": "LINDSAY DENARDO HANS"
     },
     {
       "id": 7051181,
@@ -9525,10 +9541,6 @@
     {
       "id": 1666328,
       "name": "WILLIAM FRANCIS HUGHES"
-    },
-    {
-      "id": 1840894,
-      "name": "RALPH MATTONE"
     },
     {
       "id": 4556059,

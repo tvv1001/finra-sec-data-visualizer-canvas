@@ -36,10 +36,10 @@ import {
 	DEFAULT_CLICK_EXPANSION_HOPS,
 	DEFAULT_EXPANSION_HOPS,
 	DEFAULT_NODE_LABEL_FONT_SIZE,
+	DEFAULT_NODE_LABEL_FONT_SIZE_PX,
 	DEFAULT_NODE_LABEL_FONT_WEIGHT,
 	DEFAULT_NODE_LABEL_GAP_PX,
 	DEFAULT_SELECTION_HOPS,
-	getDefaultNodeLabelScreenPx,
 	getRuntimeHopDefaults,
 	setRuntimeHopDefaults,
 } from './finra-graph-defaults';
@@ -11767,13 +11767,12 @@ export function getNodeLabelFontSize({
 	isEmphasized = false,
 	zoomScale: _zoomScale = getCurrentGraphZoomScale(),
 }: { isSelected?: boolean; isHovered?: boolean; isBolded?: boolean; isEmphasized?: boolean; zoomScale?: number } = {}) {
-	// Default: static on-screen size. Bold (log-list): scales with zoom.
+	// Default: static 20px on screen. Log-bold: large user units that scale with zoom.
 	void isSelected;
 	void isHovered;
 	void isEmphasized;
-	const graphZoom = Math.max(0.01, Number(_zoomScale) || 1);
-	if (isBolded) return 16; // user units → scales with the zoom transform
-	return getDefaultNodeLabelScreenPx() / graphZoom;
+	if (isBolded) return 'clamp(calc(24px / var(--fg-current-zoom, 1)), 29px, calc(66px / var(--fg-current-zoom, 1)))'; // clamp bold between 24-66px on screen
+	return `calc(${DEFAULT_NODE_LABEL_FONT_SIZE_PX}px / var(--fg-current-zoom, 1))`;
 }
 
 export function getNodeTooltipTitle(node) {
@@ -11938,11 +11937,12 @@ export function renderNodeContents(selection) {
 		const isFirmBold = forceFirmsBold && (d.group === 'firm' || d.type === 'firm' || (d.id && String(d.id).startsWith('firm:')));
 		const isBolded = isLogged || isFirmBold;
 
-		const labelFontSize = `${getNodeLabelFontSize({
+		// Use presentation attributes only (user units). CSS font-size in px ignores SVG zoom.
+		const labelFontSize = getNodeLabelFontSize({
 			isSelected: globalState.selectedId != null && String(globalState.selectedId) === String(d.id),
 			isHovered: globalState.hoveredNodeId != null && String(globalState.hoveredNodeId) === String(d.id),
 			isBolded: isBolded,
-		})}px`;
+		});
 
 		const label = g
 			.append('text')
@@ -11950,7 +11950,7 @@ export function renderNodeContents(selection) {
 			.attr('y', labelY)
 			.attr('text-anchor', 'middle')
 			.attr('dominant-baseline', 'hanging')
-			.attr('font-size', labelFontSize)
+			.attr('font-size', null)
 			.style('font-size', labelFontSize)
 			.attr('font-family', 'var(--sans)')
 			.attr('font-weight', isBolded ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT)
@@ -12611,11 +12611,12 @@ function updateNodeVisuals(
 		const labelText = getNodeVisualLabelText(d);
 		const label = g.select('text.fg-label');
 		if (!label.empty()) {
-			const labelFontSize = `${getNodeLabelFontSize({
+			// Presentation attribute only — CSS px font-size does not follow SVG zoom.
+			const labelFontSize = getNodeLabelFontSize({
 				isSelected: isSelectedNode,
 				isHovered: isHoveredNode,
 				isBolded: isBolded,
-			})}px`;
+			});
 			label
 				.text(labelText)
 				.classed('fg-label--logged', isBolded)
@@ -12623,7 +12624,7 @@ function updateNodeVisuals(
 				.attr('stroke', 'none')
 				.attr('stroke-width', 0)
 				.attr('opacity', inactive ? 0.86 : 1)
-				.attr('font-size', labelFontSize)
+				.attr('font-size', null)
 				.style('font-size', labelFontSize)
 				.attr('font-weight', isBolded ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT);
 		}

@@ -3,12 +3,7 @@
  * world coordinates by applying the same d3 zoom transform used by the renderer.
  */
 
-import {
-	DEFAULT_NODE_LABEL_FONT_SIZE,
-	DEFAULT_NODE_LABEL_FONT_WEIGHT,
-	DEFAULT_NODE_LABEL_GAP_PX,
-	getDefaultNodeLabelScreenPx,
-} from './finra-graph-defaults';
+import { DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
 import { handleNodeKeyboardActivation } from './finra-graph';
 import { buildNodeRoutePath } from './node-route';
 type Node = any;
@@ -28,8 +23,10 @@ let hoverTimerGlobal: number | null = null;
 let activeTooltipIdGlobal: string | null = null;
 const OVERLAY_LABEL_ZOOM_THRESHOLD = 0.8;
 const MAX_OVERLAY_LABELS = 100;
-/** Log-bold overlay label base size; multiplied by zoom so bold scales with the view. */
-const OVERLAY_BOLD_LABEL_SIZE_PX = 16;
+/** Normal overlay label size — static (does not change with zoom). */
+const OVERLAY_DEFAULT_LABEL_SIZE_PX = 20;
+/** Log-bold overlay label base size; multiplied by zoom so bold can get very large. */
+const OVERLAY_BOLD_LABEL_SIZE_PX = 29;
 
 function worldToScreen(x: number, y: number, transform: { x: number; y: number; k: number }) {
 	return { x: transform.x + x * transform.k, y: transform.y + y * transform.k };
@@ -294,10 +291,10 @@ export function updateOverlay(
 		const visualHalf = getNodeVisualHalf(n) * Math.max(0.1, transform.k || 1);
 		el.style.left = `${Math.round(p.x)}px`;
 		el.style.top = `${Math.round(p.y + visualHalf + DEFAULT_NODE_LABEL_GAP_PX)}px`;
-		// Default: static screen size. Bold (log-list): scales with zoom.
-		const defaultSize = getDefaultNodeLabelScreenPx();
-		const boldSize = OVERLAY_BOLD_LABEL_SIZE_PX * Math.max(0.01, scale);
-		el.style.fontSize = `${isLogBoldLabel ? boldSize : defaultSize}px`;
+		// Default: static screen size. Bold (log-list): scales with zoom (clamped 24-66px).
+		const zoom = Math.max(0.01, scale);
+		const boldSize = Math.max(24, Math.min(66, OVERLAY_BOLD_LABEL_SIZE_PX * zoom));
+		el.style.fontSize = `${isLogBoldLabel ? boldSize : OVERLAY_DEFAULT_LABEL_SIZE_PX}px`;
 		el.style.fontWeight = isLogBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT;
 		el.style.zIndex = isLogBoldLabel ? '5' : '1';
 		el.classList.toggle('fg-overlay-label--bold', isLogBoldLabel);

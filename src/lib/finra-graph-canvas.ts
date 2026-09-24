@@ -3,7 +3,7 @@
  * overlay and is intended for large graphs where SVG DOM painting becomes too slow.
  */
 
-import { DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX, getDefaultNodeLabelScreenPx } from './finra-graph-defaults';
+import { DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
 
 type Node = any;
 type Link = any;
@@ -23,8 +23,19 @@ let activeCanvasDrag: { node: Node; offsetX: number; offsetY: number; pointerId:
 let suppressNextCanvasClick = false;
 
 const CANVAS_NODE_SCALE = 1.5;
-/** Log-bold canvas label base size; multiplied by zoom so bold scales with the view. */
-const CANVAS_BOLD_LABEL_SIZE = 20;
+/** Normal canvas label size in screen pixels — static (does not change with zoom). */
+const CANVAS_DEFAULT_LABEL_SIZE = 20;
+/** Log-bold canvas label base size; multiplied by zoom so bold grows/shrinks with the view. */
+const CANVAS_BOLD_LABEL_SIZE = 24;
+
+function getCanvasLabelScreenPx(isBoldLabel: boolean, zoomScale: number) {
+	const zoom = Math.max(0.01, Number(zoomScale) || 1);
+	if (isBoldLabel) return Math.max(CANVAS_BOLD_LABEL_SIZE * zoom * 1.2, CANVAS_BOLD_LABEL_SIZE * 0.8);
+	// Scale with zoom; never smaller than 24px and never larger than 66px.
+	//return Math.max(24, Math.min(33, CANVAS_BOLD_LABEL_SIZE * zoom));
+
+	if (!isBoldLabel) return CANVAS_DEFAULT_LABEL_SIZE * zoom;
+}
 
 function shouldShowCanvasLabel(node: Node) {
 	const scale = currentTransform.k || 1;
@@ -121,9 +132,7 @@ function getHitNode(clientX: number, clientY: number) {
 			const labelText = getNodeLabel(n) || nodeId;
 			// Large/bold text follows Log Bold only — not selection or highlights.
 			const isBoldLabel = isForcedLabel;
-			// Font size is screen pixels (zoom is applied only by worldToScreen).
-			// Default: static screen size. Bold (log-list): scales with zoom.
-			const labelSize = isBoldLabel ? CANVAS_BOLD_LABEL_SIZE * Math.max(0.01, scale) : getDefaultNodeLabelScreenPx();
+			const labelSize = getCanvasLabelScreenPx(isBoldLabel, scale);
 			ctx.save();
 			ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;
 			const labelWidth = ctx.measureText(labelText).width;
@@ -398,12 +407,7 @@ function getColorForGroup(g: string) {
 	return colors.defaultText;
 }
 
-function getLinkStyle(
-	link: Link,
-	linkFocusNodeIds: Set<string>,
-	linkHighlightsActive: boolean,
-	nodeGroupMap: Map<string, string>,
-) {
+function getLinkStyle(link: Link, linkFocusNodeIds: Set<string>, linkHighlightsActive: boolean, nodeGroupMap: Map<string, string>) {
 	const colors = resolveCachedThemeColors();
 	const source = endpointNode(link?.source);
 	const target = endpointNode(link?.target);
@@ -620,8 +624,7 @@ export function drawCanvasFrame(
 	const paintLabel = ({ n, isBoldLabel, inactive, size }: PendingLabel) => {
 		const colors = resolveCachedThemeColors();
 		const p = worldToScreen(n.x, n.y, transform);
-		// Default: static screen size. Bold (log-list): scales with zoom.
-		const labelSize = isBoldLabel ? CANVAS_BOLD_LABEL_SIZE * Math.max(0.01, transform.k || 1) : getDefaultNodeLabelScreenPx();
+		const labelSize = getCanvasLabelScreenPx(isBoldLabel, transform.k);
 		ctx.save();
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;

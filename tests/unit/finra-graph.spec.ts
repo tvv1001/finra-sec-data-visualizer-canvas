@@ -627,14 +627,14 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	});
 
 	it('getNodeLabelFontSize keeps default text static and lets bold scale with zoom', () => {
-		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(20);
-		expect(getNodeLabelFontSize({ zoomScale: 0.5 })).toBe(40);
-		expect(getNodeLabelFontSize({ zoomScale: 0.2 })).toBe(100);
-		expect(getNodeLabelFontSize({ zoomScale: 1 }) * 1).toBe(20);
-		expect(getNodeLabelFontSize({ zoomScale: 0.5 }) * 0.5).toBe(20);
-		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 1 })).toBe(16);
-		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 0.5 })).toBe(16);
-		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 2 })).toBe(16);
+		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(22);
+		expect(getNodeLabelFontSize({ zoomScale: 0.5 })).toBe(44);
+		expect(getNodeLabelFontSize({ zoomScale: 0.2 })).toBe(110);
+		expect(getNodeLabelFontSize({ zoomScale: 1 }) * 1).toBe(22);
+		expect(getNodeLabelFontSize({ zoomScale: 0.5 }) * 0.5).toBe(22);
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 1 })).toBe(48);
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 0.5 })).toBe(48);
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 2 })).toBe(48);
 	});
 
 	it('getNodeLabelFontSize ignores selection for default size', () => {
@@ -1026,9 +1026,9 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	});
 
 	it('keeps default screen size fixed while bold uses fixed user units', () => {
-		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 1.25 })).toBe(16);
-		expect(getNodeLabelFontSize({ zoomScale: 1.25 })).toBeCloseTo(16);
-		expect(getNodeLabelFontSize({ zoomScale: 1.25 }) * 1.25).toBeCloseTo(20);
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 1.25 })).toBe(48);
+		expect(getNodeLabelFontSize({ zoomScale: 1.25 })).toBeCloseTo(17.6);
+		expect(getNodeLabelFontSize({ zoomScale: 1.25 }) * 1.25).toBeCloseTo(22);
 	});
 
 	it('includes firm CRDs in the node tooltip title', () => {
