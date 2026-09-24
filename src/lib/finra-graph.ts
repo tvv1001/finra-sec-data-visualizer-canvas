@@ -4175,7 +4175,7 @@ function upsertSelectionLogEntry(entries: Array<SelectionLogEntry>, entry: Selec
 	return nextEntries;
 }
 
-function addToSelectionLog(d) {
+function addToSelectionLog(d, options: { skipBold?: boolean } = {}) {
 	const secondaryId = getSecondaryId(d);
 	const entry = {
 		id: d.id,
@@ -4187,11 +4187,18 @@ function addToSelectionLog(d) {
 	// Only add if this node was explicitly selected (not just visited/expanded).
 	// Re-selecting an existing node moves it to the most-recent slot.
 	selectedNodesLog = upsertSelectionLogEntry(selectedNodesLog, entry);
-	// A fresh click on this node means the user wants to see its label emphasized
-	// again, even if "Clear Labels" previously hid it.
 	const clickedLogId = String(d.id || '').trim();
-	clearedSelectionLogLabelNodeIds.delete(clickedLogId);
-	if (isSelectionLogBold) rememberSelectionLogBoldId(clickedLogId);
+	
+	if (options.skipBold) {
+		clearedSelectionLogLabelNodeIds.add(clickedLogId);
+		forgetSelectionLogBoldId(clickedLogId);
+	} else {
+		// A fresh click on this node means the user wants to see its label emphasized
+		// again, even if "Clear Labels" previously hid it.
+		clearedSelectionLogLabelNodeIds.delete(clickedLogId);
+		if (isSelectionLogBold) rememberSelectionLogBoldId(clickedLogId);
+	}
+	
 	saveClearedSelectionLogLabelsPreference();
 	saveSelectionLog();
 	scheduleSelectionLogUI();
@@ -9709,7 +9716,7 @@ async function importPastedCrdList(rawText: string) {
 
 		for (const nodeId of addedNodeIds) {
 			const node = globalState.layoutNodes.find((n) => n.id === nodeId);
-			if (node) addToSelectionLog(node);
+			if (node) addToSelectionLog(node, { skipBold: true });
 		}
 
 		if (added || skipped) openSelectionLog();
@@ -10341,9 +10348,12 @@ async function hydratePendingNodeIds(
 		let nextLog = selectedNodesLog;
 		for (const entry of resolvedEntries) {
 			nextLog = upsertSelectionLogEntry(nextLog, entry);
-			clearedSelectionLogLabelNodeIds.delete(String(entry.id || '').trim());
+			const clickedLogId = String(entry.id || '').trim();
+			clearedSelectionLogLabelNodeIds.add(clickedLogId);
+			forgetSelectionLogBoldId(clickedLogId);
 		}
 		selectedNodesLog = nextLog;
+		saveClearedSelectionLogLabelsPreference();
 		saveSelectionLog();
 		updateSelectionLogUI();
 		syncSelectionLogAuxiliaryRenderers();
