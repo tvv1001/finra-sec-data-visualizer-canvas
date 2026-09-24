@@ -51,7 +51,7 @@ import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationSt
 import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
 import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
 import { normalizeNodeRouteId, buildNodeRoutePath } from './node-route';
-import { requestRender, setOnNodeClickCallback, createCanvasOverlay } from './finra-graph-canvas';
+import { requestRender, setOnNodeClickCallback, createCanvasOverlay, syncCanvasFocusTooltip } from './finra-graph-canvas';
 import {
 	getFilterEnabled,
 	getFilterTags,
@@ -5717,6 +5717,22 @@ function setFocusedNode(id) {
 	if (globalState.canvasModeActive) {
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 		syncSelectionLogAuxiliaryRenderers();
+		// After the coalesced draw paints (or skips) labels, show the focus CRD tooltip if needed.
+		if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+			window.requestAnimationFrame(() => {
+				try {
+					syncCanvasFocusTooltip();
+				} catch {
+					/* ignore */
+				}
+			});
+		} else {
+			try {
+				syncCanvasFocusTooltip();
+			} catch {
+				/* ignore */
+			}
+		}
 		return;
 	}
 	reapplySelectionState();

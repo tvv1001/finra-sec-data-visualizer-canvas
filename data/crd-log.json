@@ -1,6 +1,30 @@
 {
   "firms": [
     {
+      "id": 13686,
+      "name": "H.D. VEST INVESTMENT SERVICES"
+    },
+    {
+      "id": 43803,
+      "name": "CLARK/BARDES FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 165998,
+      "name": "ROBINHOOD FINANCIAL, LLC"
+    },
+    {
+      "id": 283390,
+      "name": "TRUIST ADVISORY SERVICES, INC."
+    },
+    {
+      "id": 17499,
+      "name": "TRUIST INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 630,
+      "name": "CIBC WORLD MARKETS CORP."
+    },
+    {
       "id": 12060,
       "name": "COUNTRY CAPITAL MANAGEMENT COMPANY"
     },
@@ -83,10 +107,6 @@
     {
       "id": 15425,
       "name": "SOUNDVIEW TECHNOLOGY CORPORATION"
-    },
-    {
-      "id": 630,
-      "name": "CIBC WORLD MARKETS CORP."
     },
     {
       "id": 249,
@@ -1989,10 +2009,6 @@
       "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
     },
     {
-      "id": 17499,
-      "name": "SUNTRUST INVESTMENT SERVICES, INC."
-    },
-    {
       "id": 35371,
       "name": "OSAIC INSTITUTIONS, INC."
     },
@@ -2383,10 +2399,6 @@
     {
       "id": 31299,
       "name": "BANCNORTH INVESTMENT GROUP, INC."
-    },
-    {
-      "id": 13686,
-      "name": "AVANTAX INVESTMENT SERVICES, INC."
     },
     {
       "id": 105790,
@@ -3867,10 +3879,6 @@
     {
       "id": 27098,
       "name": "NORTH RIDGE SECURITIES CORP."
-    },
-    {
-      "id": 283390,
-      "name": "TRUIST ADVISORY SERVICES, INC."
     },
     {
       "id": 36910,
@@ -10481,10 +10489,6 @@
       "name": "MASSACHUSETTS MUTUAL LIFE INSURANCE COMPANY"
     },
     {
-      "id": 165998,
-      "name": "ROBINHOOD FINANCIAL, LLC"
-    },
-    {
       "id": 31052,
       "name": "MFS FUND DISTRIBUTORS, INC."
     },
@@ -11162,6 +11166,18 @@
     }
   ],
   "individuals": [
+    {
+      "id": 3261303,
+      "name": "CECILIA MAVICO"
+    },
+    {
+      "id": 1379998,
+      "name": "KATHLEEN ELLEN MASON"
+    },
+    {
+      "id": 3174461,
+      "name": "STEPHANIA A MASON"
+    },
     {
       "id": 6970583,
       "name": "Jeremiah Dean Fletcher"

@@ -48,17 +48,32 @@ function shouldShowCanvasLabel(node: Node) {
 	return forcedLabelIds.has(nodeId) || scale >= 0.45;
 }
 
+function isCanvasNodeLabelPainted(node: Node | null | undefined) {
+	if (!node) return false;
+	return canvasLabelVisibleIds.has(String(node.id));
+}
+
+function extractCanvasNodeCrd(node: Node | null | undefined) {
+	if (!node) return '';
+	const raw =
+		node.crd ??
+		node.crdId ??
+		node.individualCrd ??
+		node.firmCrd ??
+		String(node.id || '')
+			.replace(/^(?:person|firm):/i, '')
+			.trim();
+	const text = String(raw || '').trim();
+	return /^\d{1,10}$/.test(text) ? text : '';
+}
+
 function hideCanvasTooltip() {
 	canvasTooltip?.remove();
 	canvasTooltip = null;
 }
 
-function updateCanvasTooltip(node: Node | null, clientX?: number, clientY?: number) {
-	if (!node || (shouldShowCanvasLabel(node) && canvasLabelVisibleIds.has(String(node.id))) || !parentEl) {
-		hideCanvasTooltip();
-		return;
-	}
-
+function ensureCanvasTooltipEl() {
+	if (!parentEl) return null;
 	if (!canvasTooltip) {
 		canvasTooltip = document.createElement('div');
 		canvasTooltip.style.position = 'absolute';
@@ -72,15 +87,62 @@ function updateCanvasTooltip(node: Node | null, clientX?: number, clientY?: numb
 		canvasTooltip.style.boxShadow = '0 4px 14px rgba(2, 6, 23, 0.24)';
 		parentEl.appendChild(canvasTooltip);
 	}
+	return canvasTooltip;
+}
 
+function placeCanvasTooltip(node: Node, screenX: number, screenY: number) {
+	const tip = ensureCanvasTooltipEl();
+	if (!tip || !parentEl) return;
 	const label = getNodeLabel(node) || String(node?.id || '');
-	const crd = node?.crd ?? node?.crdId ?? node?.individualCrd ?? node?.firmCrd;
-	canvasTooltip.textContent = crd && String(crd) !== label ? `${label} (${crd})` : label;
+	const crd = extractCanvasNodeCrd(node);
+	tip.textContent = crd && String(crd) !== label ? `${label} · CRD# ${crd}` : label;
+	const left = screenX + 10;
+	const top = screenY - 10;
+	tip.style.left = `${Math.max(4, Math.min(parentEl.clientWidth - tip.offsetWidth - 4, left))}px`;
+	tip.style.top = `${Math.max(4, top - tip.offsetHeight)}px`;
+}
+
+function updateCanvasTooltip(node: Node | null, clientX?: number, clientY?: number) {
+	if (!node || isCanvasNodeLabelPainted(node) || !parentEl) {
+		// Prefer keyboard-focus tooltip when the pointer is not over a unlabeled node.
+		syncCanvasFocusTooltip();
+		return;
+	}
+
 	const rect = parentEl.getBoundingClientRect();
-	const left = (clientX ?? rect.left) - rect.left + 10;
-	const top = (clientY ?? rect.top) - rect.top - 10;
-	canvasTooltip.style.left = `${Math.max(4, Math.min(rect.width - canvasTooltip.offsetWidth - 4, left))}px`;
-	canvasTooltip.style.top = `${Math.max(4, top - canvasTooltip.offsetHeight)}px`;
+	const screenX = (clientX ?? rect.left) - rect.left;
+	const screenY = (clientY ?? rect.top) - rect.top;
+	placeCanvasTooltip(node, screenX, screenY);
+}
+
+/** Show the CRD tooltip for the arrow-key focused node when its on-canvas label is hidden. */
+export function syncCanvasFocusTooltip() {
+	if (!parentEl) {
+		hideCanvasTooltip();
+		return;
+	}
+	const focusedId = currentOpts?.focusedNodeId != null ? String(currentOpts.focusedNodeId).trim() : '';
+	if (!focusedId) {
+		if (!hoverNodeId) hideCanvasTooltip();
+		return;
+	}
+	const node = currentNodes.find((n) => String(n?.id) === focusedId) || null;
+	if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) {
+		if (!hoverNodeId) hideCanvasTooltip();
+		return;
+	}
+	// Label already painted on the canvas — no tooltip needed.
+	if (isCanvasNodeLabelPainted(node)) {
+		if (!hoverNodeId || hoverNodeId === focusedId) hideCanvasTooltip();
+		return;
+	}
+	// Keep hover tooltip if the pointer is over a different unlabeled node.
+	if (hoverNodeId && hoverNodeId !== focusedId) return;
+
+	const p = worldToScreen(node.x, node.y, currentTransform);
+	const size = getCanvasNodeSize(node);
+	const screenR = Math.max(1, size * (currentTransform.k || 1));
+	placeCanvasTooltip(node, p.x, p.y + screenR + 6);
 }
 
 function getCanvasNodeSize(node: Node) {
@@ -239,8 +301,8 @@ function endCanvasDrag(e: PointerEvent) {
 function onCanvasPointerLeave() {
 	if (!activeCanvasDrag) {
 		hoverNodeId = null;
-		hideCanvasTooltip();
 		drawCanvasFrame(currentNodes, currentLinks, currentTransform, currentOpts);
+		syncCanvasFocusTooltip();
 	}
 }
 
@@ -712,6 +774,9 @@ export function drawCanvasFrame(
 	// Normal labels first, then log-bold labels on top of every node.
 	for (const pending of pendingNormalLabels) paintLabel(pending);
 	for (const pending of pendingBoldLabels) paintLabel(pending);
+
+	// Arrow-key focus: show CRD tooltip when the focused node's label was not painted.
+	syncCanvasFocusTooltip();
 }
 
 export { resize as canvasResize };
