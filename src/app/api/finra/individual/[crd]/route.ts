@@ -12,11 +12,12 @@ import { hasIndividualSourceCoverage, resolveIndividualSourceDetail } from '@/li
 import { queueHydration } from '@/lib/hydration';
 import { getRedisClientInstance } from '@/lib/redisClient';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
-import { lookupOwnerReference, recordOwnerReference } from '@/lib/ownerReferenceIndex';
+import { lookupOwnerReference, recordOwnerReference, resolveOrphanOwnerReference } from '@/lib/ownerReferenceIndex';
 import { extractIndividualEmployerLinksFromDetail, upsertIndividualIntoEmployerFirmConnections } from '@/lib/graphConnections';
 import { rememberCrdLogEntries } from '@/lib/crdLog';
 import { rememberInventoryEntities } from '@/lib/crdInventorySidecar';
 import { canWriteToRedis } from '@/lib/redisAvailability';
+import { isGenericPersonDisplayName } from '@/lib/displayNameGuards';
 
 function parseDetailPayload(data: any, contentKey = 'content') {
 	if (!data) return null;
@@ -186,6 +187,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	const isMergedRoute = request.nextUrl.searchParams.get('merged') === '1';
 	const forceRefresh = request.nextUrl.searchParams.get('forceRefresh') === '1';
 	const writeRequested = request.nextUrl.searchParams.get('write') === '1' || request.nextUrl.searchParams.get('refreshWrite') === '1';
+	const orphanParentCrd = String(
+		request.nextUrl.searchParams.get('parentCrd') ||
+			request.nextUrl.searchParams.get('parentFirm') ||
+			request.nextUrl.searchParams.get('orphanParentCrd') ||
+			'',
+	).trim();
+	const orphanNameHint = String(request.nextUrl.searchParams.get('orphanName') || '').trim();
+	const orphanPositionHint = String(request.nextUrl.searchParams.get('orphanPosition') || '').trim();
+	const orphanFirmNameHint = String(request.nextUrl.searchParams.get('orphanFirmName') || '').trim();
+	const orphanFirmStatusHint = String(request.nextUrl.searchParams.get('orphanFirmStatus') || '').trim();
+	const orphanHints = {
+		parentCrd: /^\d{1,10}$/.test(orphanParentCrd) ? orphanParentCrd : undefined,
+		name: orphanNameHint && !isGenericPersonDisplayName(orphanNameHint) ? orphanNameHint : undefined,
+		position: orphanPositionHint || undefined,
+		firmName: orphanFirmNameHint || undefined,
+		firmStatus: orphanFirmStatusHint || undefined,
+	};
 
 	if (forceRefresh) {
 		await Promise.allSettled([evictCacheKey(makeRedisKey('finra', 'individual', crdNorm)), evictCacheKey(makeRedisKey('sec', 'individual', crdNorm))]);
@@ -379,41 +397,93 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			const secSearchHit = secData?.hits?.hits?.length ? secData.hits.hits[0]._source : null;
 			const searchHit = finraSearchHit || secSearchHit;
 
-			let orphan = null;
+			let orphan: Record<string, any> | null = null;
 			if (searchHit) {
 				orphan = {
 					personId: crd,
 					crdNumber: crd,
+					crd: String(crd),
 					name: [searchHit.ind_firstname, searchHit.ind_middlename, searchHit.ind_lastname].filter(Boolean).join(' ') || `Person ${crd}`,
 					firstName: searchHit.ind_firstname || '',
 					middleName: searchHit.ind_middlename || '',
 					lastName: searchHit.ind_lastname || '',
 					bcScope: searchHit.ind_bc_scope || searchHit.bcScope || 'NotInScope',
 					iaScope: searchHit.iaScope || 'NotInScope',
+					parentCrd: orphanHints.parentCrd,
+					parentType: orphanHints.parentCrd ? 'firm' : undefined,
+					firmName: orphanHints.firmName,
+					position: orphanHints.position,
+					firmStatus: orphanHints.firmStatus,
 				};
 			} else {
-				// Last resort: check the non-live CRD index
-				orphan = await lookupOwnerReference(crd).catch(() => null);
+				// non-live-crds index, then synthesize from this CRD's parent firm directOwners /
+				// firm-connections (and dashboard owner-link hints) on the individual's own miss path.
+				orphan = await resolveOrphanOwnerReference(crd, orphanHints).catch(() => null);
+				if (!orphan) {
+					orphan = await lookupOwnerReference(crd).catch(() => null);
+				}
 			}
 
 			if (orphan) {
+				const resolvedParentCrd = String((orphan as any).parentCrd || orphanHints.parentCrd || '').trim();
+				const resolvedName =
+					typeof (orphan as any).name === 'string' ? (orphan as any).name
+					: orphanHints.name ? orphanHints.name
+					: undefined;
+				const resolvedPosition =
+					typeof (orphan as any).position === 'string' ? (orphan as any).position
+					: orphanHints.position ? orphanHints.position
+					: undefined;
+				const resolvedFirmName =
+					typeof (orphan as any).firmName === 'string' ? (orphan as any).firmName
+					: orphanHints.firmName ? orphanHints.firmName
+					: undefined;
+				const resolvedFirmStatus =
+					typeof (orphan as any).firmStatus === 'string' ? (orphan as any).firmStatus
+					: orphanHints.firmStatus ? orphanHints.firmStatus
+					: undefined;
+
 				// Persist only for this CRD's detail page — never auto-index related search hits.
-				void recordOwnerReference({
+				if (resolvedParentCrd && /^\d{1,10}$/.test(resolvedParentCrd)) {
+					void recordOwnerReference({
+						crd: String(crd),
+						name: resolvedName,
+						position: resolvedPosition,
+						firmName: resolvedFirmName,
+						parentCrd: resolvedParentCrd,
+						parentType: (orphan as any).parentType === 'individual' ? 'individual' : 'firm',
+						firmStatus: resolvedFirmStatus,
+						officeAddress: isPlainObject((orphan as any).officeAddress) ? (orphan as any).officeAddress : undefined,
+						mailingAddress: isPlainObject((orphan as any).mailingAddress) ? (orphan as any).mailingAddress : undefined,
+						phone: typeof (orphan as any).phone === 'string' ? (orphan as any).phone : undefined,
+					}).catch((err: any) => {
+						logger.warn('failed to persist non-live individual reference', { crd, error: err?.message || String(err) });
+					});
+				}
+
+				const orphanPayload = {
 					crd: String(crd),
-					name: typeof (orphan as any).name === 'string' ? (orphan as any).name : undefined,
-					position: typeof (orphan as any).position === 'string' ? (orphan as any).position : undefined,
-					firmName: typeof (orphan as any).firmName === 'string' ? (orphan as any).firmName : undefined,
-					parentCrd: String((orphan as any).parentCrd || crd),
+					name: resolvedName,
+					position: resolvedPosition,
+					firmName: resolvedFirmName,
+					parentCrd: resolvedParentCrd || String(crd),
 					parentType: (orphan as any).parentType === 'individual' ? 'individual' : 'firm',
-					firmStatus: typeof (orphan as any).firmStatus === 'string' ? (orphan as any).firmStatus : undefined,
-				}).catch((err: any) => {
-					logger.warn('failed to persist non-live individual reference', { crd, error: err?.message || String(err) });
-				});
+					firmStatus: resolvedFirmStatus,
+					...(isPlainObject((orphan as any).officeAddress) ? { officeAddress: (orphan as any).officeAddress } : {}),
+					...(isPlainObject((orphan as any).mailingAddress) ? { mailingAddress: (orphan as any).mailingAddress } : {}),
+					...(typeof (orphan as any).phone === 'string' ? { phone: (orphan as any).phone } : {}),
+					...(typeof (orphan as any).firstName === 'string' ? { firstName: (orphan as any).firstName } : {}),
+					...(typeof (orphan as any).middleName === 'string' ? { middleName: (orphan as any).middleName } : {}),
+					...(typeof (orphan as any).lastName === 'string' ? { lastName: (orphan as any).lastName } : {}),
+					...(typeof (orphan as any).bcScope === 'string' ? { bcScope: (orphan as any).bcScope } : {}),
+					...(typeof (orphan as any).iaScope === 'string' ? { iaScope: (orphan as any).iaScope } : {}),
+				};
+
 				return NextResponse.json(
 					{
 						found: true,
 						crd,
-						orphan,
+						orphan: orphanPayload,
 						sources: { finra: { found: false }, sec: { found: false } },
 						hasFinraData: false,
 						hasSecData: false,

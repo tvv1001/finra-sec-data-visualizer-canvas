@@ -1,6 +1,30 @@
 {
   "firms": [
     {
+      "id": 514,
+      "name": "LEHMAN BROTHERS INCORPORATED"
+    },
+    {
+      "id": 7555,
+      "name": "LEHMAN BROTHERS KUHN LOEB INCORPORATED"
+    },
+    {
+      "id": 7242,
+      "name": "LEHMAN SPECIAL SECURITIES INC."
+    },
+    {
+      "id": 19655,
+      "name": "LEHMAN GOVERNMENT SECURITIES INC."
+    },
+    {
+      "id": 7506,
+      "name": "LEHMAN BROTHERS INC."
+    },
+    {
+      "id": 44952,
+      "name": "LEGEND SECURITIES, INC."
+    },
+    {
       "id": 288590,
       "name": "FIDELITY PERSONAL AND WORKPLACE ADVISORS"
     },
@@ -171,10 +195,6 @@
     {
       "id": 19714,
       "name": "BARCLAYS CAPITAL INC."
-    },
-    {
-      "id": 7506,
-      "name": "LEHMAN BROTHERS INC."
     },
     {
       "id": 283942,
@@ -1643,14 +1663,6 @@
     {
       "id": 572,
       "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH, INC."
-    },
-    {
-      "id": 514,
-      "name": "LEHMAN BROTHERS INCORPORATED"
-    },
-    {
-      "id": 7555,
-      "name": "LEHMAN BROTHERS KUHN LOEB INCORPORATED"
     },
     {
       "id": 501,
@@ -3843,14 +3855,6 @@
     {
       "id": 31029,
       "name": "NATIONWIDE PLANNING ASSOCIATES INC."
-    },
-    {
-      "id": 7242,
-      "name": "LEHMAN SPECIAL SECURITIES INC."
-    },
-    {
-      "id": 19655,
-      "name": "LEHMAN GOVERNMENT SECURITIES INC."
     },
     {
       "id": 39289,
@@ -11166,6 +11170,18 @@
     }
   ],
   "individuals": [
+    {
+      "id": 215527,
+      "name": "RICHARD SEVERIN FULD"
+    },
+    {
+      "id": 322250,
+      "name": "JOSEPH EARL MASON"
+    },
+    {
+      "id": 1786885,
+      "name": "JOSEPH MASON"
+    },
     {
       "id": 6349164,
       "name": "KENNETH J. MASON"

@@ -1586,6 +1586,28 @@ function firmConnectionsDisplayFingerprint(payload: FirmConnectionsPayload): str
   return rows.join("\n");
 }
 
+/** Look up one person on a firm's Redis/disk firm-connections roster (no enrichment). */
+export async function findIndividualInFirmConnections(
+  individualCrd: string,
+  firmId: string,
+): Promise<{ entry: GraphConnectionEntry; firmId: string } | null> {
+  const personId = String(individualCrd || "").trim();
+  const parentId = String(firmId || "").trim();
+  if (!/^\d{1,10}$/.test(personId) || !/^\d{1,10}$/.test(parentId)) return null;
+
+  const payload = await getFirmConnectionsFromGraph(parentId, {
+    skipEnrichment: true,
+  }).catch(() => null);
+  if (!payload) return null;
+
+  const entry = [
+    ...(payload.currentConnections || []),
+    ...(payload.previousConnections || []),
+  ].find((row) => connectionEntryId(row) === personId);
+  if (!entry) return null;
+  return { entry, firmId: parentId };
+}
+
 export async function getFirmConnectionsFromGraph(
   firmId: string,
   options?: { computeIfMissing?: boolean; skipEnrichment?: boolean },

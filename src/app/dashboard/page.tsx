@@ -10,12 +10,14 @@ import { formatOtherName, formatUiText } from '@/lib/finra-graph/formatters';
 import { buildPersonName, formatEntityName, formatFirmName, formatPersonName } from '@/lib/nameFormat';
 import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
 import {
+	buildOrphanIndividualPayloadFromHints,
 	extractPayloadFromDetail,
 	mergeEmploymentCardsAcrossSources,
 	overlayMergedEmploymentHistory,
 	resolveEmploymentStatusTag,
 	resolveOrderedSourcesFromDetail,
 	sortByMostRecentStartDate,
+	type DashboardOrphanOwnerHints,
 } from '@/lib/dashboard-detail';
 import {
 	getFilterEnabled,
@@ -292,6 +294,8 @@ type QueueCard = {
 	updatedExistingSourceCount?: number;
 	skippedSourceCount?: number;
 	trueErrorCount?: number;
+	/** Parent-firm Form BD owner metadata for non-live individual deep links. */
+	orphanHints?: DashboardOrphanOwnerHints | null;
 };
 
 type QueueRunItem = {
@@ -898,6 +902,63 @@ function pickFirstValidCrd(...values: unknown[]): string {
 		if (crd) return crd;
 	}
 	return '';
+}
+
+function parseOrphanOwnerHintsFromSearchParams(params: URLSearchParams | null | undefined): DashboardOrphanOwnerHints | null {
+	if (!params) return null;
+	const parentCrd = pickFirstValidCrd(params.get('parentCrd'), params.get('parentFirm'), params.get('orphanParentCrd'));
+	if (!parentCrd) return null;
+	const name = pickFirstNonEmpty(params.get('orphanName'), params.get('name'));
+	const position = pickFirstNonEmpty(params.get('orphanPosition'), params.get('position'));
+	const firmName = pickFirstNonEmpty(params.get('orphanFirmName'), params.get('firmName'));
+	const firmStatus = pickFirstNonEmpty(params.get('orphanFirmStatus'), params.get('firmStatus'));
+	if (!name && !firmName && !position) return null;
+	return {
+		parentCrd,
+		name: name || undefined,
+		position: position || undefined,
+		firmName: firmName || undefined,
+		firmStatus: firmStatus || undefined,
+	};
+}
+
+function buildNonLiveOwnerDashboardHref(params: {
+	crd: string;
+	parentCrd: string;
+	name?: string;
+	position?: string;
+	firmName?: string;
+	firmStatus?: string;
+	isNonLive?: boolean;
+}) {
+	const crd = pickFirstValidCrd(params.crd);
+	if (!crd) return '';
+	const parentCrd = pickFirstValidCrd(params.parentCrd);
+	const shouldAttachHints = Boolean(params.isNonLive && parentCrd);
+	if (!shouldAttachHints) return `/dashboard/individual/${crd}`;
+
+	const query = new URLSearchParams();
+	query.set('parentCrd', parentCrd);
+	if (params.name) query.set('orphanName', params.name);
+	if (params.position) query.set('orphanPosition', params.position);
+	if (params.firmName) query.set('orphanFirmName', params.firmName);
+	if (params.firmStatus) query.set('orphanFirmStatus', params.firmStatus);
+	return `/dashboard/individual/${crd}?${query.toString()}`;
+}
+
+function appendOrphanHintsToIndividualApiUrl(baseUrl: string, hints?: DashboardOrphanOwnerHints | null) {
+	if (!hints?.parentCrd) return baseUrl;
+	try {
+		const url = new URL(baseUrl, 'http://localhost');
+		url.searchParams.set('parentCrd', String(hints.parentCrd));
+		if (hints.name) url.searchParams.set('orphanName', hints.name);
+		if (hints.position) url.searchParams.set('orphanPosition', hints.position);
+		if (hints.firmName) url.searchParams.set('orphanFirmName', hints.firmName);
+		if (hints.firmStatus) url.searchParams.set('orphanFirmStatus', hints.firmStatus);
+		return `${url.pathname}${url.search}`;
+	} catch {
+		return baseUrl;
+	}
 }
 
 function looksLikeGenericEntityLabel(value: unknown) {
@@ -2526,6 +2587,8 @@ function DashboardPageInner() {
 		const activeLoadKey = activeLoadSourceKeyRef.current;
 		if (activeLoadKey && activeLoadKey.startsWith(`${routeSelection.entity}:${routeSelection.id}:`)) return;
 
+		const orphanHints =
+			routeSelection.entity === 'individual' ? parseOrphanOwnerHintsFromSearchParams(searchParams) : null;
 		const card: QueueCard = {
 			id: routeSelection.id,
 			entity: routeSelection.entity,
@@ -2534,11 +2597,12 @@ function DashboardPageInner() {
 				source,
 				status: 'unknown',
 			})),
+			orphanHints,
 		};
 
 		void loadQueueSourceJson(card, routeSelection.source);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [routeSelectionEntityIdKey, routeSelection?.source, currentRecordId, currentRecordEntity, popNonce]);
+	}, [routeSelectionEntityIdKey, routeSelection?.source, currentRecordId, currentRecordEntity, popNonce, searchParams]);
 
 	const searchSummary = useMemo(() => {
 		if (!searchQuery.trim()) return 'Search saved records by name';
@@ -3401,12 +3465,20 @@ function DashboardPageInner() {
 		}
 
 		const orderedSources: SearchResultSource[] = parsed.source === 'sec' ? ['sec', 'finra'] : ['finra', 'sec'];
+		let orphanHints: DashboardOrphanOwnerHints | null = null;
+		try {
+			const resolved = new URL(hrefForParsing, 'http://localhost');
+			orphanHints = parseOrphanOwnerHintsFromSearchParams(resolved.searchParams);
+		} catch {
+			orphanHints = null;
+		}
 
 		const card: QueueCard = {
 			id: parsed.id,
 			entity: parsed.entity,
 			files: orderedSources.length,
 			sources: orderedSources.map((source) => ({ source, status: 'unknown' })),
+			orphanHints,
 		};
 
 		void loadQueueSourceJson(card, parsed.source);
@@ -3551,17 +3623,30 @@ function DashboardPageInner() {
 		});
 	}
 
+	function isUsableMergedDetailCache(value: unknown): boolean {
+		if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+		const record = value as Record<string, any>;
+		if (record.found === false) return false;
+		return Boolean(record.orphan || record.basicInformation || record.merged || record.finraNode || record.hits || record.bccontent || record.iacontent);
+	}
+
 	async function fetchMergedDetail(card: QueueCard) {
 		const cacheKey = `${card.entity}:${card.id}`;
 		const cached = mergedDetailCacheRef.current.get(cacheKey) || readVisitedSync(visitDetailKey(card.entity, card.id));
-		if (cached) return cached;
+		if (isUsableMergedDetailCache(cached)) return cached;
+		// Stale found:false visit-cache must not block orphan synthesis from parent-firm hints.
+		if (cached && (cached as any).found === false) {
+			mergedDetailCacheRef.current.delete(cacheKey);
+		}
 		const persisted = await readVisited(visitDetailKey(card.entity, card.id));
-		if (persisted) {
+		if (isUsableMergedDetailCache(persisted)) {
 			mergedDetailCacheRef.current.set(cacheKey, persisted);
 			return persisted;
 		}
 
-		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const baseRoute =
+			card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const route = card.entity === 'individual' ? appendOrphanHintsToIndividualApiUrl(baseRoute, card.orphanHints) : baseRoute;
 		try {
 			const response = await fetch(route, {
 				method: 'GET',
@@ -3571,19 +3656,28 @@ function DashboardPageInner() {
 			if (!response.ok) {
 				return { found: false, error: `HTTP ${response.status}` };
 			}
-			const detail = await response.json();
-			if (detail && typeof detail === 'object') {
+			let detail = await response.json();
+			if (card.entity === 'individual' && detail?.found === false && card.orphanHints?.parentCrd) {
+				detail = buildOrphanIndividualPayloadFromHints(card.id, card.orphanHints) || detail;
+			}
+			if (detail && typeof detail === 'object' && detail.found !== false) {
 				mergedDetailCacheRef.current.set(cacheKey, detail);
 				rememberVisited(visitDetailKey(card.entity, card.id), detail);
 			}
 			return detail;
 		} catch (err: any) {
+			if (card.entity === 'individual' && card.orphanHints?.parentCrd) {
+				const synthesized = buildOrphanIndividualPayloadFromHints(card.id, card.orphanHints);
+				if (synthesized) return synthesized;
+			}
 			return { found: false, error: err?.message || String(err) };
 		}
 	}
 
 	async function fetchFallbackDetail(card: QueueCard) {
-		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const baseRoute =
+			card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const route = card.entity === 'individual' ? appendOrphanHintsToIndividualApiUrl(baseRoute, card.orphanHints) : baseRoute;
 
 		const response = await fetch(route, {
 			method: 'GET',
@@ -3591,7 +3685,11 @@ function DashboardPageInner() {
 			cache: 'default',
 		});
 
-		return response.json();
+		const detail = await response.json().catch(() => null);
+		if (card.entity === 'individual' && detail?.found === false && card.orphanHints?.parentCrd) {
+			return buildOrphanIndividualPayloadFromHints(card.id, card.orphanHints) || detail;
+		}
+		return detail;
 	}
 
 	function mergeFirmConnectionLists(lists: any[][]) {
@@ -3932,6 +4030,10 @@ function DashboardPageInner() {
 						}
 					}
 				}
+			}
+
+			if (!payload && card.entity === 'individual' && card.orphanHints?.parentCrd) {
+				payload = buildOrphanIndividualPayloadFromHints(card.id, card.orphanHints);
 			}
 
 			if (!payload) {
@@ -5771,6 +5873,30 @@ function DashboardPageInner() {
 															const acquiredDate = pickFirstNonEmpty(row.acquiredDate, row.dateAcquired, row.startDate);
 															const addressText = [toText(row.city), toText(row.state)].filter(Boolean).join(', ');
 															const metaParts = [position, acquiredDate ? `Acquired: ${acquiredDate}` : '', addressText].filter(Boolean);
+															const ownerBcScope = String(row.bcScope || row.bc_scope || '')
+																.trim()
+																.toLowerCase()
+																.replace(/\s+/g, '');
+															const isNonLiveOwner = !ownerBcScope || ownerBcScope === 'notinscope';
+															const parentFirmStatus = pickFirstNonEmpty(
+																detailedMainRecord.basicInformation?.firmStatus,
+																detailedMainRecord.basicInformation?.bcScope,
+																(mainJson as any)?.basicInformation?.firmStatus,
+																(mainJson as any)?.firmStatus,
+															);
+															const ownerHref =
+																crd && currentRecordEntity === 'firm' && currentRecordId ?
+																	buildNonLiveOwnerDashboardHref({
+																		crd,
+																		parentCrd: currentRecordId,
+																		name: pickFirstNonEmpty(row.legalName, row.name, name),
+																		position,
+																		firmName: detailedMainRecord.name,
+																		firmStatus: parentFirmStatus,
+																		isNonLive: isNonLiveOwner,
+																	})
+																:	crd ? `/dashboard/individual/${crd}`
+																:	'';
 
 															const content = (
 																<>
@@ -5782,10 +5908,10 @@ function DashboardPageInner() {
 																</>
 															);
 
-															if (crd) {
+															if (crd && ownerHref) {
 																return (
 																	<Link
-																		href={`/dashboard/individual/${crd}`}
+																		href={ownerHref}
 																		key={`dir-owner-${idx}`}
 																		className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow}`}>
 																		{content}
@@ -5816,6 +5942,30 @@ function DashboardPageInner() {
 															const acquiredDate = pickFirstNonEmpty(row.acquiredDate, row.dateAcquired, row.startDate);
 															const addressText = [toText(row.city), toText(row.state)].filter(Boolean).join(', ');
 															const metaParts = [position, acquiredDate ? `Acquired: ${acquiredDate}` : '', addressText].filter(Boolean);
+															const ownerBcScope = String(row.bcScope || row.bc_scope || '')
+																.trim()
+																.toLowerCase()
+																.replace(/\s+/g, '');
+															const isNonLiveOwner = !ownerBcScope || ownerBcScope === 'notinscope';
+															const parentFirmStatus = pickFirstNonEmpty(
+																detailedMainRecord.basicInformation?.firmStatus,
+																detailedMainRecord.basicInformation?.bcScope,
+																(mainJson as any)?.basicInformation?.firmStatus,
+																(mainJson as any)?.firmStatus,
+															);
+															const ownerHref =
+																crd && currentRecordEntity === 'firm' && currentRecordId ?
+																	buildNonLiveOwnerDashboardHref({
+																		crd,
+																		parentCrd: currentRecordId,
+																		name: pickFirstNonEmpty(row.legalName, row.name, name),
+																		position,
+																		firmName: detailedMainRecord.name,
+																		firmStatus: parentFirmStatus,
+																		isNonLive: isNonLiveOwner,
+																	})
+																:	crd ? `/dashboard/individual/${crd}`
+																:	'';
 
 															const content = (
 																<>
@@ -5827,10 +5977,10 @@ function DashboardPageInner() {
 																</>
 															);
 
-															if (crd) {
+															if (crd && ownerHref) {
 																return (
 																	<Link
-																		href={`/dashboard/individual/${crd}`}
+																		href={ownerHref}
 																		key={`indir-owner-${idx}`}
 																		className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow}`}>
 																		{content}

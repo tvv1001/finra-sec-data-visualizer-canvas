@@ -184,10 +184,53 @@ export function overlayMergedEmploymentHistory(payload: any, detail: any) {
 	return changed ? next : payload;
 }
 
+export type DashboardOrphanOwnerHints = {
+	parentCrd?: string;
+	name?: string;
+	position?: string;
+	firmName?: string;
+	firmStatus?: string;
+};
+
+/** Build a dashboard-ready non-live individual envelope from parent-firm owner metadata. */
+export function buildOrphanIndividualPayloadFromHints(crd: string, hints: DashboardOrphanOwnerHints | null | undefined) {
+	const personCrd = String(crd || '').trim();
+	const parentCrd = String(hints?.parentCrd || '').trim();
+	if (!/^\d{1,10}$/.test(personCrd) || !/^\d{1,10}$/.test(parentCrd)) return null;
+
+	const name = String(hints?.name || '').trim();
+	const firmName = String(hints?.firmName || '').trim();
+	const position = String(hints?.position || '').trim();
+	const firmStatus = String(hints?.firmStatus || '').trim();
+	if (!name && !firmName && !position) return null;
+
+	return {
+		found: true,
+		crd: personCrd,
+		orphan: {
+			crd: personCrd,
+			name: name || undefined,
+			position: position || undefined,
+			firmName: firmName || undefined,
+			parentCrd,
+			parentType: 'firm' as const,
+			firmStatus: firmStatus || undefined,
+		},
+		sources: { finra: { found: false }, sec: { found: false } },
+		hasFinraData: false,
+		hasSecData: false,
+	};
+}
+
 export function extractPayloadFromDetail(detail: any, source: DashboardSource) {
 	if (!isPlainObject(detail)) return null;
 
 	const hasOrphan = Boolean(detail?.orphan && typeof detail.orphan === 'object');
+	if (hasOrphan && detail.found !== false) {
+		// Prefer the orphan envelope for scraped-only people (no basicInformation/bccontent).
+		return detail;
+	}
+
 	const candidate =
 		source === 'finra' ?
 			(detail?.sources?.finra?.bccontent ?? detail?.sources?.finra?.content ?? detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail?.bccontent ?? null)

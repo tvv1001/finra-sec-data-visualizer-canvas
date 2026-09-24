@@ -2,6 +2,8 @@ import { promises as fs, readFileSync } from 'fs';
 import path from 'path';
 import { compressPayload, decompressPayload, getRedisClient } from '@/lib/redisCache';
 import { canWriteToRedis, isRedisCacheOnly } from '@/lib/redisAvailability';
+import { findIndividualInFirmConnections } from '@/lib/graphConnections';
+import { isGenericPersonDisplayName } from '@/lib/displayNameGuards';
 
 // Individuals who are scraped-only references (e.g. FINRA/SEC firm-page "Direct Owners &
 // Executive Officers" entries) frequently have no independent, searchable BrokerCheck/IAPD
@@ -369,4 +371,257 @@ export async function lookupFirmReference(crd: string): Promise<OwnerReference |
 	} catch {
 		return null;
 	}
+}
+
+export type OrphanOwnerHints = {
+	parentCrd?: string;
+	name?: string;
+	position?: string;
+	firmName?: string;
+	firmStatus?: string;
+};
+
+function firstNonEmptyString(...values: unknown[]): string {
+	for (const value of values) {
+		const text = String(value ?? '').trim();
+		if (text) return text;
+	}
+	return '';
+}
+
+function parseFirmDetailFromRedisValue(raw: unknown): Record<string, any> | null {
+	if (raw == null) return null;
+	let parsed: unknown = raw;
+	if (typeof raw === 'string') {
+		const unwrapped = raw.startsWith('br:') ? decompressPayload(raw) : raw;
+		try {
+			parsed = JSON.parse(unwrapped);
+		} catch {
+			return null;
+		}
+	}
+	if (!isPlainObject(parsed)) return null;
+
+	const record = parsed as Record<string, any>;
+	if (isPlainObject(record.orphan)) return null;
+
+	const hits = record.hits;
+	if (isPlainObject(hits) && Array.isArray(hits.hits) && hits.hits.length > 0) {
+		const source = hits.hits[0]?._source;
+		if (!isPlainObject(source)) return null;
+		for (const key of ['content', 'iacontent']) {
+			const embedded = source[key];
+			if (typeof embedded === 'string') {
+				try {
+					const detail = JSON.parse(embedded);
+					if (isPlainObject(detail)) return detail;
+				} catch {
+					// continue
+				}
+			} else if (isPlainObject(embedded)) {
+				return embedded;
+			}
+		}
+		return source;
+	}
+
+	for (const key of ['content', 'iacontent']) {
+		const embedded = record[key];
+		if (typeof embedded === 'string') {
+			try {
+				const detail = JSON.parse(embedded);
+				if (isPlainObject(detail)) return detail;
+			} catch {
+				// continue
+			}
+		} else if (isPlainObject(embedded)) {
+			return embedded;
+		}
+	}
+
+	if (
+		record.basicInformation ||
+		record.firmId ||
+		record.firmName ||
+		record.directOwners ||
+		record.owners
+	) {
+		return record;
+	}
+	return null;
+}
+
+function ownerCrdFromRow(owner: Record<string, unknown>): string {
+	return firstNonEmptyString(owner.crdNumber, owner.crd, owner.individualId, owner.personId);
+}
+
+function ownerNameFromRow(owner: Record<string, unknown>): string {
+	return firstNonEmptyString(owner.legalName, owner.name, owner.personName);
+}
+
+/** Read Redis firm detail and match this CRD in direct/indirect owners. */
+export async function lookupOwnerFromFirmRedisDetail(
+	crd: string,
+	parentFirmId: string,
+): Promise<OwnerReference | null> {
+	const personCrd = String(crd || '').trim();
+	const firmId = String(parentFirmId || '').trim();
+	if (!/^\d{1,10}$/.test(personCrd) || !/^\d{1,10}$/.test(firmId)) return null;
+	if (isRedisCacheOnly()) return null;
+
+	const redis = getRedisClient();
+	if (!redis) return null;
+
+	for (const key of [`finra:firm:${firmId}`, `sec:firm:${firmId}`]) {
+		try {
+			const raw = await redis.get(key);
+			const detail = parseFirmDetailFromRedisValue(raw);
+			if (!detail) continue;
+
+			const owners = [
+				...(Array.isArray(detail.directOwners) ? detail.directOwners : []),
+				...(Array.isArray(detail.directOwnersExecutiveOfficers) ? detail.directOwnersExecutiveOfficers : []),
+				...(Array.isArray(detail.indirectOwners) ? detail.indirectOwners : []),
+				...(Array.isArray(detail.owners) ? detail.owners : []),
+			].filter(isPlainObject) as Record<string, unknown>[];
+
+			const owner = owners.find((row) => ownerCrdFromRow(row) === personCrd);
+			if (!owner) continue;
+
+			const basic = isPlainObject(detail.basicInformation) ? detail.basicInformation : {};
+			const firmName = firstNonEmptyString(basic.firmName, basic.legalName, detail.firmName, detail.legalName);
+			const firmStatus = firstNonEmptyString(
+				basic.firmStatus,
+				detail.firmStatus,
+				basic.bcScope,
+				detail.bcScope,
+				basic.registrationStatus,
+				detail.registrationStatus,
+			);
+			const name = ownerNameFromRow(owner);
+			if (isGenericPersonDisplayName(name) && !firstNonEmptyString(owner.position, owner.title)) {
+				continue;
+			}
+
+			const office =
+				isPlainObject(detail.firmAddressDetails) && isPlainObject(detail.firmAddressDetails.officeAddress) ?
+					(detail.firmAddressDetails.officeAddress as Record<string, unknown>)
+				: isPlainObject(basic.officeAddress) ? (basic.officeAddress as Record<string, unknown>)
+				: undefined;
+			const mailing =
+				isPlainObject(detail.firmAddressDetails) && isPlainObject(detail.firmAddressDetails.mailingAddress) ?
+					(detail.firmAddressDetails.mailingAddress as Record<string, unknown>)
+				: undefined;
+
+			return {
+				crd: personCrd,
+				name: name || undefined,
+				position: firstNonEmptyString(owner.position, owner.title) || undefined,
+				firmName: firmName || undefined,
+				parentCrd: firmId,
+				parentType: 'firm',
+				officeAddress: office,
+				mailingAddress: mailing,
+				phone: firstNonEmptyString(detail.phone, basic.phone) || undefined,
+				firmStatus: firmStatus || undefined,
+			};
+		} catch {
+			// try next firm key
+		}
+	}
+
+	return null;
+}
+
+function mergeOwnerReferenceParts(
+	crd: string,
+	...parts: Array<OwnerReference | OrphanOwnerHints | null | undefined>
+): OwnerReference | null {
+	const personCrd = String(crd || '').trim();
+	if (!/^\d{1,10}$/.test(personCrd)) return null;
+
+	let parentCrd = '';
+	let name = '';
+	let position = '';
+	let firmName = '';
+	let firmStatus = '';
+	let officeAddress: Record<string, unknown> | undefined;
+	let mailingAddress: Record<string, unknown> | undefined;
+	let phone: string | undefined;
+
+	for (const part of parts) {
+		if (!part) continue;
+		parentCrd = firstNonEmptyString((part as any).parentCrd, parentCrd);
+		const nextName = firstNonEmptyString((part as any).name);
+		if (nextName && !isGenericPersonDisplayName(nextName)) name = nextName;
+		else if (!name && nextName) name = nextName;
+		position = firstNonEmptyString((part as any).position, position);
+		firmName = firstNonEmptyString((part as any).firmName, firmName);
+		firmStatus = firstNonEmptyString((part as any).firmStatus, (part as any).status, firmStatus);
+		if (!officeAddress && isPlainObject((part as any).officeAddress)) {
+			officeAddress = (part as any).officeAddress as Record<string, unknown>;
+		}
+		if (!mailingAddress && isPlainObject((part as any).mailingAddress)) {
+			mailingAddress = (part as any).mailingAddress as Record<string, unknown>;
+		}
+		phone = firstNonEmptyString((part as any).phone, phone) || phone;
+	}
+
+	if (!parentCrd) return null;
+	if (!name && !firmName && !position) return null;
+	if (name && isGenericPersonDisplayName(name) && !firmName && !position) return null;
+
+	return {
+		crd: personCrd,
+		name: name || undefined,
+		position: position || undefined,
+		firmName: firmName || undefined,
+		parentCrd,
+		parentType: 'firm',
+		officeAddress,
+		mailingAddress,
+		phone,
+		firmStatus: firmStatus || undefined,
+	};
+}
+
+/**
+ * Resolve a non-live individual orphan for this CRD's own detail miss path.
+ * Prefer stored non-live-crds, then firm Redis directOwners / firm-connections for a known parent,
+ * then complete dashboard/query hints. Never indexes unrelated CRDs.
+ */
+export async function resolveOrphanOwnerReference(
+	crd: string,
+	hints?: OrphanOwnerHints | null,
+): Promise<OwnerReference | null> {
+	const personCrd = String(crd || '').trim();
+	if (!/^\d{1,10}$/.test(personCrd)) return null;
+
+	const stored = await lookupOwnerReference(personCrd).catch(() => null);
+	if (stored?.parentCrd && (stored.name || stored.firmName || stored.position)) {
+		return mergeOwnerReferenceParts(personCrd, stored, hints) || stored;
+	}
+
+	const parentCrd = firstNonEmptyString(hints?.parentCrd, stored?.parentCrd);
+	let fromFirm: OwnerReference | null = null;
+	let fromConnections: OwnerReference | null = null;
+
+	if (parentCrd) {
+		fromFirm = await lookupOwnerFromFirmRedisDetail(personCrd, parentCrd).catch(() => null);
+		const connectionHit = await findIndividualInFirmConnections(personCrd, parentCrd).catch(() => null);
+		if (connectionHit?.entry) {
+			const entry = connectionHit.entry;
+			fromConnections = {
+				crd: personCrd,
+				name: firstNonEmptyString(entry.name) || undefined,
+				position: firstNonEmptyString(entry.relationship) || undefined,
+				firmName: firstNonEmptyString(hints?.firmName, stored?.firmName) || undefined,
+				parentCrd,
+				parentType: 'firm',
+				firmStatus: firstNonEmptyString(hints?.firmStatus, stored?.firmStatus) || undefined,
+			};
+		}
+	}
+
+	return mergeOwnerReferenceParts(personCrd, stored, fromFirm, fromConnections, hints);
 }
