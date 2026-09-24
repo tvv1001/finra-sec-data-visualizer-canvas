@@ -947,14 +947,13 @@ export default function FinraGraph() {
 
 		const handleSelectedNodeRoute = (event: Event) => {
 			const detail = (event as CustomEvent<{ nodeId?: string | null; replace?: boolean }>).detail || {};
-			// null nodeId means deselect — don't touch the URL
-			if (!detail.nodeId) return;
-			const nextHref = buildNodeRouteHref(detail.nodeId);
-			const nextPath = buildNodeRoutePath(detail.nodeId);
+			// null nodeId clears the route to `/` (Clear Highlight / Reset Session).
+			const nextHref = buildNodeRouteHref(detail.nodeId ?? null);
+			const nextPath = buildNodeRoutePath(detail.nodeId ?? null);
 			const currentPath = browserPathname || pathname || '/';
 			if (nextPath === currentPath) return;
 			setBrowserPathname(nextPath);
-			if (detail.replace) {
+			if (detail.replace || !detail.nodeId) {
 				updateNodeRouteHistory(nextHref, 'replace');
 				return;
 			}

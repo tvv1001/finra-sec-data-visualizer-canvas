@@ -50,7 +50,7 @@ import { mergeGraphNodesForAppend } from './graphIdentity';
 import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
 import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
 import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
-import { normalizeNodeRouteId, buildNodeRoutePath } from './node-route';
+import { normalizeNodeRouteId, buildNodeRouteHref, buildNodeRoutePath } from './node-route';
 import { requestRender, setOnNodeClickCallback, createCanvasOverlay, syncCanvasFocusTooltip } from './finra-graph-canvas';
 import {
 	getFilterEnabled,
@@ -2077,13 +2077,11 @@ function clearSession() {
 function emitSelectedNodeRoute(nodeId: string | null, { replace = false }: { replace?: boolean } = {}) {
 	if (typeof window === 'undefined') return;
 	try {
-		// As a fallback for UI listeners that may not be mounted yet, ensure the
-		// browser URL reflects the selected node immediately using replaceState.
-		if (nodeId) {
-			const nextPath = buildNodeRoutePath(nodeId);
-			if (window.history && typeof window.history.replaceState === 'function') {
-				window.history.replaceState(window.history.state, document.title || '', nextPath);
-			}
+		// Keep history in sync even before React listeners mount. null clears to `/`
+		// (plus sticky query params) for Clear Highlight / Reset Session.
+		const nextHref = buildNodeRouteHref(nodeId);
+		if (window.history && typeof window.history.replaceState === 'function') {
+			window.history.replaceState(window.history.state, document.title || '', nextHref);
 		}
 	} catch (e) {
 		/* non-critical */
@@ -7606,18 +7604,6 @@ export function init(
 		const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-fg-action="clear-highlights"]') : null;
 		if (!target) return;
 		clearHighlights();
-		try {
-			const side = document.getElementById('fg-sidebar');
-			const displayedId = (side && side.dataset && side.dataset.displayedId) || globalState.selectedId || '';
-			if (displayedId) {
-				const nextPath = buildNodeRoutePath(displayedId);
-				if (typeof window !== 'undefined' && window.history && typeof window.history.replaceState === 'function') {
-					window.history.replaceState(window.history.state, document.title || '', nextPath);
-				}
-			}
-		} catch (e) {
-			// non-critical
-		}
 	});
 
 	const graphActionButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-graph-action]'));
@@ -17231,6 +17217,8 @@ function clearHighlights() {
 	highlightLinks({ rootIds: new Set(), nodeIds: new Set(), hopNodeIds: new Set(), linkKeys: new Set() });
 	syncClearHighlightsButtonState();
 	syncSelectionLogAuxiliaryRenderers();
+	// Clear Highlight returns the address bar to `/` (sticky query params kept).
+	emitSelectedNodeRoute(null, { replace: true });
 	try {
 		saveSession();
 	} catch (e) {

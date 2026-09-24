@@ -1,6 +1,26 @@
 {
   "firms": [
     {
+      "id": 288590,
+      "name": "FIDELITY PERSONAL AND WORKPLACE ADVISORS"
+    },
+    {
+      "id": 104555,
+      "name": "STRATEGIC ADVISERS LLC"
+    },
+    {
+      "id": 7784,
+      "name": "FIDELITY BROKERAGE SERVICES LLC"
+    },
+    {
+      "id": 112058,
+      "name": "EMPOWER ADVISORY GROUP, LLC"
+    },
+    {
+      "id": 13109,
+      "name": "EMPOWER FINANCIAL SERVICES, INC."
+    },
+    {
       "id": 13686,
       "name": "H.D. VEST INVESTMENT SERVICES"
     },
@@ -121,24 +141,12 @@
       "name": "RBC CAPITAL MARKETS, LLC"
     },
     {
-      "id": 288590,
-      "name": "FIDELITY PERSONAL AND WORKPLACE ADVISORS"
-    },
-    {
       "id": 2881,
       "name": "NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC"
     },
     {
       "id": 129035,
       "name": "USAA FINANCIAL ADVISORS, INC."
-    },
-    {
-      "id": 13109,
-      "name": "GWFS EQUITIES, INC."
-    },
-    {
-      "id": 7784,
-      "name": "FIDELITY BROKERAGE SERVICES LLC"
     },
     {
       "id": 7691,
@@ -599,10 +607,6 @@
     {
       "id": 106715,
       "name": "VANGUARD ADVISERS, INC."
-    },
-    {
-      "id": 104555,
-      "name": "STRATEGIC ADVISERS LLC"
     },
     {
       "id": 24049,
@@ -1187,10 +1191,6 @@
     {
       "id": 331309,
       "name": "MILL HILL MANAGEMENT"
-    },
-    {
-      "id": 112058,
-      "name": "EMPOWER ADVISORY GROUP, LLC"
     },
     {
       "id": 431,
@@ -11166,6 +11166,10 @@
     }
   ],
   "individuals": [
+    {
+      "id": 6349164,
+      "name": "KENNETH J. MASON"
+    },
     {
       "id": 3261303,
       "name": "CECILIA MAVICO"
