@@ -24,9 +24,9 @@ let suppressNextCanvasClick = false;
 
 const CANVAS_NODE_SCALE = 1.5;
 /** Normal canvas label size in screen pixels. No zoom scaling. */
-const CANVAS_DEFAULT_LABEL_SIZE = 27;
+const CANVAS_DEFAULT_LABEL_SIZE = 16;
 /** Log-bold canvas label size in screen pixels. No zoom scaling. */
-const CANVAS_BOLD_LABEL_SIZE = 33;
+const CANVAS_BOLD_LABEL_SIZE = 20;
 
 function shouldShowCanvasLabel(node: Node) {
 	const scale = currentTransform.k || 1;
@@ -542,6 +542,15 @@ export function drawCanvasFrame(
 	let renderedLabelCount = 0;
 	canvasLabelVisibleIds = new Set();
 
+	type PendingLabel = {
+		n: Node;
+		isBoldLabel: boolean;
+		inactive: boolean;
+		size: number;
+	};
+	const pendingNormalLabels: PendingLabel[] = [];
+	const pendingBoldLabels: PendingLabel[] = [];
+
 	for (const n of visibleNodes) {
 		const colors = resolveCachedThemeColors();
 		const inactive = isInactiveNode(n);
@@ -603,29 +612,38 @@ export function drawCanvasFrame(
 		if (shouldShowLabel && (isForcedLabel || scale >= selectedCanvasLabelZoomThreshold)) {
 			renderedLabelCount += 1;
 			canvasLabelVisibleIds.add(String(n.id));
-			const p = worldToScreen(n.x, n.y, transform);
-
-			// Font size is screen pixels (zoom is applied only by worldToScreen).
-			const labelSize = isBoldLabel ? CANVAS_BOLD_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
-			ctx.save();
-			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-			ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;
-			ctx.fillStyle =
-				inactive ? '#64748b'
-				: isBoldLabel ? '#f8fafc'
-				: colors.label;
-			ctx.textAlign = 'center';
-			ctx.textBaseline = 'top';
-			const labelText = getNodeLabel(n);
-			const nodeScreenRadius = Math.max(1, size * (transform.k || 1));
-			const labelOffset = n.group === 'entity' ? nodeScreenRadius * 1.5 : nodeScreenRadius;
-			const labelY = p.y + labelOffset + DEFAULT_NODE_LABEL_GAP_PX - Math.min(2, labelSize * 0.1);
-			ctx.fillText(labelText || String(n.id), p.x, labelY);
-			ctx.textAlign = 'start';
-			ctx.textBaseline = 'alphabetic';
-			ctx.restore();
+			const pending = { n, isBoldLabel, inactive, size };
+			if (isBoldLabel) pendingBoldLabels.push(pending);
+			else pendingNormalLabels.push(pending);
 		}
 	}
+
+	const paintLabel = ({ n, isBoldLabel, inactive, size }: PendingLabel) => {
+		const colors = resolveCachedThemeColors();
+		const p = worldToScreen(n.x, n.y, transform);
+		const labelSize = isBoldLabel ? CANVAS_BOLD_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
+		ctx.save();
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;
+		ctx.fillStyle =
+			inactive ? '#64748b'
+			: isBoldLabel ? '#f8fafc'
+			: colors.label;
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'top';
+		const labelText = getNodeLabel(n);
+		const nodeScreenRadius = Math.max(1, size * (transform.k || 1));
+		const labelOffset = n.group === 'entity' ? nodeScreenRadius * 1.5 : nodeScreenRadius;
+		const labelY = p.y + labelOffset + DEFAULT_NODE_LABEL_GAP_PX - Math.min(2, labelSize * 0.1);
+		ctx.fillText(labelText || String(n.id), p.x, labelY);
+		ctx.textAlign = 'start';
+		ctx.textBaseline = 'alphabetic';
+		ctx.restore();
+	};
+
+	// Normal labels first, then log-bold labels on top of every node.
+	for (const pending of pendingNormalLabels) paintLabel(pending);
+	for (const pending of pendingBoldLabels) paintLabel(pending);
 }
 
 export { resize as canvasResize };

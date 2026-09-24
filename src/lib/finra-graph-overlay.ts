@@ -23,9 +23,9 @@ let hoverTimerGlobal: number | null = null;
 let activeTooltipIdGlobal: string | null = null;
 const OVERLAY_LABEL_ZOOM_THRESHOLD = 0.8;
 const MAX_OVERLAY_LABELS = 100;
-const OVERLAY_DEFAULT_LABEL_SIZE_PX = 20;
+const OVERLAY_DEFAULT_LABEL_SIZE_PX = 12;
 /** Log-bold overlay label size. No zoom scaling. */
-const OVERLAY_BOLD_LABEL_SIZE_PX = 26;
+const OVERLAY_BOLD_LABEL_SIZE_PX = 16;
 
 function worldToScreen(x: number, y: number, transform: { x: number; y: number; k: number }) {
 	return { x: transform.x + x * transform.k, y: transform.y + y * transform.k };
@@ -270,25 +270,36 @@ export function updateOverlay(
 	});
 
 	const keep = new Set<string>();
+	const normalLabels: Node[] = [];
+	const boldLabels: Node[] = [];
 	for (const n of toLabel) {
+		if (forcedLabelIds.has(String(n.id))) boldLabels.push(n);
+		else normalLabels.push(n);
+	}
+
+	const placeLabel = (n: Node, isLogBoldLabel: boolean) => {
 		const id = String(n.id);
 		keep.add(id);
 		let el = existing.get(id);
 		if (!el) {
 			el = createLabelElement(n);
-			// ensure dataset is present
 			el.dataset.nodeId = id;
 			container.appendChild(el);
 		}
 		const p = worldToScreen(n.x, n.y, transform);
 		const visualHalf = getNodeVisualHalf(n) * Math.max(0.1, transform.k || 1);
-		// Large overlay labels follow Log Bold / log-list Bold only — not selection.
-		const isLogBoldLabel = forcedLabelIds.has(String(n.id));
 		el.style.left = `${Math.round(p.x)}px`;
 		el.style.top = `${Math.round(p.y + visualHalf + DEFAULT_NODE_LABEL_GAP_PX)}px`;
 		el.style.fontSize = `${isLogBoldLabel ? OVERLAY_BOLD_LABEL_SIZE_PX : OVERLAY_DEFAULT_LABEL_SIZE_PX}px`;
 		el.style.fontWeight = isLogBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT;
-	}
+		el.style.zIndex = isLogBoldLabel ? '5' : '1';
+		el.classList.toggle('fg-overlay-label--bold', isLogBoldLabel);
+		// Append again so bold labels are the last DOM children (on top).
+		container.appendChild(el);
+	};
+
+	for (const n of normalLabels) placeLabel(n, false);
+	for (const n of boldLabels) placeLabel(n, true);
 
 	// remove leftover labels
 	for (const [id, el] of existing) {

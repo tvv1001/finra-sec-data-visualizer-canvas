@@ -11771,7 +11771,7 @@ export function getNodeLabelFontSize({
 	void isHovered;
 	void isEmphasized;
 	void _zoomScale;
-	return isBolded ? 26 : 20;
+	return isBolded ? 16 : 12;
 }
 
 export function getNodeTooltipTitle(node) {
@@ -12090,6 +12090,14 @@ function isLinkOnAnyTrace(linkKey: string) {
 function getNodeRenderPriority(node, highlightState) {
 	if (!node) return 1;
 	const degreeBias = Math.max(0, Math.min(1000, getNodeDegreeValue(node)));
+
+	// Log-bold labels must paint above every other node so the large text stays readable.
+	if (
+		isSelectionLogEntryBold(node.id) ||
+		(forceFirmsBold && (node.group === 'firm' || node.type === 'firm' || String(node.id || '').startsWith('firm:')))
+	) {
+		return 30000 + degreeBias;
+	}
 
 	// The absolute active search match (the one with the pulse) gets top priority
 	const activeFindId = activeFindMatchIndex >= 0 ? activeFindMatchOrder[activeFindMatchIndex] : null;

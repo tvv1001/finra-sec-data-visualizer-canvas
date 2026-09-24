@@ -627,10 +627,10 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	});
 
 	it('getNodeLabelFontSize uses fixed sizes with no zoom scaling', () => {
-		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(20);
-		expect(getNodeLabelFontSize({ zoomScale: 0.5 })).toBe(20);
-		expect(getNodeLabelFontSize({ zoomScale: 0.2 })).toBe(20);
-		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 0.2 })).toBe(26);
+		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(12);
+		expect(getNodeLabelFontSize({ zoomScale: 0.5 })).toBe(12);
+		expect(getNodeLabelFontSize({ zoomScale: 0.2 })).toBe(12);
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 0.2 })).toBe(16);
 	});
 
 	it('getNodeLabelFontSize enlarges log-bold labels only', () => {
@@ -1022,8 +1022,8 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	});
 
 	it('keeps normal label size fixed across zoom', () => {
-		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(20);
-		expect(getNodeLabelFontSize({ zoomScale: 1.25 })).toBe(20);
+		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(12);
+		expect(getNodeLabelFontSize({ zoomScale: 1.25 })).toBe(12);
 	});
 
 	it('includes firm CRDs in the node tooltip title', () => {
