@@ -23,8 +23,10 @@ let activeCanvasDrag: { node: Node; offsetX: number; offsetY: number; pointerId:
 let suppressNextCanvasClick = false;
 
 const CANVAS_NODE_SCALE = 1.5;
+/** Normal canvas label size in screen pixels. No zoom scaling. */
 const CANVAS_DEFAULT_LABEL_SIZE = 27;
-const CANVAS_SELECTED_LABEL_SIZE = 65;
+/** Log-bold canvas label size in screen pixels. No zoom scaling. */
+const CANVAS_BOLD_LABEL_SIZE = 33;
 
 function shouldShowCanvasLabel(node: Node) {
 	const scale = currentTransform.k || 1;
@@ -122,7 +124,7 @@ function getHitNode(clientX: number, clientY: number) {
 			// Large/bold text follows Log Bold only — not selection or highlights.
 			const isBoldLabel = isForcedLabel;
 			// Font size is screen pixels (zoom is applied only by worldToScreen).
-			const labelSize = isBoldLabel ? CANVAS_SELECTED_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
+			const labelSize = isBoldLabel ? CANVAS_BOLD_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
 			ctx.save();
 			ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;
 			const labelWidth = ctx.measureText(labelText).width;
@@ -604,7 +606,7 @@ export function drawCanvasFrame(
 			const p = worldToScreen(n.x, n.y, transform);
 
 			// Font size is screen pixels (zoom is applied only by worldToScreen).
-			const labelSize = isBoldLabel ? CANVAS_SELECTED_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
+			const labelSize = isBoldLabel ? CANVAS_BOLD_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
 			ctx.save();
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 			ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;

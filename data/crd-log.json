@@ -1,8 +1,60 @@
 {
   "firms": [
     {
+      "id": 24790,
+      "name": "COLLINS STEWART LLC."
+    },
+    {
+      "id": 7017,
+      "name": "CHAPDELAINE TULLETT PREBON, LLC"
+    },
+    {
+      "id": 28196,
+      "name": "TULLETT PREBON FINANCIAL SERVICES LLC"
+    },
+    {
+      "id": 19739,
+      "name": "ICAP SECURITIES USA LLC"
+    },
+    {
+      "id": 2762,
+      "name": "ICAP CORPORATES LLC"
+    },
+    {
+      "id": 19801,
+      "name": "BGC FINANCIAL, L.P."
+    },
+    {
+      "id": 19982,
+      "name": "GFI SECURITIES LLC"
+    },
+    {
+      "id": 13681,
+      "name": "MINT BROKERS"
+    },
+    {
+      "id": 134,
+      "name": "CANTOR FITZGERALD & CO."
+    },
+    {
+      "id": 47968,
+      "name": "ESPEED BROKERAGE, L.P."
+    },
+    {
+      "id": 47681,
+      "name": "AQUA SECURITIES L.P."
+    },
+    {
+      "id": 816,
+      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
+    },
+    {
       "id": 79,
       "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
+      "id": 282107,
+      "name": "J.P. MORGAN PRIME INC."
     },
     {
       "id": 25025,
@@ -23,34 +75,6 @@
     {
       "id": 7870,
       "name": "TD AMERITRADE, INC."
-    },
-    {
-      "id": 134,
-      "name": "CANTOR FITZGERALD & CO."
-    },
-    {
-      "id": 47968,
-      "name": "ESPEED BROKERAGE, L.P."
-    },
-    {
-      "id": 47681,
-      "name": "AQUA SECURITIES L.P."
-    },
-    {
-      "id": 13681,
-      "name": "BGC SECURITIES"
-    },
-    {
-      "id": 19801,
-      "name": "BGC FINANCIAL, L.P."
-    },
-    {
-      "id": 816,
-      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
-    },
-    {
-      "id": 282107,
-      "name": "J.P. MORGAN PRIME INC."
     },
     {
       "id": 18718,
@@ -3997,10 +4021,6 @@
       "name": "BGC MARKETS, L.P."
     },
     {
-      "id": 19982,
-      "name": "GFI SECURITIES LLC"
-    },
-    {
       "id": 159577,
       "name": "SMART STREET ADVISORS, LLC"
     },
@@ -4343,10 +4363,6 @@
     {
       "id": 36118,
       "name": "NEWEDGE USA, LLC"
-    },
-    {
-      "id": 28196,
-      "name": "TULLETT PREBON FINANCIAL SERVICES LLC"
     },
     {
       "id": 161014,
@@ -6967,16 +6983,20 @@
   ],
   "individuals": [
     {
+      "id": 5612726,
+      "name": "MARTIN LYNCH"
+    },
+    {
+      "id": 2903336,
+      "name": "Thomas Michael Balas"
+    },
+    {
       "id": 8071637,
       "name": "David S Villwock"
     },
     {
       "id": 2212982,
       "name": "PAUL VIENICK"
-    },
-    {
-      "id": 2903336,
-      "name": "Thomas Michael Balas"
     },
     {
       "id": 4835849,

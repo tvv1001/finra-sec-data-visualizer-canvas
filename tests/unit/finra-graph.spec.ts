@@ -626,10 +626,11 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(resolved).toBe('firm:8-29362');
 	});
 
-	it('getNodeLabelFontSize grows as the graph zooms out', () => {
+	it('getNodeLabelFontSize uses fixed sizes with no zoom scaling', () => {
 		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(20);
-		expect(getNodeLabelFontSize({ zoomScale: 0.5 })).toBeGreaterThan(20);
-		expect(getNodeLabelFontSize({ zoomScale: 0.2 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 0.5 }));
+		expect(getNodeLabelFontSize({ zoomScale: 0.5 })).toBe(20);
+		expect(getNodeLabelFontSize({ zoomScale: 0.2 })).toBe(20);
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 0.2 })).toBe(26);
 	});
 
 	it('getNodeLabelFontSize enlarges log-bold labels only', () => {
@@ -1020,9 +1021,9 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(getNodeLabelFontSize({ isHovered: true, zoomScale: 1.25 })).toBe(getNodeLabelFontSize({ zoomScale: 1.25 }));
 	});
 
-	it('keeps normal labels from shrinking below the screen base when zooming in', () => {
+	it('keeps normal label size fixed across zoom', () => {
 		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(20);
-		expect(getNodeLabelFontSize({ zoomScale: 1.25 })).toBeGreaterThanOrEqual(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
+		expect(getNodeLabelFontSize({ zoomScale: 1.25 })).toBe(20);
 	});
 
 	it('includes firm CRDs in the node tooltip title', () => {

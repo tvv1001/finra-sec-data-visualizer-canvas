@@ -24,7 +24,8 @@ let activeTooltipIdGlobal: string | null = null;
 const OVERLAY_LABEL_ZOOM_THRESHOLD = 0.8;
 const MAX_OVERLAY_LABELS = 100;
 const OVERLAY_DEFAULT_LABEL_SIZE_PX = 20;
-const OVERLAY_SELECTED_LABEL_SIZE_PX = 26;
+/** Log-bold overlay label size. No zoom scaling. */
+const OVERLAY_BOLD_LABEL_SIZE_PX = 26;
 
 function worldToScreen(x: number, y: number, transform: { x: number; y: number; k: number }) {
 	return { x: transform.x + x * transform.k, y: transform.y + y * transform.k };
@@ -285,7 +286,7 @@ export function updateOverlay(
 		const isLogBoldLabel = forcedLabelIds.has(String(n.id));
 		el.style.left = `${Math.round(p.x)}px`;
 		el.style.top = `${Math.round(p.y + visualHalf + DEFAULT_NODE_LABEL_GAP_PX)}px`;
-		el.style.fontSize = `${isLogBoldLabel ? OVERLAY_SELECTED_LABEL_SIZE_PX : OVERLAY_DEFAULT_LABEL_SIZE_PX}px`;
+		el.style.fontSize = `${isLogBoldLabel ? OVERLAY_BOLD_LABEL_SIZE_PX : OVERLAY_DEFAULT_LABEL_SIZE_PX}px`;
 		el.style.fontWeight = isLogBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT;
 	}
 

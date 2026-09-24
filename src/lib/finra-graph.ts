@@ -454,13 +454,6 @@ function getCurrentZoomTransform() {
 	}
 }
 
-function getFocusedLabelScale(zoomScale: number | string | null | undefined): number {
-	const normalizedScale = Math.max(0.01, Number(zoomScale) || 1);
-	const baseScale = 1.6;
-	const dynamicScale = normalizedScale < globalState.activeLabelZoomThreshold ? baseScale * (globalState.activeLabelZoomThreshold / normalizedScale) : baseScale;
-	return Math.min(dynamicScale, 15.0);
-}
-
 export function getSelectionLinkEmphasis(zoomScale = getCurrentGraphZoomScale()) {
 	const normalizedScale = Math.max(0.18, Math.min(1, Number(zoomScale) || 1));
 	const zoomWeight = Math.max(0, Math.min(1, (normalizedScale - 0.18) / 0.82));
@@ -497,10 +490,6 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 	if (!globalState.rootGroup) return;
 	const traceActive = isAnyTraceModeActive();
 	const normalizedScale = Math.max(0.1, Number(zoomScale) || 1);
-	const dynamicScale = getFocusedLabelScale(normalizedScale);
-	const globalLabelScale = dynamicScale;
-	const traceLabelScale = traceActive ? dynamicScale : 1;
-	const selectionLogLabelScale = isSelectionLogBold || forceFirmsBold ? dynamicScale : 1;
 
 	globalState.rootGroup
 		.classed('fg-trace-labels', traceActive)
@@ -508,9 +497,9 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 		.classed('fg-labels-hidden', normalizedScale < globalState.activeLabelZoomThreshold)
 		.style('--fg-node-label-font-size', DEFAULT_NODE_LABEL_FONT_SIZE)
 		.style('--fg-node-label-font-weight', DEFAULT_NODE_LABEL_FONT_WEIGHT)
-		.style('--fg-global-label-scale', String(globalLabelScale))
-		.style('--fg-trace-label-scale', String(traceLabelScale))
-		.style('--fg-selection-log-label-scale', String(selectionLogLabelScale))
+		.style('--fg-global-label-scale', '1')
+		.style('--fg-trace-label-scale', '1')
+		.style('--fg-selection-log-label-scale', '1')
 		.style('--fg-current-zoom', String(normalizedScale));
 
 	// Hide all node labels when zoomed out below threshold.
@@ -655,18 +644,17 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 		if (globalState.pixiModeActive && globalState.pixiApi && typeof globalState.pixiApi.drawFrame === 'function') {
 			try {
 				const transform = getCurrentZoomTransform();
-				const labelScale = globalState.selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
 				const logLabelNodeIds = getSelectionLogLabelNodeIds();
 				globalState.pixiApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
 					selectedId: globalState.selectedId,
-					labelScale,
+					labelScale: 1,
 					logLabelNodeIds,
 				});
 				if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 					try {
 						globalState.overlayApi.update(globalState.layoutNodes || [], transform, {
 							selectedId: globalState.selectedId,
-							labelScale,
+							labelScale: 1,
 							logLabelNodeIds,
 						});
 					} catch (e) {}
@@ -679,21 +667,20 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 		if (globalState.canvasModeActive && globalState.canvasApi) {
 			try {
 				const transform = getCurrentZoomTransform();
-				const labelScale = globalState.selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
 				const logLabelNodeIds = getSelectionLogLabelNodeIds();
 				const linkFocusNodeIds = getCanvasLinkFocusNodeIds();
 				globalState.canvasApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
 					selectedId: globalState.selectedId,
 					selectedNodeIds: Array.from(new Set([globalState.selectedId, ...Array.from(globalState.persistentSelectedIds)].filter(Boolean))),
 					linkFocusNodeIds,
-					labelScale,
+					labelScale: 1,
 					logLabelNodeIds,
 				});
 				if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 					try {
 						globalState.overlayApi.update(globalState.layoutNodes || [], transform, {
 							selectedId: globalState.selectedId,
-							labelScale,
+							labelScale: 1,
 							logLabelNodeIds,
 						});
 					} catch (e) {}
@@ -3279,12 +3266,11 @@ function getCanvasLinkFocusNodeIds() {
 
 function syncSelectionLogAuxiliaryRenderers() {
 	const transform = getCurrentZoomTransform();
-	const labelScale = globalState.selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
 	const logLabelNodeIds = getSelectionLogLabelNodeIds();
 	const linkFocusNodeIds = getCanvasLinkFocusNodeIds();
 	if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 		try {
-			globalState.overlayApi.update(globalState.layoutNodes || [], transform, { selectedId: globalState.selectedId, labelScale, logLabelNodeIds });
+			globalState.overlayApi.update(globalState.layoutNodes || [], transform, { selectedId: globalState.selectedId, labelScale: 1, logLabelNodeIds });
 		} catch {}
 	}
 	if (globalState.canvasApi && typeof globalState.canvasApi.drawFrame === 'function') {
@@ -3293,14 +3279,18 @@ function syncSelectionLogAuxiliaryRenderers() {
 				selectedId: globalState.selectedId,
 				selectedNodeIds: Array.from(new Set([globalState.selectedId, ...Array.from(globalState.persistentSelectedIds)].filter(Boolean))),
 				linkFocusNodeIds,
-				labelScale,
+				labelScale: 1,
 				logLabelNodeIds,
 			});
 		} catch {}
 	}
 	if (globalState.pixiApi && typeof globalState.pixiApi.drawFrame === 'function') {
 		try {
-			globalState.pixiApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, { selectedId: globalState.selectedId, labelScale, logLabelNodeIds });
+			globalState.pixiApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
+				selectedId: globalState.selectedId,
+				labelScale: 1,
+				logLabelNodeIds,
+			});
 		} catch {}
 	}
 }
@@ -11776,14 +11766,12 @@ export function getNodeLabelFontSize({
 	isEmphasized = false,
 	zoomScale: _zoomScale = getCurrentGraphZoomScale(),
 }: { isSelected?: boolean; isHovered?: boolean; isBolded?: boolean; isEmphasized?: boolean; zoomScale?: number } = {}) {
-	// Large labels are tied only to Log Bold / per-CRD Bold in the selection log.
-	// Selection chrome (ring, weight) stays separate from label size.
+	// Fixed sizes — no zoom scaling. Bold is only for Log Bold / per-CRD Bold.
 	void isSelected;
 	void isHovered;
 	void isEmphasized;
-	const screenSize = isBolded ? 26 : 20;
-	const graphZoom = Math.max(0.01, Number(_zoomScale) || 1);
-	return screenSize / graphZoom;
+	void _zoomScale;
+	return isBolded ? 26 : 20;
 }
 
 export function getNodeTooltipTitle(node) {
