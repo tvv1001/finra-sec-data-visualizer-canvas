@@ -30,8 +30,7 @@ function shouldShowCanvasLabel(node: Node) {
 	const scale = currentTransform.k || 1;
 	const nodeId = String(node?.id);
 	const forcedLabelIds = new Set((currentOpts.logLabelNodeIds || []).map((id: string | number) => String(id)));
-	const selectedIds = new Set((currentOpts.selectedNodeIds || []).map((id: string | number) => String(id)));
-	return forcedLabelIds.has(nodeId) || selectedIds.has(nodeId) || (currentOpts.selectedId != null && String(currentOpts.selectedId) === nodeId) || scale >= 0.45;
+	return forcedLabelIds.has(nodeId) || scale >= 0.45;
 }
 
 function hideCanvasTooltip() {
@@ -110,21 +109,20 @@ function getHitNode(clientX: number, clientY: number) {
 	if (ctx) {
 		const scale = currentTransform.k || 1;
 		const forcedLabelIds = new Set((currentOpts.logLabelNodeIds || []).map((id: string | number) => String(id)));
-		const selectedIds = new Set((currentOpts.selectedNodeIds || []).map((id: string | number) => String(id)));
-		const selectedId = currentOpts.selectedId == null ? null : String(currentOpts.selectedId);
 		let bestLabelDistance = Infinity;
 
 		for (const n of currentNodes) {
 			if (!Number.isFinite(n?.x) || !Number.isFinite(n?.y)) continue;
 			const nodeId = String(n.id);
-			const isSelected = selectedId === nodeId || selectedIds.has(nodeId);
 			const isForcedLabel = forcedLabelIds.has(nodeId);
-			const shouldShowLabel = isForcedLabel || isSelected || scale >= 0.45;
+			const shouldShowLabel = isForcedLabel || scale >= 0.45;
 			if (!shouldShowLabel) continue;
 
 			const labelText = getNodeLabel(n) || nodeId;
-			const isBoldLabel = Boolean(selectedId === nodeId || isForcedLabel);
-			const labelSize = (isBoldLabel ? CANVAS_SELECTED_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE) * Math.max(0.01, scale);
+			// Large/bold text follows Log Bold only — not selection or highlights.
+			const isBoldLabel = isForcedLabel;
+			// Font size is screen pixels (zoom is applied only by worldToScreen).
+			const labelSize = isBoldLabel ? CANVAS_SELECTED_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
 			ctx.save();
 			ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;
 			const labelWidth = ctx.measureText(labelText).width;
@@ -399,7 +397,12 @@ function getColorForGroup(g: string) {
 	return colors.defaultText;
 }
 
-function getLinkStyle(link: Link, selectedId: string | number | undefined, selectedNodeIds: Set<string>, selectedNodeActive: boolean, nodeGroupMap: Map<string, string>) {
+function getLinkStyle(
+	link: Link,
+	linkFocusNodeIds: Set<string>,
+	linkHighlightsActive: boolean,
+	nodeGroupMap: Map<string, string>,
+) {
 	const colors = resolveCachedThemeColors();
 	const source = endpointNode(link?.source);
 	const target = endpointNode(link?.target);
@@ -410,12 +413,13 @@ function getLinkStyle(link: Link, selectedId: string | number | undefined, selec
 	const tId = String(target?.id);
 	const sFirm = nodeGroupMap.get(sId) === 'firm';
 	const tFirm = nodeGroupMap.get(tId) === 'firm';
-	
-	const isHovered = (hoverNodeId != null && (sId === hoverNodeId || tId === hoverNodeId));
-	
-	const sTrigger = (String(selectedId) === sId || selectedNodeIds.has(sId)) && !sFirm;
-	const tTrigger = (String(selectedId) === tId || selectedNodeIds.has(tId)) && !tFirm;
-	
+
+	const isHovered = hoverNodeId != null && (sId === hoverNodeId || tId === hoverNodeId);
+
+	// Line emphasis follows Clear Highlight / hop roots — not durable node selection chrome.
+	const sTrigger = linkFocusNodeIds.has(sId) && !sFirm;
+	const tTrigger = linkFocusNodeIds.has(tId) && !tFirm;
+
 	const selected = isHovered || sTrigger || tTrigger;
 	return {
 		color:
@@ -429,7 +433,7 @@ function getLinkStyle(link: Link, selectedId: string | number | undefined, selec
 		selectedWidthMultiplier: selected ? 1.5 : 1,
 		opacity:
 			selected ? 1
-			: selectedNodeActive ? 0.34
+			: linkHighlightsActive ? 0.34
 			: inactive ? 0.92
 			: control ? 1
 			: previous ? 0.92
@@ -445,14 +449,25 @@ export function drawCanvasFrame(
 	nodes: Node[],
 	links: Link[],
 	transform: { x: number; y: number; k: number },
-	opts: { selectedId?: string | number; selectedNodeIds?: Array<string | number>; labelScale?: number; logLabelNodeIds?: Array<string | number> } = {},
+	opts: {
+		selectedId?: string | number;
+		selectedNodeIds?: Array<string | number>;
+		linkFocusNodeIds?: Array<string | number>;
+		labelScale?: number;
+		logLabelNodeIds?: Array<string | number>;
+	} = {},
 ) {
 	currentNodes = nodes;
 	currentLinks = links;
-	currentOpts = opts;
+	// Keep prior Log Bold ids when a redraw omits them (zoom/tick used to wipe bold labels).
+	currentOpts = {
+		...opts,
+		logLabelNodeIds: Array.isArray(opts.logLabelNodeIds) ? opts.logLabelNodeIds : currentOpts.logLabelNodeIds || [],
+	};
 	currentTransform = transform;
 	const selectedNodeIds = new Set((opts.selectedNodeIds || []).map((id) => String(id)));
-	const selectedNodeActive = Boolean(opts.selectedId) || selectedNodeIds.size > 0;
+	const linkFocusNodeIds = new Set((opts.linkFocusNodeIds || []).map((id) => String(id).trim()).filter(Boolean));
+	const linkHighlightsActive = linkFocusNodeIds.size > 0;
 	const nodeGroupMap = new Map();
 	for (const n of nodes) {
 		nodeGroupMap.set(String(n.id), n.group);
@@ -489,7 +504,7 @@ export function drawCanvasFrame(
 		if (a.y > maxY && b.y > maxY) continue;
 		const sa = worldToScreen(a.x, a.y, transform);
 		const sb = worldToScreen(b.x, b.y, transform);
-		const style = getLinkStyle(l, opts.selectedId, selectedNodeIds, selectedNodeActive, nodeGroupMap);
+		const style = getLinkStyle(l, linkFocusNodeIds, linkHighlightsActive, nodeGroupMap);
 		ctx.beginPath();
 		ctx.setLineDash(style.dash);
 		// Keep links thin at every zoom; only taper further when the graph is zoomed out.
@@ -518,7 +533,7 @@ export function drawCanvasFrame(
 	const labelCandidates = visibleNodes
 		.filter((node) => {
 			const id = String(node.id);
-			return forcedLabelIds.has(id) || selectedNodeIds.has(id) || (opts.selectedId != null && String(opts.selectedId) === id) || hoverNodeId === id;
+			return forcedLabelIds.has(id) || hoverNodeId === id;
 		})
 		.map((node) => node.id);
 	const labelCandidateIds = new Set(labelCandidates);
@@ -533,7 +548,7 @@ export function drawCanvasFrame(
 		const isNodeSelected = Boolean(isSelected || isPersistentlySelected);
 		const isHovered = hoverNodeId === String(n.id);
 		const isForcedLabel = forcedLabelIds.has(String(n.id));
-		const isBoldLabel = Boolean(isSelected || isForcedLabel);
+		const isBoldLabel = isForcedLabel;
 		const isControlPosition = isControlPositionNode(n);
 		const hasCurrentFirmConnections = n.group === 'firm' && Number(n?._deg?.total || 0) > 0;
 		const size = getCanvasNodeSize(n);
@@ -583,13 +598,13 @@ export function drawCanvasFrame(
 			ctx.stroke();
 		}
 
-		if (shouldShowLabel && (isForcedLabel || isNodeSelected || scale >= selectedCanvasLabelZoomThreshold)) {
+		if (shouldShowLabel && (isForcedLabel || scale >= selectedCanvasLabelZoomThreshold)) {
 			renderedLabelCount += 1;
 			canvasLabelVisibleIds.add(String(n.id));
 			const p = worldToScreen(n.x, n.y, transform);
 
-			const baseLabelSize = isBoldLabel ? CANVAS_SELECTED_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
-			const labelSize = baseLabelSize * Math.max(0.01, transform.k || 1);
+			// Font size is screen pixels (zoom is applied only by worldToScreen).
+			const labelSize = isBoldLabel ? CANVAS_SELECTED_LABEL_SIZE : CANVAS_DEFAULT_LABEL_SIZE;
 			ctx.save();
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 			ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;

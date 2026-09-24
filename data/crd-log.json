@@ -1,6 +1,134 @@
 {
   "firms": [
     {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
+      "id": 25025,
+      "name": "E*TRADE CLEARING LLC"
+    },
+    {
+      "id": 29106,
+      "name": "E*TRADE SECURITIES LLC"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
+    },
+    {
+      "id": 7870,
+      "name": "TD AMERITRADE, INC."
+    },
+    {
+      "id": 134,
+      "name": "CANTOR FITZGERALD & CO."
+    },
+    {
+      "id": 47968,
+      "name": "ESPEED BROKERAGE, L.P."
+    },
+    {
+      "id": 47681,
+      "name": "AQUA SECURITIES L.P."
+    },
+    {
+      "id": 13681,
+      "name": "BGC SECURITIES"
+    },
+    {
+      "id": 19801,
+      "name": "BGC FINANCIAL, L.P."
+    },
+    {
+      "id": 816,
+      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
+    },
+    {
+      "id": 282107,
+      "name": "J.P. MORGAN PRIME INC."
+    },
+    {
+      "id": 18718,
+      "name": "J.P. MORGAN SECURITIES INC."
+    },
+    {
+      "id": 5181,
+      "name": "JOHN HANCOCK MUTUAL LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 468,
+      "name": "JOHN HANCOCK DISTRIBUTORS, INC."
+    },
+    {
+      "id": 6635,
+      "name": "GUARDIAN INVESTOR SERVICES CORPORATION"
+    },
+    {
+      "id": 5167,
+      "name": "NYLIFE SECURITIES LLC"
+    },
+    {
+      "id": 35350,
+      "name": "NYLIFE DISTRIBUTORS LLC"
+    },
+    {
+      "id": 110826,
+      "name": "EAGLE STRATEGIES LLC"
+    },
+    {
+      "id": 2881,
+      "name": "NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC"
+    },
+    {
+      "id": 105644,
+      "name": "CETERA INVESTMENT ADVISERS LLC"
+    },
+    {
+      "id": 10299,
+      "name": "CETERA ADVISORS LLC"
+    },
+    {
+      "id": 6321,
+      "name": "IDS LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 6363,
+      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 104950,
+      "name": "GAMCO ASSET MANAGEMENT INC."
+    },
+    {
+      "id": 7353,
+      "name": "GABELLI & COMPANY, INC."
+    },
+    {
+      "id": 7059,
+      "name": "CITIGROUP GLOBAL MARKETS INC."
+    },
+    {
+      "id": 36368,
+      "name": "MACQUARIE CAPITAL (USA) INC."
+    },
+    {
+      "id": 2882,
+      "name": "VOYA FINANCIAL ADVISORS, INC."
+    },
+    {
+      "id": 35747,
+      "name": "PURSHE KAPLAN STERLING INVESTMENTS"
+    },
+    {
+      "id": 23224,
+      "name": "MADISON AVENUE SECURITIES, LLC"
+    },
+    {
       "id": 106999,
       "name": "ST. LOUIS FINANCIAL PLANNERS ASSET MANAGEMENT, LLC"
     },
@@ -185,14 +313,6 @@
       "name": "FOCUS STRATEGIES MERCHANT BANKING, LLC"
     },
     {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
-    },
-    {
       "id": 19616,
       "name": "WELLS FARGO CLEARING SERVICES, LLC"
     },
@@ -229,10 +349,6 @@
       "name": "FIDELITY BROKERAGE SERVICES LLC"
     },
     {
-      "id": 816,
-      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
-    },
-    {
       "id": 6413,
       "name": "LPL FINANCIAL LLC"
     },
@@ -251,10 +367,6 @@
     {
       "id": 158282,
       "name": "ADVISORY ALPHA, LLC"
-    },
-    {
-      "id": 2881,
-      "name": "NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC"
     },
     {
       "id": 14455,
@@ -325,10 +437,6 @@
       "name": "STEWARDSHIP FINANCIAL ADVISORS, LLC"
     },
     {
-      "id": 10299,
-      "name": "CETERA ADVISORS LLC"
-    },
-    {
       "id": 175112,
       "name": "CAPTRUST"
     },
@@ -353,18 +461,6 @@
       "name": "CUNA BROKERAGE SERVICES, INC."
     },
     {
-      "id": 2882,
-      "name": "VOYA FINANCIAL ADVISORS, INC."
-    },
-    {
-      "id": 35747,
-      "name": "PURSHE KAPLAN STERLING INVESTMENTS"
-    },
-    {
-      "id": 23224,
-      "name": "MADISON AVENUE SECURITIES, LLC"
-    },
-    {
       "id": 122481,
       "name": "M.J. WHITMAN LLC"
     },
@@ -375,14 +471,6 @@
     {
       "id": 615,
       "name": "NEW ENGLAND SECURITIES"
-    },
-    {
-      "id": 7059,
-      "name": "CITIGROUP GLOBAL MARKETS INC."
-    },
-    {
-      "id": 149777,
-      "name": "MORGAN STANLEY SMITH BARNEY"
     },
     {
       "id": 152172,
@@ -437,10 +525,6 @@
       "name": "MORGAN KEEGAN & COMPANY, INC."
     },
     {
-      "id": 105644,
-      "name": "CETERA INVESTMENT ADVISERS LLC"
-    },
-    {
       "id": 15340,
       "name": "CETERA INVESTMENT SERVICES LLC"
     },
@@ -463,26 +547,6 @@
     {
       "id": 297984,
       "name": "IHT SECURITIES, LLC"
-    },
-    {
-      "id": 104950,
-      "name": "GAMCO ASSET MANAGEMENT INC."
-    },
-    {
-      "id": 7353,
-      "name": "GABELLI & COMPANY, INC."
-    },
-    {
-      "id": 36368,
-      "name": "MACQUARIE CAPITAL (USA) INC."
-    },
-    {
-      "id": 6321,
-      "name": "IDS LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 6363,
-      "name": "AMERIPRISE FINANCIAL SERVICES, INC."
     },
     {
       "id": 170914,
@@ -1033,10 +1097,6 @@
       "name": "JOHN HANCOCK FUNDS, INC."
     },
     {
-      "id": 468,
-      "name": "JOHN HANCOCK DISTRIBUTORS, INC."
-    },
-    {
       "id": 13626,
       "name": "AMERICAN GENERAL SECURITIES INCORPORATED"
     },
@@ -1193,14 +1253,6 @@
       "name": "E*TRADE GLOBAL ASSET MANAGEMENT, INC."
     },
     {
-      "id": 29106,
-      "name": "E*TRADE SECURITIES LLC"
-    },
-    {
-      "id": 25025,
-      "name": "E*TRADE CLEARING LLC"
-    },
-    {
       "id": 29357,
       "name": "BANCWEST INVESTMENT SERVICES, INC."
     },
@@ -1355,10 +1407,6 @@
     {
       "id": 8206,
       "name": "SCOTTRADE, INC."
-    },
-    {
-      "id": 7870,
-      "name": "TD AMERITRADE, INC."
     },
     {
       "id": 5633,
@@ -1911,10 +1959,6 @@
     {
       "id": 25574,
       "name": "CHASE INVESTMENT SERVICES CORP."
-    },
-    {
-      "id": 18718,
-      "name": "J.P. MORGAN SECURITIES INC."
     },
     {
       "id": 26091,
@@ -2473,10 +2517,6 @@
       "name": "THRIVENT INVESTMENT MANAGEMENT INC."
     },
     {
-      "id": 6635,
-      "name": "GUARDIAN INVESTOR SERVICES LLC"
-    },
-    {
       "id": 39062,
       "name": "UNITED BROKERAGE SERVICES, INC"
     },
@@ -2599,14 +2639,6 @@
     {
       "id": 143571,
       "name": "KKR CAPITAL MARKETS LLC"
-    },
-    {
-      "id": 110826,
-      "name": "EAGLE STRATEGIES LLC"
-    },
-    {
-      "id": 5167,
-      "name": "NYLIFE SECURITIES LLC"
     },
     {
       "id": 6247,
@@ -4117,10 +4149,6 @@
       "name": "1ST GLOBAL ADVISORS INC"
     },
     {
-      "id": 35350,
-      "name": "NYLIFE DISTRIBUTORS LLC"
-    },
-    {
       "id": 148456,
       "name": "WEALTHFRONT ADVISERS LLC"
     },
@@ -4267,10 +4295,6 @@
     {
       "id": 114994,
       "name": "CAPITOL WEALTH MANAGEMENT, INC."
-    },
-    {
-      "id": 5181,
-      "name": "JOHN HANCOCK MUTUAL LIFE INSURANCE COMPANY"
     },
     {
       "id": 4386,
@@ -5701,30 +5725,6 @@
       "name": "WOLF A. POPPER, INC."
     },
     {
-      "id": 134,
-      "name": "CANTOR FITZGERALD & CO."
-    },
-    {
-      "id": 47968,
-      "name": "ESPEED BROKERAGE, L.P."
-    },
-    {
-      "id": 47681,
-      "name": "AQUA SECURITIES L.P."
-    },
-    {
-      "id": 13681,
-      "name": "BGC SECURITIES"
-    },
-    {
-      "id": 19801,
-      "name": "BGC FINANCIAL, L.P."
-    },
-    {
-      "id": 282107,
-      "name": "J.P. MORGAN PRIME INC."
-    },
-    {
       "id": 6939,
       "name": "VAN KAMPEN FUNDS INC."
     },
@@ -6967,6 +6967,46 @@
   ],
   "individuals": [
     {
+      "id": 8071637,
+      "name": "David S Villwock"
+    },
+    {
+      "id": 2212982,
+      "name": "PAUL VIENICK"
+    },
+    {
+      "id": 2903336,
+      "name": "Thomas Michael Balas"
+    },
+    {
+      "id": 4835849,
+      "name": "Matthew D Sable"
+    },
+    {
+      "id": 2404467,
+      "name": "SONALI NMN VIRENDRA"
+    },
+    {
+      "id": 6410914,
+      "name": "NABEED ZAMAN"
+    },
+    {
+      "id": 322246,
+      "name": "JEFFREY ROBERT MASON"
+    },
+    {
+      "id": 6600114,
+      "name": "William Andrew Mason"
+    },
+    {
+      "id": 2316612,
+      "name": "ANDREW TIMOTHY MASON"
+    },
+    {
+      "id": 3259749,
+      "name": "KEVIN MCADAM"
+    },
+    {
       "id": 714168,
       "name": "TIMOTHY DAVID HUNT"
     },
@@ -7233,10 +7273,6 @@
     {
       "id": 4984877,
       "name": "DAVID BRYAN PAYNE"
-    },
-    {
-      "id": 3259749,
-      "name": "KEVIN MCADAM"
     },
     {
       "id": 3247724,
@@ -9327,16 +9363,8 @@
       "name": "William Williams"
     },
     {
-      "id": 8071637,
-      "name": "David S Villwock"
-    },
-    {
       "id": 1455158,
       "name": "Michael A Matsis"
-    },
-    {
-      "id": 2903336,
-      "name": "Thomas Michael Balas"
     },
     {
       "id": 2907298,

@@ -1510,7 +1510,7 @@ export default function FinraGraph() {
 							<button
 								type='button'
 								data-fg-action='clear-highlights'
-								className='fg-ghost-btn'
+								className='fg-ghost-btn fg-clear-highlights-btn'
 								title='Clear hop/line highlights only — selected nodes stay selected'>
 								Clear Highlight
 							</button>

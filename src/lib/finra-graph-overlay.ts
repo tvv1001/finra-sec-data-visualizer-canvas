@@ -281,10 +281,12 @@ export function updateOverlay(
 		}
 		const p = worldToScreen(n.x, n.y, transform);
 		const visualHalf = getNodeVisualHalf(n) * Math.max(0.1, transform.k || 1);
-		const isFocusedLabel = Boolean(opts.selectedId && String(opts.selectedId) === String(n.id)) || forcedLabelIds.has(String(n.id));
+		// Large overlay labels follow Log Bold / log-list Bold only — not selection.
+		const isLogBoldLabel = forcedLabelIds.has(String(n.id));
 		el.style.left = `${Math.round(p.x)}px`;
 		el.style.top = `${Math.round(p.y + visualHalf + DEFAULT_NODE_LABEL_GAP_PX)}px`;
-		el.style.fontSize = `${isFocusedLabel ? OVERLAY_SELECTED_LABEL_SIZE_PX : OVERLAY_DEFAULT_LABEL_SIZE_PX}px`;
+		el.style.fontSize = `${isLogBoldLabel ? OVERLAY_SELECTED_LABEL_SIZE_PX : OVERLAY_DEFAULT_LABEL_SIZE_PX}px`;
+		el.style.fontWeight = isLogBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT;
 	}
 
 	// remove leftover labels

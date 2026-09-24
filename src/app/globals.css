@@ -348,7 +348,6 @@ html[data-theme='dark'] .fg-node.fg-node--find-match-active text.fg-label,
 html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='dark'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: clamp(10px, 4ch, 133px) !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
 	stroke: none !important;
@@ -381,7 +380,6 @@ html[data-theme='light'] .fg-node.fg-node--find-match-active text.fg-label,
 html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='light'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: clamp(10px, 4ch, 133px) !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
 	fill: var(--color-node-label) !important;
@@ -2265,6 +2263,33 @@ a,
 	border-color: rgba(37, 99, 235, 0.32);
 }
 
+/* Clear Highlight (when a node is selected) matches Clear non-log stage-1 blue */
+.fg-clear-highlights-btn.fg-clear-highlights-btn--active {
+	background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+	border-color: rgba(37, 99, 235, 0.45);
+	color: #1d4ed8;
+	box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.fg-clear-highlights-btn.fg-clear-highlights-btn--active:hover:not(:disabled) {
+	background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+	border-color: rgba(37, 99, 235, 0.6);
+	color: #1e40af;
+}
+
+html[data-theme='dark'] .fg-clear-highlights-btn.fg-clear-highlights-btn--active {
+	background: rgba(37, 99, 235, 0.22);
+	border-color: rgba(96, 165, 250, 0.45);
+	color: #93c5fd;
+	box-shadow: none;
+}
+
+html[data-theme='dark'] .fg-clear-highlights-btn.fg-clear-highlights-btn--active:hover:not(:disabled) {
+	background: rgba(37, 99, 235, 0.32);
+	border-color: rgba(147, 197, 253, 0.6);
+	color: #bfdbfe;
+}
+
 /* Clear non-log: stage 1 = blue (clear non-connected), stage 2 = purple (full clear-non-log) */
 .fg-clear-non-log-btn.fg-clear-non-log-btn--stage-1 {
 	background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
@@ -3923,9 +3948,8 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	opacity: 0.48 !important;
 }
 
-.fg-node.selected text.fg-label,
 .fg-node.fg-node--find-match text.fg-label,
-.fg-node.highlighted-hop text.fg-label {
+.fg-node.fg-node--selection-log-label text.fg-label.fg-label--logged {
 	font-weight: var(--font-weight-node-label-selected, 700);
 	opacity: 1 !important;
 }
@@ -3934,15 +3958,13 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	font-weight: 400 !important;
 }
 
-.fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):hover text.fg-label,
-.fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus text.fg-label,
-.fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus-within text.fg-label {
+.fg-node:not(.fg-node--selection-log-label):not(.fg-node--find-match):not(.fg-node--active-parent-connected):hover text.fg-label,
+.fg-node:not(.fg-node--selection-log-label):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus text.fg-label,
+.fg-node:not(.fg-node--selection-log-label):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus-within text.fg-label {
 	font-weight: 400 !important;
 }
 
-.fg-node.fg-node--inactive.selected text.fg-label,
-.fg-node.fg-node--inactive.fg-node--find-match text.fg-label,
-.fg-node.fg-node--inactive.highlighted-hop text.fg-label {
+.fg-node.fg-node--inactive.fg-node--find-match text.fg-label {
 	fill: var(--color-node-inactive-label) !important;
 	opacity: 0.72 !important;
 }
@@ -3957,10 +3979,8 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	filter: none !important;
 }
 
-:not(.theme-dark) .fg-node.selected text.fg-label,
-:not(.theme-dark) .fg-node.highlighted-hop text.fg-label,
-[data-theme='light'] .fg-node.selected text.fg-label,
-[data-theme='light'] .fg-node.highlighted-hop text.fg-label {
+:not(.theme-dark) .fg-node.fg-node--selection-log-label text.fg-label.fg-label--logged,
+[data-theme='light'] .fg-node.fg-node--selection-log-label text.fg-label.fg-label--logged {
 	fill: var(--text) !important;
 	stroke: none !important;
 	stroke-width: 0 !important;
@@ -3969,12 +3989,12 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	font-weight: var(--font-weight-node-label-selected, 700);
 }
 
-:not(.theme-dark) .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):hover text.fg-label,
-:not(.theme-dark) .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus text.fg-label,
-:not(.theme-dark) .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus-within text.fg-label,
-[data-theme='light'] .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):hover text.fg-label,
-[data-theme='light'] .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus text.fg-label,
-[data-theme='light'] .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus-within text.fg-label {
+:not(.theme-dark) .fg-node:not(.fg-node--selection-log-label):not(.fg-node--find-match):not(.fg-node--active-parent-connected):hover text.fg-label,
+:not(.theme-dark) .fg-node:not(.fg-node--selection-log-label):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus text.fg-label,
+:not(.theme-dark) .fg-node:not(.fg-node--selection-log-label):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus-within text.fg-label,
+[data-theme='light'] .fg-node:not(.fg-node--selection-log-label):not(.fg-node--find-match):not(.fg-node--active-parent-connected):hover text.fg-label,
+[data-theme='light'] .fg-node:not(.fg-node--selection-log-label):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus text.fg-label,
+[data-theme='light'] .fg-node:not(.fg-node--selection-log-label):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus-within text.fg-label {
 	font-weight: 400 !important;
 }
 
@@ -4047,7 +4067,6 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 .fg-root.fg-trace-labels .fg-node.trace-combined text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-combined-connector text.fg-label {
 	fill: #000000 !important;
-	font-size: 26px !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
 	stroke: none !important;
@@ -4659,27 +4678,14 @@ html[data-theme='light'] .fg-empty-card.fg-session-restore-card {
 	stroke-width: 6px !important;
 }
 
-.fg-node.selected text.fg-label,
-.fg-node.highlighted-hop text.fg-label {
+.fg-node.fg-node--selection-log-label text.fg-label.fg-label--logged {
 	fill: var(--color-node-label) !important;
-	font-weight: 300 !important;
-	opacity: 1 !important;
-}
-
-.fg-node.selected text.fg-label:hover,
-.fg-node.selected text.fg-label:focus,
-.fg-node.selected text.fg-label:focus-within,
-.fg-node.highlighted-hop text.fg-label:hover,
-.fg-node.highlighted-hop text.fg-label:focus,
-.fg-node.highlighted-hop text.fg-label:focus-within {
-	fill: var(--color-node-label) !important;
-	font-weight: var(--font-weight-node-label-selected, 700) !important;
+	font-weight: 700 !important;
 	opacity: 1 !important;
 }
 
 text.fg-label {
 	fill: var(--color-node-label) !important;
-	font-size: clamp(10px, 2.4ch, 133px) !important;
 	font-weight: var(--fg-node-label-font-weight, 100) !important;
 	opacity: 1 !important;
 	stroke: none !important;

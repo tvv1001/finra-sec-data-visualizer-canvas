@@ -361,7 +361,7 @@ type GraphSimulationLink = {
 /** Cap hop/line BFS roots. Keep this high so multi-select keeps earlier highlighted lines lit. */
 export const MAX_HOP_HIGHLIGHT_ROOTS = 500;
 /** Cap selection-log-bold entries that also act as hop highlight roots. */
-export const MAX_LOG_BOLD_HIGHLIGHT_ROOTS = 128;
+
 // moved spreadAnimId to globalState
 // moved spreadReleaseTimer to globalState
 // moved activeSpreadFrozenNodes to globalState
@@ -656,10 +656,19 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 			try {
 				const transform = getCurrentZoomTransform();
 				const labelScale = globalState.selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
-				globalState.pixiApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, { selectedId: globalState.selectedId, labelScale });
+				const logLabelNodeIds = getSelectionLogLabelNodeIds();
+				globalState.pixiApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
+					selectedId: globalState.selectedId,
+					labelScale,
+					logLabelNodeIds,
+				});
 				if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 					try {
-						globalState.overlayApi.update(globalState.layoutNodes || [], transform, { selectedId: globalState.selectedId, labelScale });
+						globalState.overlayApi.update(globalState.layoutNodes || [], transform, {
+							selectedId: globalState.selectedId,
+							labelScale,
+							logLabelNodeIds,
+						});
 					} catch (e) {}
 				}
 			} catch (e) {
@@ -671,14 +680,22 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 			try {
 				const transform = getCurrentZoomTransform();
 				const labelScale = globalState.selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
+				const logLabelNodeIds = getSelectionLogLabelNodeIds();
+				const linkFocusNodeIds = getCanvasLinkFocusNodeIds();
 				globalState.canvasApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
 					selectedId: globalState.selectedId,
 					selectedNodeIds: Array.from(new Set([globalState.selectedId, ...Array.from(globalState.persistentSelectedIds)].filter(Boolean))),
+					linkFocusNodeIds,
 					labelScale,
+					logLabelNodeIds,
 				});
 				if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 					try {
-						globalState.overlayApi.update(globalState.layoutNodes || [], transform, { selectedId: globalState.selectedId, labelScale });
+						globalState.overlayApi.update(globalState.layoutNodes || [], transform, {
+							selectedId: globalState.selectedId,
+							labelScale,
+							logLabelNodeIds,
+						});
 					} catch (e) {}
 				}
 			} catch (e) {
@@ -2381,11 +2398,7 @@ let isTraceMode = false;
 let isTraceLogMode = false;
 let isSelectionLogBold = false;
 let isSelectionLogEditMode = false;
-// Set by clearHighlights() to temporarily suppress the "every selection-log individual
-// is a highlight root" behavior while Log Bold stays on. Cleared whenever a new
-// highlight root is introduced (selection, hover, focus, find match) so the button
-// only clears existing highlighting rather than disabling Log Bold itself.
-let logBoldHighlightRootsSuppressed = false;
+
 let selectionLogFilterText = '';
 let logGroupFirmsExpanded = true;
 let logGroupIndividualsExpanded = false;
@@ -3254,10 +3267,21 @@ export function filterSelectionLogLabelNodeIdsByScope(
 	});
 }
 
+function getCanvasLinkFocusNodeIds() {
+	return Array.from(
+		new Set(
+			(Array.isArray(globalState.highlightedSelections) ? globalState.highlightedSelections : [])
+				.map((entry) => String(entry?.id || '').trim())
+				.filter(Boolean),
+		),
+	);
+}
+
 function syncSelectionLogAuxiliaryRenderers() {
 	const transform = getCurrentZoomTransform();
 	const labelScale = globalState.selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
 	const logLabelNodeIds = getSelectionLogLabelNodeIds();
+	const linkFocusNodeIds = getCanvasLinkFocusNodeIds();
 	if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 		try {
 			globalState.overlayApi.update(globalState.layoutNodes || [], transform, { selectedId: globalState.selectedId, labelScale, logLabelNodeIds });
@@ -3268,6 +3292,7 @@ function syncSelectionLogAuxiliaryRenderers() {
 			globalState.canvasApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
 				selectedId: globalState.selectedId,
 				selectedNodeIds: Array.from(new Set([globalState.selectedId, ...Array.from(globalState.persistentSelectedIds)].filter(Boolean))),
+				linkFocusNodeIds,
 				labelScale,
 				logLabelNodeIds,
 			});
@@ -3373,6 +3398,7 @@ function syncSelectionLogActionButtonStates() {
 
 	if (selectedNodesLog.length === 0) clearNonLogClickStage = 1;
 	syncClearNonLogButtonState();
+	syncClearHighlightsButtonState();
 }
 
 // Listen for overlay hover/click events dispatched from the HTML overlay so
@@ -4816,6 +4842,15 @@ function syncClearNonLogButtonState() {
 	}
 }
 
+function syncClearHighlightsButtonState() {
+	// Blue only while hop/line highlights are active. After Clear Highlight, return to default gray.
+	const hasHighlights = Array.isArray(globalState.highlightedSelections) && globalState.highlightedSelections.length > 0;
+	document.querySelectorAll<HTMLButtonElement>('[data-fg-action="clear-highlights"]').forEach((button) => {
+		button.classList.add('fg-clear-highlights-btn');
+		button.classList.toggle('fg-clear-highlights-btn--active', hasHighlights);
+	});
+}
+
 /** Keep log nodes and bridges between them; drop dangling leaves. */
 function clearNonConnectedAction(button?: HTMLButtonElement) {
 	const logIds = new Set<string>(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean));
@@ -4881,7 +4916,6 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 	// Drop prior hop/line connection emphasis left over from earlier expansions.
 	// Avoid full clearHighlights() here — it re-walks every node/link and feels like another multi-second hitch.
 	globalState.highlightedSelections = [];
-	logBoldHighlightRootsSuppressed = true;
 	globalState.hoveredNodeId = null;
 	globalState.focusedNodeId = null;
 	try {
@@ -5342,7 +5376,6 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 				else clearedSelectionLogLabelNodeIds.add(id);
 			});
 			saveClearedSelectionLogLabelsPreference();
-			logBoldHighlightRootsSuppressed = false;
 		}
 		saveSelectionLogBoldPreference();
 		saveSession();
@@ -5786,18 +5819,14 @@ export function selectHopHighlightRoots(
 		hoveredNodeId?: string | null;
 		focusedNodeId?: string | null;
 		activeFindId?: string | null;
-		logBoldNodeIds?: string[];
 		maxSelectionRoots?: number;
-		maxLogBoldRoots?: number;
 	} = {},
 ) {
 	const {
 		hoveredNodeId: hoverId = null,
 		focusedNodeId: focusId = null,
 		activeFindId = null,
-		logBoldNodeIds = [],
 		maxSelectionRoots = MAX_HOP_HIGHLIGHT_ROOTS,
-		maxLogBoldRoots = MAX_LOG_BOLD_HIGHLIGHT_ROOTS,
 	} = options;
 
 	const tempRoots: Array<{ id: string; hops: any; isSelection: boolean }> = [];
@@ -5822,12 +5851,6 @@ export function selectHopHighlightRoots(
 	pushRoot(focusId, 1, false);
 	pushRoot(activeFindId, 1, false);
 
-	let logBoldCount = 0;
-	for (const id of logBoldNodeIds) {
-		if (logBoldCount >= maxLogBoldRoots) break;
-		if (pushRoot(id, 1, false)) logBoldCount += 1;
-	}
-
 	return tempRoots;
 }
 
@@ -5841,21 +5864,10 @@ function computeHighlightState() {
 
 	const nodeById = new Map<string, any>((globalState.layoutNodes || []).map((node) => [String(node.id), node]));
 
-	const logBoldNodeIds =
-		isSelectionLogBold && !logBoldHighlightRootsSuppressed && Array.isArray(selectedNodesLog) ?
-			selectedNodesLog
-				.filter((entry) => nodeById.get(entry.id)?.group === 'individual')
-				.map((entry) => String(entry.id || '').trim())
-				.filter(Boolean)
-				// Prefer more recently logged people when capping hop roots.
-				.reverse()
-		:	[];
-
 	const tempRoots = selectHopHighlightRoots(globalState.highlightedSelections, {
 		hoveredNodeId: globalState.hoveredNodeId,
 		focusedNodeId: globalState.focusedNodeId,
 		activeFindId,
-		logBoldNodeIds,
 	});
 
 	if (!tempRoots.length) {
@@ -6177,6 +6189,7 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 			null;
 
 		reapplySelectionState();
+		syncClearHighlightsButtonState();
 
 		const node = Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.find((entry) => entry.id === globalState.selectedId) : null;
 		if (!node) return;
@@ -7501,26 +7514,23 @@ export function init(
 		});
 	});
 
-	const clearHighlightsButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="clear-highlights"]'));
-	clearHighlightsButtons.forEach((button) => bindTouchDragClickSuppression(button));
-	clearHighlightsButtons.forEach((clearHighlightsBtn) => {
-		clearHighlightsBtn.addEventListener('click', () => {
-			clearHighlights();
-			// Preserve/restore a meaningful dashboard route when clearing highlights
-			// so the URL still reflects the currently displayed sidebar node (if any).
-			try {
-				const side = document.getElementById('fg-sidebar');
-				const displayedId = (side && side.dataset && side.dataset.displayedId) || globalState.selectedId || '';
-				if (displayedId) {
-					const nextPath = buildNodeRoutePath(displayedId);
-					if (typeof window !== 'undefined' && window.history && typeof window.history.replaceState === 'function') {
-						window.history.replaceState(window.history.state, document.title || '', nextPath);
-					}
+	// Delegate so Clear Highlight still works after React remounts the sidebar button.
+	document.addEventListener('click', (event) => {
+		const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-fg-action="clear-highlights"]') : null;
+		if (!target) return;
+		clearHighlights();
+		try {
+			const side = document.getElementById('fg-sidebar');
+			const displayedId = (side && side.dataset && side.dataset.displayedId) || globalState.selectedId || '';
+			if (displayedId) {
+				const nextPath = buildNodeRoutePath(displayedId);
+				if (typeof window !== 'undefined' && window.history && typeof window.history.replaceState === 'function') {
+					window.history.replaceState(window.history.state, document.title || '', nextPath);
 				}
-			} catch (e) {
-				// non-critical
 			}
-		});
+		} catch (e) {
+			// non-critical
+		}
 	});
 
 	const graphActionButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-graph-action]'));
@@ -11766,8 +11776,12 @@ export function getNodeLabelFontSize({
 	isEmphasized = false,
 	zoomScale: _zoomScale = getCurrentGraphZoomScale(),
 }: { isSelected?: boolean; isHovered?: boolean; isBolded?: boolean; isEmphasized?: boolean; zoomScale?: number } = {}) {
-	const shouldEmphasize = isSelected || isBolded || isEmphasized;
-	const screenSize = shouldEmphasize ? 26 : 20;
+	// Large labels are tied only to Log Bold / per-CRD Bold in the selection log.
+	// Selection chrome (ring, weight) stays separate from label size.
+	void isSelected;
+	void isHovered;
+	void isEmphasized;
+	const screenSize = isBolded ? 26 : 20;
 	const graphZoom = Math.max(0.01, Number(_zoomScale) || 1);
 	return screenSize / graphZoom;
 }
@@ -12333,7 +12347,10 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 }
 
 function reapplySelectionState() {
-	if (!globalState.nodeSel) return;
+	if (!globalState.nodeSel) {
+		syncClearHighlightsButtonState();
+		return;
+	}
 	const highlightState = computeHighlightState();
 	const activeConnectedIds = new Set<string>();
 	(globalState.layoutLinks || []).forEach((link) => {
@@ -12426,6 +12443,7 @@ function reapplySelectionState() {
 
 	highlightLinks(highlightState);
 	updateNodeVisuals(globalState.nodeSel, { highlightState, activeConnectedIds, activeParentConnectedIds, selectionLogLabelNodeIds });
+	syncClearHighlightsButtonState();
 }
 
 export function shouldRenderNodeSelected(
@@ -12477,6 +12495,7 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 	upsertHighlightedSelection(node.id, 1, { replace: false });
 	globalState.selectedId = node.id;
 	globalState.visitedNodeIds.add(node.id);
+	syncClearHighlightsButtonState();
 	// Keep hover on the clicked node so firm→child line highlights still work while
 	// the cursor remains over a selected firm (mouseenter may not re-fire after click).
 	globalState.hoveredNodeId = String(node.id);
@@ -12490,9 +12509,12 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 }
 
 function getNodeVisualLabelText(node) {
-	const isFocused = node.id === globalState.selectedId || activeFindMatchIds.has(node.id) || (Array.isArray(globalState.highlightedSelections) && globalState.highlightedSelections.some((h) => h.id === node.id));
+	// Selection/highlights do not change label text. Log-bold names stay untruncatedated.
+	const isLogBoldLabel = isSelectionLogEntryBold(node?.id) || activeFindMatchIds.has(node.id);
 
-	return isNodeInactive(node) && globalState.inactiveLabelCompactMode && !isFocused ? getCompactInactiveNodeLabel(node) : getRenderedNodeLabel(node, { skipTruncation: isFocused });
+	return isNodeInactive(node) && globalState.inactiveLabelCompactMode && !isLogBoldLabel ?
+			getCompactInactiveNodeLabel(node)
+		:	getRenderedNodeLabel(node, { skipTruncation: isLogBoldLabel });
 }
 
 function updateNodeVisuals(
@@ -12605,7 +12627,7 @@ function updateNodeVisuals(
 				.attr('opacity', inactive ? 0.86 : 1)
 				.attr('font-size', labelFontSize)
 				.style('font-size', labelFontSize)
-				.attr('font-weight', isSelectedNode || isBolded ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT);
+				.attr('font-weight', isBolded ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT);
 		}
 	});
 }
@@ -16263,6 +16285,7 @@ function selectNode(
 	upsertHighlightedSelection(d.id, 1, { replace: false });
 	globalState.selectedId = d.id;
 	globalState.visitedNodeIds.add(d.id);
+	syncClearHighlightsButtonState();
 	// Keep hover on the clicked node so firm→child lines light while the cursor stays put
 	// (mouseenter may not re-fire after click).
 	globalState.hoveredNodeId = String(d.id || '');
@@ -16963,10 +16986,11 @@ function updateShortDetail(d) {
 }
 
 function clearHighlights() {
-	// Clear both the line emphasis and durable selected-node chrome.
+	// Line and hop emphasis only. Selection chrome and Log Bold labels stay as they are.
+	if (globalState.selectedId) {
+		rememberPersistentSelection(globalState.selectedId);
+	}
 	disableAllTraceModes();
-	globalState.selectedId = null;
-	globalState.persistentSelectedIds.clear();
 	if (globalState.selectionRestoreTimer) {
 		clearTimeout(globalState.selectionRestoreTimer);
 		globalState.selectionRestoreTimer = null;
@@ -16976,16 +17000,11 @@ function clearHighlights() {
 	globalState.focusedNodeId = null;
 	globalState.highlightedSelections = [];
 	clearFindMatches();
-	// While Log Bold is on, every selection-log individual normally acts as a highlight
-	// root (computeHighlightState), which would otherwise make Clear Highlight a no-op.
-	// Suppress that behavior here (without disabling Log Bold itself) so lines/hops
-	// actually reset. The suppression now persists across subsequent selections/hover/
-	// focus so newly selected nodes highlight only themselves; it only lifts when the
-	// user explicitly re-enables Log Bold via the toggle action.
-	logBoldHighlightRootsSuppressed = true;
-	reapplySelectionState();
-	// Canvas has no node selection, so ensure it redraws even when the SVG
-	// selections have not been initialized.
+	if (globalState.nodeSel) {
+		reapplySelectionState();
+	}
+	highlightLinks({ rootIds: new Set(), nodeIds: new Set(), hopNodeIds: new Set(), linkKeys: new Set() });
+	syncClearHighlightsButtonState();
 	syncSelectionLogAuxiliaryRenderers();
 	try {
 		saveSession();

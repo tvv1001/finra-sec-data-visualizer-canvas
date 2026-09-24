@@ -627,16 +627,16 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	});
 
 	it('getNodeLabelFontSize grows as the graph zooms out', () => {
-		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(16);
-		expect(getNodeLabelFontSize({ zoomScale: 0.5 })).toBeGreaterThan(16);
+		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(20);
+		expect(getNodeLabelFontSize({ zoomScale: 0.5 })).toBeGreaterThan(20);
 		expect(getNodeLabelFontSize({ zoomScale: 0.2 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 0.5 }));
 	});
 
-	it('getNodeLabelFontSize enlarges visually emphasized nodes', () => {
+	it('getNodeLabelFontSize enlarges log-bold labels only', () => {
 		const baseSize = getNodeLabelFontSize({ zoomScale: 1 });
-		const emphasizedSize = getNodeLabelFontSize({ isEmphasized: true, zoomScale: 1 } as any);
-
-		expect(emphasizedSize).toBeGreaterThan(baseSize);
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 1 })).toBeGreaterThan(baseSize);
+		expect(getNodeLabelFontSize({ isSelected: true, zoomScale: 1 })).toBe(baseSize);
+		expect(getNodeLabelFontSize({ isEmphasized: true, zoomScale: 1 } as any)).toBe(baseSize);
 	});
 
 	it('handleNodeKeyboardActivation selects focused graph nodes with Enter', () => {
@@ -1014,20 +1014,15 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(isNodeInactive(node)).toBe(true);
 	});
 
-	it('enlarges emphasized labels for hover and selection feedback at zoomed-in views', () => {
-		expect(getNodeLabelFontSize({ isSelected: true, zoomScale: 1.25 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 1.25 }));
-		expect(getNodeLabelFontSize({ isHovered: true, zoomScale: 1.25 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 1.25 }));
+	it('enlarges log-bold labels and leaves selection at normal size', () => {
 		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 1.25 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 1.25 }));
+		expect(getNodeLabelFontSize({ isSelected: true, zoomScale: 1.25 })).toBe(getNodeLabelFontSize({ zoomScale: 1.25 }));
+		expect(getNodeLabelFontSize({ isHovered: true, zoomScale: 1.25 })).toBe(getNodeLabelFontSize({ zoomScale: 1.25 }));
 	});
 
-	it('keeps large labels from shrinking when zooming in', () => {
-		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
+	it('keeps normal labels from shrinking below the screen base when zooming in', () => {
+		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(20);
 		expect(getNodeLabelFontSize({ zoomScale: 1.25 })).toBeGreaterThanOrEqual(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
-	});
-
-	it('makes selected labels larger than standard labels when zoomed in', () => {
-		expect(getNodeLabelFontSize({ isSelected: true, zoomScale: 1.25 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 1.25 }));
-		expect(getNodeLabelFontSize({ isHovered: true, zoomScale: 1.25 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 1.25 }));
 	});
 
 	it('includes firm CRDs in the node tooltip title', () => {
@@ -1339,16 +1334,15 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		}));
 		const roots = selectHopHighlightRoots(selectionRoots, {
 			hoveredNodeId: 'person:hover',
-			logBoldNodeIds: Array.from({ length: 30 }, (_, index) => `person:log${index}`),
 			maxSelectionRoots: MAX_HOP_HIGHLIGHT_ROOTS,
-			maxLogBoldRoots: 8,
 		});
 		const selectionRootIds = roots.filter((entry) => entry.isSelection).map((entry) => entry.id);
 		expect(selectionRootIds).toHaveLength(MAX_HOP_HIGHLIGHT_ROOTS);
 		// Most recent selections win (end of the input array).
 		expect(selectionRootIds[0]).toBe(`person:${1000 + MAX_HOP_HIGHLIGHT_ROOTS + 19}`);
 		expect(roots.some((entry) => entry.id === 'person:hover')).toBe(true);
-		expect(roots.filter((entry) => String(entry.id).startsWith('person:log')).length).toBeLessThanOrEqual(8);
+		// Log Bold no longer feeds hop roots — Clear Highlight and Log Bold stay independent.
+		expect(roots.filter((entry) => String(entry.id).startsWith('person:log'))).toHaveLength(0);
 	});
 
 	it('layoutHasLinkIdentity uses rebuilt layout link indexes for O(1) membership checks', () => {
