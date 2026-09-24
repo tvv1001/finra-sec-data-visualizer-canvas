@@ -2259,6 +2259,13 @@ async function applyPendingRouteNodeSelection() {
 		pendingRouteAutoExpand = false;
 		pendingRouteForceAutoExpand = false;
 
+		// Canvas clicks already ran selectNode + scheduled expand before the URL effect
+		// re-dispatches this route request. Skipping the duplicate selectNode keeps
+		// large-graph clicks off a second full selection/session/redraw pass.
+		if (targetAlreadySelected && !shouldExpand && !shouldFocusRouteSelection) {
+			return true;
+		}
+
 		await selectNode(liveNode, {
 			skipAutoExpand: true,
 			skipProfileSync: true,
@@ -3268,7 +3275,9 @@ function getCanvasLinkFocusNodeIds() {
 	);
 }
 
-function syncSelectionLogAuxiliaryRenderers() {
+let selectionLogAuxRenderFrame: number | null = null;
+
+function syncSelectionLogAuxiliaryRenderersNow() {
 	const transform = getCurrentZoomTransform();
 	const logLabelNodeIds = getSelectionLogLabelNodeIds();
 	const linkFocusNodeIds = getCanvasLinkFocusNodeIds();
@@ -3297,6 +3306,20 @@ function syncSelectionLogAuxiliaryRenderers() {
 			});
 		} catch {}
 	}
+}
+
+function syncSelectionLogAuxiliaryRenderers() {
+	// Coalesce click/log/hover paint into one rAF so large graphs do not stack
+	// multiple full canvas redraws on a single selection.
+	if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+		syncSelectionLogAuxiliaryRenderersNow();
+		return;
+	}
+	if (selectionLogAuxRenderFrame != null) return;
+	selectionLogAuxRenderFrame = window.requestAnimationFrame(() => {
+		selectionLogAuxRenderFrame = null;
+		syncSelectionLogAuxiliaryRenderersNow();
+	});
 }
 
 function syncSelectionLogActionButtonStates() {
@@ -11989,6 +12012,7 @@ export function renderNodeContents(selection) {
 			isBolded: isBolded,
 		});
 
+		const boldStrokeWidth = isBolded ? Math.max(1.5, Number(labelFontSize) * 0.14) : 0;
 		const label = g
 			.append('text')
 			.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isBolded ? ' fg-label--logged' : ''}`)
@@ -12000,8 +12024,10 @@ export function renderNodeContents(selection) {
 			.attr('font-family', 'var(--sans)')
 			.attr('font-weight', isBolded ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT)
 			.attr('fill', nodeLabelColor)
-			.attr('stroke', 'none')
-			.attr('stroke-width', 0)
+			.attr('stroke', isBolded ? '#000000' : 'none')
+			.attr('stroke-width', boldStrokeWidth)
+			.attr('stroke-linejoin', isBolded ? 'round' : null)
+			.attr('paint-order', isBolded ? 'stroke fill' : null)
 			.attr('pointer-events', 'all')
 			.style('cursor', 'pointer')
 			.text(labelText);
@@ -12252,6 +12278,12 @@ function joinLayeredArrowGroup(groupSel, data) {
 
 function refreshLayeredLinkSelections({ enterDuration = 0, highlightState = computeHighlightState() }: { enterDuration?: number; highlightState?: any } = {}) {
 	if (!globalState.layoutLinks) return;
+	if (globalState.canvasModeActive) {
+		globalState.linkSel = null;
+		globalState.arrowSel = null;
+		scheduleGraphTickPositions(null, null, null);
+		return;
+	}
 	if (!(globalState.linkBottomGroup && globalState.linkMidGroup && globalState.linkTopGroup && globalState.arrowBottomGroup && globalState.arrowMidGroup && globalState.arrowTopGroup)) {
 		globalState.linkSel = selectRenderedLinkLines();
 		globalState.arrowSel = selectRenderedArrowLines();
@@ -12391,7 +12423,11 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 
 function reapplySelectionState() {
 	if (!globalState.nodeSel) {
+		// Canvas mode has no SVG node selection — paint selection/link focus there instead.
 		syncClearHighlightsButtonState();
+		if (globalState.canvasModeActive) {
+			syncSelectionLogAuxiliaryRenderers();
+		}
 		return;
 	}
 	const highlightState = computeHighlightState();
@@ -12664,12 +12700,15 @@ function updateNodeVisuals(
 				isHovered: isHoveredNode,
 				isBolded: isBolded,
 			});
+			const boldStrokeWidth = isBolded ? Math.max(1.5, Number(labelFontSize) * 0.14) : 0;
 			label
 				.text(labelText)
 				.classed('fg-label--logged', isBolded)
 				.attr('fill', nodeLabelColor)
-				.attr('stroke', 'none')
-				.attr('stroke-width', 0)
+				.attr('stroke', isBolded ? '#000000' : 'none')
+				.attr('stroke-width', boldStrokeWidth)
+				.attr('stroke-linejoin', isBolded ? 'round' : null)
+				.attr('paint-order', isBolded ? 'stroke fill' : null)
 				.attr('opacity', inactive ? 0.86 : 1)
 				.attr('font-size', labelFontSize)
 				.style('font-size', null)
@@ -12716,6 +12755,7 @@ async function fetchAndInjectOrphanNodes(links, knownIds) {
 }
 
 const sidecarFirmLabelHydrationAttempted = new Set<string>();
+const sidecarIndividualLabelHydrationAttempted = new Set<string>();
 const firmConnectionCountHydrationAttempted = new Set<string>();
 
 function scheduleFirmConnectionCountHydration(nodes) {
@@ -12855,6 +12895,99 @@ function scheduleSidecarFirmLabelHydration(nodes) {
 	})();
 }
 
+/** When a canvas/graph stub still says Person/Individual N, stop and re-check that CRD. */
+function scheduleSidecarIndividualLabelHydration(nodes) {
+	const placeholders = (Array.isArray(nodes) ? nodes : []).filter(
+		(node) => (node as any)?.group === 'individual' && isGenericOrPlaceholderLabel(node.label, 'individual'),
+	);
+	if (!placeholders.length) return;
+	const ids = Array.from(
+		new Set(
+			placeholders
+				.map((node) =>
+					String(node.crd || node.individualId || node.id || '')
+						.replace(/^person:/i, '')
+						.trim(),
+				)
+				.filter((id) => /^\d{1,10}$/.test(id)),
+		),
+	).filter((id) => !sidecarIndividualLabelHydrationAttempted.has(id));
+	if (!ids.length) return;
+	ids.forEach((id) => sidecarIndividualLabelHydrationAttempted.add(id));
+	void (async () => {
+		try {
+			const nodeIds = ids.map((id) => `person:${id}`).join(',');
+			const res = await fetchWithTimeout(`${BASE}/api/finra/nodes-by-ids?ids=${encodeURIComponent(nodeIds)}`);
+			if (!res.ok) {
+				ids.forEach((id) => sidecarIndividualLabelHydrationAttempted.delete(id));
+				return;
+			}
+			const payload = await res.json();
+			const fetched = Array.isArray(payload) ? payload : Array.isArray(payload?.nodes) ? payload.nodes : [];
+			const names = new Map();
+			for (const node of fetched) {
+				const id = String(node?.crd || node?.individualId || node?.id || '')
+					.replace(/^person:/i, '')
+					.trim();
+				const name = String(node?.label || node?.name || '').trim();
+				if (id && name && !isGenericOrPlaceholderLabel(name, 'individual')) names.set(id, name);
+			}
+			// Any CRD still unresolved: fetch individual detail for that CRD only.
+			for (const id of ids) {
+				if (names.has(id)) continue;
+				try {
+					const detailRes = await fetchWithTimeout(`${BASE}/api/finra/individual/${encodeURIComponent(id)}`);
+					if (!detailRes.ok) continue;
+					const detail = await detailRes.json();
+					const basic = detail?.basicInformation || detail || {};
+					const composed = [basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' ').trim();
+					const name = composed || String(basic.name || detail?.name || '').trim();
+					if (name && !isGenericOrPlaceholderLabel(name, 'individual')) names.set(id, name);
+				} catch {
+					/* per-CRD check is best-effort */
+				}
+			}
+			if (!names.size) return;
+			const applyName = (node) => {
+				if (!node || node.group !== 'individual') return false;
+				const id = String(node.crd || node.individualId || node.id || '')
+					.replace(/^person:/i, '')
+					.trim();
+				const name = names.get(id);
+				if (!name || !isGenericOrPlaceholderLabel(node.label, 'individual')) return false;
+				node.label = name;
+				node.name = name;
+				if (!node.basicInformation) node.basicInformation = {};
+				if (!node.basicInformation.firstName && !node.basicInformation.lastName) {
+					node.basicInformation.name = name;
+				}
+				node.stub = false;
+				normalizeNodeLabelInPlace(node);
+				return true;
+			};
+			const changedIds = [];
+			for (const node of placeholders) {
+				if (applyName(node)) changedIds.push(node.id);
+			}
+			for (const node of globalState.layoutNodes || []) {
+				if (applyName(node) && !changedIds.includes(node.id)) changedIds.push(node.id);
+			}
+			for (const node of globalState.graphData?.nodes || []) {
+				applyName(node);
+			}
+			if (!changedIds.length) return;
+			rerenderGraphNodesByIds(changedIds);
+			try {
+				saveSession();
+			} catch {
+				/* ignore */
+			}
+		} catch {
+			ids.forEach((id) => sidecarIndividualLabelHydrationAttempted.delete(id));
+		}
+	})();
+}
+
 function appendFetchedImpl(newNodes, newLinks) {
 	if (!Array.isArray(newNodes)) newNodes = [];
 	if (!Array.isArray(newLinks)) newLinks = [];
@@ -12862,6 +12995,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 		if (globalState.graphData && Array.isArray(newNodes) && Array.isArray(newLinks)) {
 			mergeIntoGraphData(newNodes, newLinks);
 			scheduleSidecarFirmLabelHydration(globalState.graphData.nodes);
+			scheduleSidecarIndividualLabelHydration(globalState.graphData.nodes);
 			scheduleFirmConnectionCountHydration(globalState.graphData.nodes);
 		}
 		return;
@@ -12900,6 +13034,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 	globalState.layoutNodes = mergedNodes;
 	ensureQueueGraphSeedLinks(globalState.layoutNodes);
 	scheduleSidecarFirmLabelHydration(mergedNodes);
+	scheduleSidecarIndividualLabelHydration(mergedNodes);
 	scheduleFirmConnectionCountHydration(mergedNodes);
 	// Rebind any pre-existing links to the merged node objects so the visualization
 	// keeps them attached after a fetch updates the node list.
@@ -13324,21 +13459,10 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	// Build neighbor adjacency cache after D3 has resolved link source/target objects
 	globalState.neighborMap = buildNeighborMap(nodes, links);
 
-	// ── Links (split into three stacked layers so some links can render above nodes) ──
-	// create bottom/mid link layers first; the top layer is still kept under
-	// the node group so hover emphasis stays visible without covering nodes
-	globalState.linkBottomGroup = root.append('g').attr('class', 'fg-links-bottom');
-	globalState.linkMidGroup = root.append('g').attr('class', 'fg-links-mid');
-
-	// partition links by initial render priority
-	const initialHighlight = computeHighlightState();
-	const bottomLinks = links.filter((l) => getLinkRenderPriority(l, initialHighlight) <= 0);
-	const topLinks = links.filter((l) => getLinkRenderPriority(l, initialHighlight) >= 3);
-	const midLinks = links.filter((l) => {
-		const p = getLinkRenderPriority(l, initialHighlight);
-		return p > 0 && p < 3;
-	});
-
+	// ── Links / arrows / nodes ────────────────────────────────────────────────
+	// Canvas mode paints everything on the 2D canvas. Do not materialize thousands
+	// of hidden SVG <line> elements — that DOM still costs memory and click-path
+	// restyles even when display:none, and was a crash source past ~1000 nodes.
 	function joinLinkSelection(groupSel, data) {
 		return groupSel
 			.selectAll('line')
@@ -13352,16 +13476,6 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			.style('pointer-events', 'none');
 	}
 
-	joinLinkSelection(globalState.linkBottomGroup, bottomLinks);
-	joinLinkSelection(globalState.linkMidGroup, midLinks);
-	// topLinks will be joined after node group is created
-	globalState.linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
-
-	// ── Arrowheads (also split to mirror link stacking)
-	// create bottom/mid arrow layers now; top arrow layer will be created after nodes
-	globalState.arrowBottomGroup = root.append('g').attr('class', 'fg-arrowheads-bottom').style('pointer-events', 'none');
-	globalState.arrowMidGroup = root.append('g').attr('class', 'fg-arrowheads-mid').style('pointer-events', 'none');
-
 	function joinArrowSelection(groupSel, data) {
 		return groupSel
 			.selectAll('line')
@@ -13372,15 +13486,39 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			.style('pointer-events', 'none');
 	}
 
-	joinArrowSelection(globalState.arrowBottomGroup, bottomLinks);
-	joinArrowSelection(globalState.arrowMidGroup, midLinks);
-	// arrowTopGroup will be created and joined after node group creation
-	globalState.arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
+	if (globalState.canvasModeActive) {
+		globalState.linkBottomGroup = null;
+		globalState.linkMidGroup = null;
+		globalState.linkTopGroup = null;
+		globalState.arrowBottomGroup = null;
+		globalState.arrowMidGroup = null;
+		globalState.arrowTopGroup = null;
+		globalState.linkSel = null;
+		globalState.arrowSel = null;
+		globalState.nodeSel = null;
+		globalState.nodeGroup = null;
+	} else {
+		// SVG path: stacked link layers so some links can render above nodes.
+		globalState.linkBottomGroup = root.append('g').attr('class', 'fg-links-bottom');
+		globalState.linkMidGroup = root.append('g').attr('class', 'fg-links-mid');
 
-	// ── Nodes ─────────────────────────────────────────────────────────────────
-	let node = null;
-	if (!globalState.canvasModeActive) {
-		node = root
+		const initialHighlight = computeHighlightState();
+		const bottomLinks = links.filter((l) => getLinkRenderPriority(l, initialHighlight) <= 0);
+		const topLinks = links.filter((l) => getLinkRenderPriority(l, initialHighlight) >= 3);
+		const midLinks = links.filter((l) => {
+			const p = getLinkRenderPriority(l, initialHighlight);
+			return p > 0 && p < 3;
+		});
+
+		joinLinkSelection(globalState.linkBottomGroup, bottomLinks);
+		joinLinkSelection(globalState.linkMidGroup, midLinks);
+
+		globalState.arrowBottomGroup = root.append('g').attr('class', 'fg-arrowheads-bottom').style('pointer-events', 'none');
+		globalState.arrowMidGroup = root.append('g').attr('class', 'fg-arrowheads-mid').style('pointer-events', 'none');
+		joinArrowSelection(globalState.arrowBottomGroup, bottomLinks);
+		joinArrowSelection(globalState.arrowMidGroup, midLinks);
+
+		const node = root
 			.append('g')
 			.attr('class', 'fg-nodes')
 			.selectAll('g')
@@ -13392,14 +13530,18 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			.call(bindHoverAndFocus);
 		globalState.nodeSel = node;
 		globalState.nodeGroup = root.select('.fg-nodes');
-
 		renderNodeContents(node);
-	} else {
-		// In canvas mode we do not create per-node DOM elements — drawing is
-		// handled by the canvas renderer on each tick. Keep lightweight placeholders
-		// for selections to avoid breaking code paths that expect these vars.
-		globalState.nodeSel = null;
-		globalState.nodeGroup = null;
+
+		try {
+			globalState.linkTopGroup = root.append('g').attr('class', 'fg-links-top').style('pointer-events', 'none');
+			joinLinkSelection(globalState.linkTopGroup, topLinks);
+			globalState.arrowTopGroup = root.append('g').attr('class', 'fg-arrowheads-top').style('pointer-events', 'none');
+			joinArrowSelection(globalState.arrowTopGroup, topLinks);
+			globalState.linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
+			globalState.arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
+		} catch (e) {
+			/* ignore */
+		}
 	}
 
 	// If the data payload included recently added node ids (set by mergeIntoGraphData),
@@ -13409,36 +13551,6 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			startMultiNodePulseLoop(data._recentlyAddedNodeIds, { duration: 5000 });
 			// Clear so subsequent renders don't re-trigger pulses.
 			delete data._recentlyAddedNodeIds;
-		}
-	} catch (e) {
-		/* ignore */
-	}
-
-	// Top link/arrow groups are reserved for the highest-priority connections,
-	// but they still sit beneath the node layer so the hovered line glow never
-	// covers the node itself. Gray and inactive connections remain below nodes.
-	try {
-		globalState.linkTopGroup = root.append('g').attr('class', 'fg-links-top').style('pointer-events', 'none');
-		joinLinkSelection(globalState.linkTopGroup, topLinks);
-		globalState.arrowTopGroup = root.append('g').attr('class', 'fg-arrowheads-top').style('pointer-events', 'none');
-		joinArrowSelection(globalState.arrowTopGroup, topLinks);
-		// refresh combined selections to include top groups
-		globalState.linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
-		globalState.arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
-
-		// If canvas mode is active, hide the SVG link/arrow groups to avoid
-		// duplicate drawing and unnecessary DOM paint.
-		if (globalState.canvasModeActive) {
-			try {
-				if (globalState.linkBottomGroup) globalState.linkBottomGroup.style('display', 'none');
-				if (globalState.linkMidGroup) globalState.linkMidGroup.style('display', 'none');
-				if (globalState.linkTopGroup) globalState.linkTopGroup.style('display', 'none');
-				if (globalState.arrowBottomGroup) globalState.arrowBottomGroup.style('display', 'none');
-				if (globalState.arrowMidGroup) globalState.arrowMidGroup.style('display', 'none');
-				if (globalState.arrowTopGroup) globalState.arrowTopGroup.style('display', 'none');
-			} catch (e) {
-				/* ignore */
-			}
 		}
 	} catch (e) {
 		/* ignore */
@@ -15616,10 +15728,21 @@ function isPlaceholderExpansionLabel(label, group) {
 	if (/^(?:crd|sec)\s*#?:?\s*\d+-?\d*$/i.test(text)) return true;
 	if (/^8-\d+$/i.test(text)) return true;
 	if (group === 'individual') {
-		return /^CRD\s+#?:?\s*\d+$/i.test(text) || /^Person\s+\d+$/i.test(text);
+		return (
+			/^CRD\s+#?:?\s*\d+$/i.test(text) ||
+			/^Person\s+\d+$/i.test(text) ||
+			/^Individual\s+\d+$/i.test(text) ||
+			/^person:\d+$/i.test(text) ||
+			/^Node\s+person:\d+$/i.test(text)
+		);
 	}
 	if (group === 'firm') {
-		return /^Firm\s+\d+$/i.test(text) || /^SEC\s+#?:?\s*8?-?\d+$/i.test(text);
+		return (
+			/^Firm\s+\d+$/i.test(text) ||
+			/^SEC\s+#?:?\s*8?-?\d+$/i.test(text) ||
+			/^firm:\d+$/i.test(text) ||
+			/^Node\s+firm:\d+$/i.test(text)
+		);
 	}
 	return false;
 }
@@ -16342,6 +16465,9 @@ function selectNode(
 	}
 	if (!skipLog) {
 		addToSelectionLog(d);
+	} else {
+		// skipLog path still needs canvas selection/link chrome (route re-entry, etc.).
+		syncSelectionLogAuxiliaryRenderers();
 	}
 	refreshTraceState();
 	sidebarSelectedNode = d;
@@ -17066,6 +17192,12 @@ function clearHighlights() {
 // activeId = id    → brighten connected lines by type; dim unconnected ones
 function highlightLinks(highlightState = null) {
 	if (!globalState.linkSel) return;
+	// Canvas mode paints link emphasis in drawFrame via linkFocusNodeIds — skip the
+	// hidden SVG restyle/restack that used to walk every link on each click.
+	if (globalState.canvasModeActive) {
+		scheduleGraphTickPositions(null, null, null);
+		return;
+	}
 	const state = highlightState && typeof highlightState === 'object' ? highlightState : computeHighlightState();
 
 	const hasNormalHighlights = state.linkKeys.size > 0;

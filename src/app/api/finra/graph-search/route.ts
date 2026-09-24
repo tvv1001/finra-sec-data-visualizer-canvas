@@ -101,7 +101,7 @@ function buildNodesFromFirmDetail(detail: any, id: string) {
 		const personId = `person:${ownerCrd}`;
 		nodes.push({
 			id: personId,
-			label: owner?.legalName || owner?.name || `Person ${ownerCrd}`,
+			label: owner?.legalName || owner?.name || '',
 			group: 'individual',
 			crd: ownerCrd,
 			_source: 'direct-crd-fallback',

@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { getSearchIndexFilePaths } from './searchDataPaths';
 import { isValidCrd } from '@/lib/crd';
+import { isGenericFirmDisplayName as isGenericFirmDisplayNameShared, isGenericPersonDisplayName } from '@/lib/displayNameGuards';
 
 export type LocalSearchSource = 'finra' | 'sec';
 export type LocalSearchEntity = 'individual' | 'firm';
@@ -421,9 +422,11 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 const hitByIdCache = new Map<string, Map<string, LocalSearchHit>>();
 
 function isGenericFirmDisplayName(value: unknown): boolean {
-	const text = String(value || '').trim();
-	if (!text) return true;
-	return /^firm\s+\d+$/i.test(text) || /^node\s+/i.test(text) || /^sec\s+#?:?\s*8?-?\d+$/i.test(text);
+	return isGenericFirmDisplayNameShared(value);
+}
+
+function isGenericIndividualDisplayName(value: unknown): boolean {
+	return isGenericPersonDisplayName(value);
 }
 
 function collectDocLookupIds(doc: PreparedLocalSearchDoc): string[] {
@@ -510,11 +513,71 @@ export async function hydrateFirmNodeLabelsFromSearchSidecar(nodes: any[] = [], 
 			.replace(/^firm:/i, '')
 			.trim();
 		const name = names.get(firmId);
-		if (!name) continue;
+		if (!name || isGenericFirmDisplayName(name)) continue;
 		node.label = name;
 		node.firmName = name;
 		if (!node.basicInformation) node.basicInformation = {};
 		if (!node.basicInformation.firmName) node.basicInformation.firmName = name;
+	}
+	return list;
+}
+
+export async function lookupIndividualNamesFromSearchSidecar(
+	individualIds: Array<string | number | null | undefined>,
+	options: LocalSearchOptions = {},
+): Promise<Map<string, string>> {
+	const names = new Map<string, string>();
+	const remaining = new Set(
+		(individualIds || []).map((id) => String(id || '').replace(/^person:/i, '').trim()).filter(Boolean),
+	);
+	if (!remaining.size) return names;
+
+	for (const source of ['finra', 'sec'] as LocalSearchSource[]) {
+		if (!remaining.size) break;
+		const hits = await lookupLocalSearchHitsByIds(source, 'individual', [...remaining], options);
+		for (const [id, hit] of hits) {
+			const name = String(
+				hit?.label ||
+					hit?.name ||
+					[hit?.ind_firstname, hit?.ind_middlename, hit?.ind_lastname].filter(Boolean).join(' ') ||
+					'',
+			).trim();
+			if (!name || isGenericIndividualDisplayName(name)) continue;
+			names.set(id, name);
+			remaining.delete(id);
+		}
+	}
+	return names;
+}
+
+/** Stop on Person/Individual placeholders and re-resolve those CRDs from search sidecars. */
+export async function hydrateIndividualNodeLabelsFromSearchSidecar(nodes: any[] = [], options: LocalSearchOptions = {}): Promise<any[]> {
+	const list = Array.isArray(nodes) ? nodes : [];
+	const neededIds: string[] = [];
+	for (const node of list) {
+		const group = String(node?.group || (String(node?.id || '').startsWith('person:') ? 'individual' : '')).toLowerCase();
+		if (group !== 'individual') continue;
+		const crd = String(node?.crd || node?.individualId || node?.id || '')
+			.replace(/^person:/i, '')
+			.trim();
+		const label = String(node?.label || node?.name || '').trim();
+		if (crd && isGenericIndividualDisplayName(label)) neededIds.push(crd);
+	}
+	if (!neededIds.length) return list;
+
+	const names = await lookupIndividualNamesFromSearchSidecar(neededIds, options);
+	for (const node of list) {
+		const group = String(node?.group || (String(node?.id || '').startsWith('person:') ? 'individual' : '')).toLowerCase();
+		if (group !== 'individual') continue;
+		const crd = String(node?.crd || node?.individualId || node?.id || '')
+			.replace(/^person:/i, '')
+			.trim();
+		const name = names.get(crd);
+		if (!name || isGenericIndividualDisplayName(name)) continue;
+		node.label = name;
+		node.name = name;
+		if (!node.basicInformation) node.basicInformation = {};
+		if (!node.basicInformation.name) node.basicInformation.name = name;
 	}
 	return list;
 }
@@ -615,6 +678,7 @@ export function attachFirmConnectionCountsFromFlatfiles(nodes: any[] = []): any[
 export async function hydrateGraphNodesFromSearchSidecar(nodes: any[] = [], options: LocalSearchOptions = {}): Promise<any[]> {
 	const list = Array.isArray(nodes) ? nodes : [];
 	await hydrateFirmNodeLabelsFromSearchSidecar(list, options);
+	await hydrateIndividualNodeLabelsFromSearchSidecar(list, options);
 	await hydrateNodeConnectionCountsFromSearchSidecar(list, options);
 	attachFirmConnectionCountsFromFlatfiles(list);
 	return list;

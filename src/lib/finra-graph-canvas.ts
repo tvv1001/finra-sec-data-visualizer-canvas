@@ -19,8 +19,12 @@ let currentTransform = { x: 0, y: 0, k: 1 };
 let hoverNodeId: string | null = null;
 let canvasTooltip: HTMLDivElement | null = null;
 let canvasLabelVisibleIds = new Set<string>();
+/** Screen-space label hit boxes from the last draw — avoids measureText on every pointer event. */
+let canvasLabelHitBounds: Array<{ node: Node; x0: number; y0: number; x1: number; y1: number }> = [];
 let activeCanvasDrag: { node: Node; offsetX: number; offsetY: number; pointerId: number; moved: boolean } | null = null;
 let suppressNextCanvasClick = false;
+let hoverMoveRaf: number | null = null;
+let pendingHoverClient: { x: number; y: number } | null = null;
 
 const CANVAS_NODE_SCALE = 1.5;
 /** Normal canvas label size in screen pixels — static (does not change with zoom). */
@@ -97,13 +101,18 @@ function getHitNode(clientX: number, clientY: number) {
 	const invK = 1 / (currentTransform.k || 1);
 	const wx = (x - currentTransform.x) * invK;
 	const wy = (y - currentTransform.y) * invK;
+	// Only probe nodes near the pointer — full-graph scans + measureText on every
+	// mousemove locked the main thread once graphs passed ~1000 nodes.
+	const probeRadius = 48 * invK;
 
 	let bestNode = null;
 	let bestDist = Infinity;
 
 	for (const n of currentNodes) {
+		if (!Number.isFinite(n?.x) || !Number.isFinite(n?.y)) continue;
 		const dx = n.x - wx;
 		const dy = n.y - wy;
+		if (Math.abs(dx) > probeRadius || Math.abs(dy) > probeRadius) continue;
 		const dist = Math.sqrt(dx * dx + dy * dy);
 		const size = getCanvasNodeSize(n);
 
@@ -115,39 +124,15 @@ function getHitNode(clientX: number, clientY: number) {
 		}
 	}
 
-	// Labels are painted on the same canvas, so include their screen-space
-	// bounds in hit testing instead of requiring clicks to land on the shape.
-	if (ctx) {
-		const scale = currentTransform.k || 1;
-		const forcedLabelIds = new Set((currentOpts.logLabelNodeIds || []).map((id: string | number) => String(id)));
+	// Reuse label boxes recorded during the last drawFrame — never re-measure text here.
+	if (canvasLabelHitBounds.length) {
 		let bestLabelDistance = Infinity;
-
-		for (const n of currentNodes) {
-			if (!Number.isFinite(n?.x) || !Number.isFinite(n?.y)) continue;
-			const nodeId = String(n.id);
-			const isForcedLabel = forcedLabelIds.has(nodeId);
-			const shouldShowLabel = isForcedLabel || scale >= 0.45;
-			if (!shouldShowLabel) continue;
-
-			const labelText = getNodeLabel(n) || nodeId;
-			// Large/bold text follows Log Bold only — not selection or highlights.
-			const isBoldLabel = isForcedLabel;
-			const labelSize = getCanvasLabelScreenPx(isBoldLabel, scale);
-			ctx.save();
-			ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;
-			const labelWidth = ctx.measureText(labelText).width;
-			ctx.restore();
-
-			const p = worldToScreen(n.x, n.y, currentTransform);
-			const nodeScreenRadius = Math.max(1, getCanvasNodeSize(n) * scale);
-			const labelOffset = n.group === 'entity' ? nodeScreenRadius * 1.5 : nodeScreenRadius;
-			const labelY = p.y + labelOffset + DEFAULT_NODE_LABEL_GAP_PX - Math.min(2, labelSize * 0.1);
-			if (x < p.x - labelWidth / 2 || x > p.x + labelWidth / 2 || y < labelY || y > labelY + labelSize * 1.2) continue;
-
-			const distance = Math.abs(x - p.x) + Math.abs(y - labelY);
+		for (const box of canvasLabelHitBounds) {
+			if (x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1) continue;
+			const distance = Math.abs(x - (box.x0 + box.x1) * 0.5) + Math.abs(y - box.y0);
 			if (distance < bestLabelDistance) {
 				bestLabelDistance = distance;
-				bestNode = n;
+				bestNode = box.node;
 			}
 		}
 	}
@@ -183,16 +168,24 @@ function onCanvasPointerMove(e: PointerEvent) {
 		drawCanvasFrame(currentNodes, currentLinks, currentTransform, currentOpts);
 		return;
 	}
-	const hit = getHitNode(e.clientX, e.clientY);
-	const newHover = hit ? String(hit.id) : null;
-	updateCanvasTooltip(hit, e.clientX, e.clientY);
-	if (hoverNodeId !== newHover) {
-		hoverNodeId = newHover;
-		if (canvas) {
-			canvas.style.cursor = hit ? 'pointer' : 'default';
+	pendingHoverClient = { x: e.clientX, y: e.clientY };
+	if (hoverMoveRaf != null) return;
+	hoverMoveRaf = requestAnimationFrame(() => {
+		hoverMoveRaf = null;
+		const pending = pendingHoverClient;
+		pendingHoverClient = null;
+		if (!pending) return;
+		const hit = getHitNode(pending.x, pending.y);
+		const newHover = hit ? String(hit.id) : null;
+		updateCanvasTooltip(hit, pending.x, pending.y);
+		if (hoverNodeId !== newHover) {
+			hoverNodeId = newHover;
+			if (canvas) {
+				canvas.style.cursor = hit ? 'pointer' : 'default';
+			}
+			drawCanvasFrame(currentNodes, currentLinks, currentTransform, currentOpts);
 		}
-		drawCanvasFrame(currentNodes, currentLinks, currentTransform, currentOpts);
-	}
+	});
 }
 
 function onCanvasPointerDown(e: PointerEvent) {
@@ -243,8 +236,20 @@ export function createCanvasOverlay(parent: HTMLElement) {
 	cachedThemeColors = null;
 	destroyCanvas();
 	parentEl = parent;
-	canvas = document.createElement('canvas');
-	canvas.id = 'fg-canvas';
+	parent.style.position = parent.style.position || 'relative';
+
+	// Reuse the React-mounted #fg-canvas when present. Creating a second canvas with
+	// the same id left duplicate hit targets and a stale 300×150 drawing buffer.
+	const existing = parent.querySelectorAll('#fg-canvas');
+	canvas = (existing[0] as HTMLCanvasElement) || null;
+	for (let i = 1; i < existing.length; i += 1) {
+		existing[i].parentElement?.removeChild(existing[i]);
+	}
+	if (!canvas) {
+		canvas = document.createElement('canvas');
+		canvas.id = 'fg-canvas';
+		parent.appendChild(canvas);
+	}
 	canvas.style.position = 'absolute';
 	canvas.style.left = '0';
 	canvas.style.top = '0';
@@ -254,8 +259,6 @@ export function createCanvasOverlay(parent: HTMLElement) {
 	canvas.style.pointerEvents = 'auto';
 	canvas.style.transform = 'none';
 	canvas.style.transformOrigin = '0 0';
-	parent.style.position = parent.style.position || 'relative';
-	parent.appendChild(canvas);
 	ctx = canvas.getContext('2d');
 	dpr = Math.max(1, window.devicePixelRatio || 1);
 	resize();
@@ -270,7 +273,6 @@ export function createCanvasOverlay(parent: HTMLElement) {
 }
 
 export function destroyCanvas() {
-	if (canvas && canvas.parentElement) canvas.parentElement.removeChild(canvas);
 	if (typeof window !== 'undefined') window.removeEventListener('resize', resize);
 	if (canvas) {
 		canvas.removeEventListener('click', onCanvasClick);
@@ -279,6 +281,7 @@ export function destroyCanvas() {
 		canvas.removeEventListener('pointerup', endCanvasDrag);
 		canvas.removeEventListener('pointercancel', endCanvasDrag);
 		canvas.removeEventListener('pointerleave', onCanvasPointerLeave);
+		// Leave the host <canvas id="fg-canvas"> in the DOM (React owns it).
 	}
 	activeCanvasDrag = null;
 	hideCanvasTooltip();
@@ -286,6 +289,12 @@ export function destroyCanvas() {
 	currentNodes = [];
 	currentLinks = [];
 	canvasLabelVisibleIds = new Set();
+	canvasLabelHitBounds = [];
+	if (hoverMoveRaf != null) {
+		cancelAnimationFrame(hoverMoveRaf);
+		hoverMoveRaf = null;
+	}
+	pendingHoverClient = null;
 	currentOpts = {};
 	currentTransform = { x: 0, y: 0, k: 1 };
 	hoverNodeId = null;
@@ -544,6 +553,7 @@ export function drawCanvasFrame(
 	const labelCandidateIds = new Set(labelCandidates);
 	let renderedLabelCount = 0;
 	canvasLabelVisibleIds = new Set();
+	canvasLabelHitBounds = [];
 
 	type PendingLabel = {
 		n: Node;
@@ -635,10 +645,27 @@ export function drawCanvasFrame(
 		ctx.textAlign = 'center';
 		ctx.textBaseline = 'top';
 		const labelText = getNodeLabel(n);
+		const drawnText = labelText || String(n.id);
+		const labelWidth = ctx.measureText(drawnText).width;
 		const nodeScreenRadius = Math.max(1, size * (transform.k || 1));
 		const labelOffset = n.group === 'entity' ? nodeScreenRadius * 1.5 : nodeScreenRadius;
 		const labelY = p.y + labelOffset + DEFAULT_NODE_LABEL_GAP_PX - Math.min(2, labelSize * 0.1);
-		ctx.fillText(labelText || String(n.id), p.x, labelY);
+		// Black outline on Log Bold labels so light fill stays readable over dense links/nodes.
+		if (isBoldLabel) {
+			ctx.lineJoin = 'round';
+			ctx.miterLimit = 2;
+			ctx.lineWidth = Math.max(2.5, labelSize * 0.14);
+			ctx.strokeStyle = '#000000';
+			ctx.strokeText(drawnText, p.x, labelY);
+		}
+		ctx.fillText(drawnText, p.x, labelY);
+		canvasLabelHitBounds.push({
+			node: n,
+			x0: p.x - labelWidth / 2,
+			y0: labelY,
+			x1: p.x + labelWidth / 2,
+			y1: labelY + labelSize * 1.2,
+		});
 		ctx.textAlign = 'start';
 		ctx.textBaseline = 'alphabetic';
 		ctx.restore();

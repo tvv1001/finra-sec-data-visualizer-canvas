@@ -57,6 +57,8 @@ diagnose_prompt += "Issue (JSON): " + issue_json + " ";
 diagnose_prompt += "Optional example prod URL (JSON, may be null): " + url_json + " ";
 diagnose_prompt += "Firm people lists come from Redis key firm-connections:firm:{id} via /api/finra/firm/{id}/connections. ";
 diagnose_prompt += "Local Redis is 127.0.0.1:6379 when USE_LOCAL_REDIS=1. ";
+diagnose_prompt += "When a display name is Person/Individual/Firm N, treat it as invalid: check finra:/sec: vs non-live-crds: for that CRD and re-resolve the name before writing sidecars. ";
+diagnose_prompt += "SEC AdvisorInfo links require IA presence (iaScope/firmIAScope not NotInScope, or iaSECNumber 8-*); bdSECNumber alone is BD-only and must not create AdvisorInfo firm links. ";
 diagnose_prompt += "Return summary, files to change, redis_key if relevant, and local_check (curl or test to run later).";
 
 let diagnosed = agent(diagnose_prompt, #{
@@ -96,6 +98,10 @@ let verify_prompt = "Verify the local fix. Use tests or curl against http://loca
 verify_prompt += "Do not deploy to Vercel. Do not push Redis to Upstash. ";
 verify_prompt += "Issue (JSON): " + issue_json + " ";
 verify_prompt += "Implement result (JSON): " + impl_json + " ";
+verify_prompt += "Validation workflow checks (required when relevant): ";
+verify_prompt += "(1) If any display name is Person/Individual/Firm N or Node person:/firm:, stop and re-check that CRD in local Redis (finra:/sec: vs non-live-crds:) and via /api/finra/individual|firm/{crd}. ";
+verify_prompt += "(2) SEC AdvisorInfo links must not appear for iaScope/firmIAScope NotInScope or BD-only bdSECNumber; parent firm SEC links need a real IA id (8-*) or active firm IA scope. ";
+verify_prompt += "(3) Firm-connection entries with generic names are not validated (needs-crd-name-check). ";
 verify_prompt += "Set deployed=false and pushed_redis=false. ok=true only if local evidence supports the fix.";
 
 let verified = agent(verify_prompt, #{

@@ -28,6 +28,10 @@ import {
   OFFICIAL_FIRM_ROSTER_SOURCE,
 } from "@/lib/officialFirmRoster";
 import { buildPersonName } from "@/lib/nameFormat";
+import {
+  isGenericPersonDisplayName,
+  preferNonGenericDisplayName,
+} from "@/lib/displayNameGuards";
 
 export type GraphConnectionEntry = {
   individualId?: string;
@@ -168,11 +172,14 @@ export function preferRicherPersonName(
   const next = String(candidate || "").trim();
   if (!next) return current;
   if (!current) return next;
+  // Never keep Person/Individual/CRD placeholders when a real name arrives.
+  if (isGenericPersonDisplayName(current) && !isGenericPersonDisplayName(next)) return next;
+  if (!isGenericPersonDisplayName(current) && isGenericPersonDisplayName(next)) return current;
   const currentTokens = nameTokenCount(current);
   const nextTokens = nameTokenCount(next);
   if (nextTokens > currentTokens) return next;
   if (nextTokens === currentTokens && next.length > current.length) return next;
-  return current;
+  return preferNonGenericDisplayName(current, next, "individual");
 }
 
 /** Build a full person display name from a cached individual detail payload. */
@@ -201,6 +208,9 @@ export function connectionNeedsDisplayEnrichment(
   if (!entry) return false;
   const displayChecked = entry.evidence?.includes("display-enriched");
   const name = String(entry.name || "").trim();
+  // Generic placeholders (Person 123 / Individual 123) always need a CRD re-check —
+  // display-enriched must not freeze a fake label in place.
+  if (isGenericPersonDisplayName(name)) return true;
   if ((!name || nameTokenCount(name) < 2) && !displayChecked) return true;
   if (!String(entry.address || "").trim() && !displayChecked) return true;
   return false;
@@ -281,7 +291,18 @@ export async function hydrateFirmConnectionsFromSearchSidecar(
     const crd = String(entry.individualId || "").trim();
     const hit = hits.get(crd);
     if (!hit) return entry;
-    const name = preferRicherPersonName(entry.name, composeNameFromSearchHit(hit));
+    const resolved = preferRicherPersonName(entry.name, composeNameFromSearchHit(hit));
+    // Sidecar produced nothing usable — stop and leave the entry marked for a Redis CRD check.
+    if (isGenericPersonDisplayName(resolved)) {
+      const evidence = Array.from(
+        new Set([...(entry.evidence || []), "needs-crd-name-check"].filter(Boolean)),
+      );
+      return {
+        ...entry,
+        name: isGenericPersonDisplayName(entry.name) ? "" : entry.name,
+        evidence,
+      };
+    }
     const otherNames = Array.from(
       new Set(
         [
@@ -295,11 +316,15 @@ export async function hydrateFirmConnectionsFromSearchSidecar(
     );
     const address = entry.address || composeAddressFromSearchHit(hit, preferFirmId) || undefined;
     const evidence = Array.from(
-      new Set([...(entry.evidence || []), "sidecar-hydrated"].filter(Boolean)),
+      new Set(
+        [...(entry.evidence || []), "sidecar-hydrated"]
+          .filter(Boolean)
+          .filter((tag) => tag !== "needs-crd-name-check"),
+      ),
     );
     return {
       ...entry,
-      name: name || entry.name,
+      name: resolved,
       ...(otherNames.length ? { otherNames } : {}),
       ...(address ? { address } : {}),
       bcScope: entry.bcScope || hit.ind_bc_scope || undefined,
@@ -915,7 +940,11 @@ const VALID_FIRM_CONNECTION_EVIDENCE = new Set([
 function hasValidatedFirmConnectionEvidence(
   entry: GraphConnectionEntry,
 ): boolean {
+  // Validation workflow: a roster entry is not validated while its display name is
+  // still a Person/Individual/CRD placeholder — stop and re-check that CRD first.
+  if (isGenericPersonDisplayName(entry?.name)) return false;
   const tags = Array.isArray(entry.evidence) ? entry.evidence : [];
+  if (tags.includes("needs-crd-name-check")) return false;
   return tags.some((tag) => VALID_FIRM_CONNECTION_EVIDENCE.has(tag));
 }
 
@@ -1058,8 +1087,10 @@ export async function upsertIndividualIntoEmployerFirmConnections(
   }
 
   // Never prefer firstName alone — that produced connection cards like "Susan" for Susan F Axelrod.
-  const personName =
-    composeIndividualDisplayName(detail) || `Individual ${normalizedCrd}`;
+  // Never persist Person/Individual placeholders: if compose fails, stop the name write and
+  // mark the entry so enrichment re-checks this CRD from Redis/search.
+  const composedName = composeIndividualDisplayName(detail);
+  const resolvedPersonName = isGenericPersonDisplayName(composedName) ? "" : composedName;
 
   const firmsTouched: string[] = [];
   const firmsSkippedUnchanged: string[] = [];
@@ -1092,12 +1123,14 @@ export async function upsertIndividualIntoEmployerFirmConnections(
       link.isCurrent ? "current-employment-record" : "matched-previous-employment",
       options.evidenceTag || "individual-detail-load",
     ];
+    if (!resolvedPersonName) evidence.push("needs-crd-name-check");
     const currentEmployer = link.isCurrent
       ? {}
       : extractCurrentEmployerFromDetail(detail, firmId);
     const incoming: GraphConnectionEntry = {
       individualId: normalizedCrd,
-      name: personName,
+      // Empty name forces connectionNeedsDisplayEnrichment; never write Individual N.
+      name: resolvedPersonName,
       relationship: link.isCurrent
         ? "Current registration"
         : "Previous registration",
@@ -1120,17 +1153,31 @@ export async function upsertIndividualIntoEmployerFirmConnections(
       existing: GraphConnectionEntry | undefined,
       next: GraphConnectionEntry,
     ): GraphConnectionEntry => {
-      if (!existing) return next;
+      if (!existing) {
+        if (isGenericPersonDisplayName(next.name)) {
+          return { ...next, name: "" };
+        }
+        return next;
+      }
       const mergedEvidence = Array.from(
         new Set([...(existing.evidence || []), ...(next.evidence || [])].filter(Boolean)),
       );
       const mergedSourceTags = Array.from(
         new Set([...(existing.sourceTags || []), ...(next.sourceTags || [])].filter(Boolean)),
       );
+      const mergedName = preferRicherPersonName(existing.name, next.name);
+      const safeName =
+        isGenericPersonDisplayName(mergedName) ?
+          isGenericPersonDisplayName(existing.name) ? ""
+          : existing.name
+        : mergedName;
+      if (!safeName && !mergedEvidence.includes("needs-crd-name-check")) {
+        mergedEvidence.push("needs-crd-name-check");
+      }
       return {
         ...existing,
         ...next,
-        name: preferRicherPersonName(existing.name, next.name),
+        name: safeName,
         address: next.address || existing.address,
         otherNames: next.otherNames?.length ? next.otherNames : existing.otherNames,
         statusTag: next.statusTag || existing.statusTag,
@@ -1362,8 +1409,17 @@ async function enrichConnectionEntriesFromIndividualCache(
       : undefined;
     if (!detail) {
       // Only mark cache-miss completion for entries we actually attempted to look up.
+      // Keep generic names flagged so a later pass re-checks this CRD.
       if (!attemptedIds.has(String(entry.individualId || "").trim())) return entry;
       const evidence = [...(entry.evidence || [])];
+      if (isGenericPersonDisplayName(entry.name)) {
+        if (!evidence.includes("needs-crd-name-check")) evidence.push("needs-crd-name-check");
+        return {
+          ...entry,
+          name: "",
+          evidence,
+        };
+      }
       if (!evidence.includes("display-enriched")) evidence.push("display-enriched");
       if (entry.isCurrent === false && !evidence.includes("curr-employer-enriched")) {
         evidence.push("curr-employer-enriched");
@@ -1372,7 +1428,12 @@ async function enrichConnectionEntriesFromIndividualCache(
     }
     const basic = detail?.basicInformation || detail || {};
     // Upgrade thin names ("Susan") when the cached detail has a fuller composed name.
-    const name = preferRicherPersonName(entry.name, composeIndividualDisplayName(detail));
+    // If Redis detail still only yields a generic placeholder, stop and keep needs-crd-name-check.
+    const composed = composeIndividualDisplayName(detail);
+    const name = preferRicherPersonName(
+      entry.name,
+      isGenericPersonDisplayName(composed) ? "" : composed,
+    );
     const bcScope =
       firstNonEmpty(entry.bcScope, detail?.bcScope, basic?.bcScope) ||
       undefined;
@@ -1433,7 +1494,15 @@ async function enrichConnectionEntriesFromIndividualCache(
       provenTag && !entry.evidence?.includes(provenTag)
         ? [...(entry.evidence || []), provenTag]
         : [...(entry.evidence || [])];
-    if (!evidence.includes("display-enriched")) evidence.push("display-enriched");
+    const safeName = isGenericPersonDisplayName(name) ? "" : name || (isGenericPersonDisplayName(entry.name) ? "" : entry.name);
+    if (safeName) {
+      if (!evidence.includes("display-enriched")) evidence.push("display-enriched");
+      const cleaned = evidence.filter((tag) => tag !== "needs-crd-name-check");
+      evidence.length = 0;
+      evidence.push(...cleaned);
+    } else if (!evidence.includes("needs-crd-name-check")) {
+      evidence.push("needs-crd-name-check");
+    }
 
     let currentFirmId = entry.currentFirmId;
     let currentFirmName = entry.currentFirmName;
@@ -1446,7 +1515,7 @@ async function enrichConnectionEntriesFromIndividualCache(
 
     return {
       ...entry,
-      name: name || entry.name,
+      name: safeName,
       bcScope,
       iaScope,
       otherNames,

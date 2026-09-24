@@ -344,9 +344,22 @@ html[data-theme='dark'] .fg-node.fg-node--inactive.fg-node--find-match text.fg-l
 }
 
 html[data-theme='dark'] .fg-node.fg-node--selection-log-label text.fg-label.fg-label--logged,
-html[data-theme='dark'] .fg-node.fg-node--find-match-active text.fg-label,
-html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='dark'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
+	display: block !important;
+	font-weight: 700 !important;
+	opacity: 1 !important;
+	/* Black outline keeps light bold fill readable over dense graph chrome. */
+	stroke: #000000 !important;
+	stroke-width: 0.14em !important;
+	stroke-linejoin: round !important;
+	paint-order: stroke fill !important;
+	text-shadow: none !important;
+	filter: none !important;
+	letter-spacing: 0.02em;
+}
+
+html[data-theme='dark'] .fg-node.fg-node--find-match-active text.fg-label,
+html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label {
 	display: block !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
@@ -376,9 +389,22 @@ html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label {
 }
 
 html[data-theme='light'] .fg-node.fg-node--selection-log-label text.fg-label.fg-label--logged,
-html[data-theme='light'] .fg-node.fg-node--find-match-active text.fg-label,
-html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='light'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
+	display: block !important;
+	font-weight: 700 !important;
+	opacity: 1 !important;
+	fill: var(--color-node-label) !important;
+	stroke: #000000 !important;
+	stroke-width: 0.14em !important;
+	stroke-linejoin: round !important;
+	paint-order: stroke fill !important;
+	text-shadow: none !important;
+	filter: none !important;
+	letter-spacing: 0.02em;
+}
+
+html[data-theme='light'] .fg-node.fg-node--find-match-active text.fg-label,
+html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label {
 	display: block !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
@@ -388,6 +414,11 @@ html[data-theme='light'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-n
 	text-shadow: none !important;
 	filter: none !important;
 	letter-spacing: 0.02em;
+}
+
+.fg-overlay-label.fg-overlay-label--bold {
+	-webkit-text-stroke: 2.5px #000000;
+	paint-order: stroke fill;
 }
 
 /* Clickable sidebar/card rows */
@@ -3982,8 +4013,10 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 :not(.theme-dark) .fg-node.fg-node--selection-log-label text.fg-label.fg-label--logged,
 [data-theme='light'] .fg-node.fg-node--selection-log-label text.fg-label.fg-label--logged {
 	fill: var(--text) !important;
-	stroke: none !important;
-	stroke-width: 0 !important;
+	stroke: #000000 !important;
+	stroke-width: 0.14em !important;
+	stroke-linejoin: round !important;
+	paint-order: stroke fill !important;
 	text-shadow: none !important;
 	filter: none !important;
 	font-weight: var(--font-weight-node-label-selected, 700);
@@ -4682,6 +4715,10 @@ html[data-theme='light'] .fg-empty-card.fg-session-restore-card {
 	fill: var(--color-node-label) !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
+	stroke: #000000 !important;
+	stroke-width: 0.14em !important;
+	stroke-linejoin: round !important;
+	paint-order: stroke fill !important;
 }
 
 text.fg-label {
@@ -4694,6 +4731,14 @@ text.fg-label {
 	filter: none !important;
 	paint-order: normal;
 	fill-opacity: 1 !important;
+}
+
+/* Log Bold outline must win over the default text.fg-label stroke:none rule above. */
+text.fg-label.fg-label--logged {
+	stroke: #000000 !important;
+	stroke-width: 0.14em !important;
+	stroke-linejoin: round !important;
+	paint-order: stroke fill !important;
 }
 /* Connector (intermediate) nodes — same reduced intensity */
 .fg-node.trace-shortest-connector circle,

@@ -300,6 +300,9 @@ export function updateOverlay(
 		}
 		el.style.fontWeight = isLogBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT;
 		el.style.zIndex = isLogBoldLabel ? '5' : '1';
+		// Black outline for Log Bold contrast (same treatment as canvas/SVG bold labels).
+		el.style.webkitTextStroke = isLogBoldLabel ? '2.5px #000000' : '';
+		(el.style as any).paintOrder = isLogBoldLabel ? 'stroke fill' : '';
 		el.classList.toggle('fg-overlay-label--bold', isLogBoldLabel);
 		// Append again so bold labels are the last DOM children (on top).
 		container.appendChild(el);
