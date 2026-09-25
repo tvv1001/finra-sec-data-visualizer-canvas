@@ -11428,7 +11428,7 @@ function classifyActivityText(value) {
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '');
 	if (!normalized) return null;
-	if (/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|previouslyregistered|nolongerregistered|notregistered)/.test(normalized)) {
+	if (/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|cancelled|canceled|previouslyregistered|nolongerregistered|notregistered)/.test(normalized)) {
 		return 'inactive';
 	}
 	if (/(active|approved|current)/.test(normalized)) {
@@ -11713,6 +11713,11 @@ function isNodeInactive(node) {
 		if ((sourceTruth.finra || sourceTruth.sec) && Array.isArray(node.activeStates) && node.activeStates.length) return false;
 		if (node.isLegacy === 'Y' && !sourceTruth.sec) return true;
 		if (finraFlags.hasInactive || secFlags.hasInactive || registrationStatusFlags.hasInactive) return true;
+		
+		// Treat as stub (non-live) firm if no activity flags were present and no basic info is available.
+		if (!node.basicInformation && !node.bcScope && !node.firmStatus && !node.iaScope && !node.bdSecNumber && !node.iaSecNumber) {
+			return true;
+		}
 		return false;
 	}
 

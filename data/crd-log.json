@@ -1,40 +1,16 @@
 {
   "firms": [
     {
-      "id": 8174,
-      "name": "UBS FINANCIAL SERVICES INC."
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
-      "id": 18718,
-      "name": "J.P. MORGAN SECURITIES INC."
+      "id": 28432,
+      "name": "J.P. MORGAN CLEARING CORP."
     },
     {
       "id": 79,
       "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
-      "id": 5685,
-      "name": "PRUCO SECURITIES, LLC."
-    },
-    {
-      "id": 25025,
-      "name": "E*TRADE CLEARING LLC"
-    },
-    {
-      "id": 29106,
-      "name": "E*TRADE SECURITIES LLC"
-    },
-    {
-      "id": 149777,
-      "name": "MORGAN STANLEY"
-    },
-    {
-      "id": 7870,
-      "name": "TD AMERITRADE, INC."
+      "id": 282107,
+      "name": "J.P. MORGAN PRIME INC."
     },
     {
       "id": 514,
@@ -61,8 +37,20 @@
       "name": "LEGEND SECURITIES, INC."
     },
     {
+      "id": 111514,
+      "name": "AMERIVEST INVESTMENT MANAGEMENT, LLC"
+    },
+    {
       "id": 288590,
       "name": "FIDELITY PERSONAL AND WORKPLACE ADVISORS"
+    },
+    {
+      "id": 5685,
+      "name": "PRUCO SECURITIES CORPORATION"
+    },
+    {
+      "id": 7870,
+      "name": "TD AMERITRADE, INC."
     },
     {
       "id": 104555,
@@ -71,6 +59,34 @@
     {
       "id": 7784,
       "name": "FIDELITY BROKERAGE SERVICES LLC"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 283942,
+      "name": "BOFA SECURITIES, INC."
+    },
+    {
+      "id": 8174,
+      "name": "UBS FINANCIAL SERVICES INC."
+    },
+    {
+      "id": 18718,
+      "name": "J.P. MORGAN SECURITIES INC."
+    },
+    {
+      "id": 25025,
+      "name": "E*TRADE CLEARING LLC"
+    },
+    {
+      "id": 29106,
+      "name": "E*TRADE SECURITIES LLC"
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
     },
     {
       "id": 112058,
@@ -227,10 +243,6 @@
     {
       "id": 19714,
       "name": "BARCLAYS CAPITAL INC."
-    },
-    {
-      "id": 283942,
-      "name": "BOFA SECURITIES, INC."
     },
     {
       "id": 837,
@@ -1659,10 +1671,6 @@
     {
       "id": 7887,
       "name": "MONTANO SECURITIES CORPORATION"
-    },
-    {
-      "id": 111514,
-      "name": "TD AMERITRADE INVESTMENT MANAGEMENT, LLC"
     },
     {
       "id": 39550,
@@ -6577,14 +6585,6 @@
       "name": "NEW ENGLAND FUNDS, L.P."
     },
     {
-      "id": 28432,
-      "name": "J.P. MORGAN CLEARING CORP."
-    },
-    {
-      "id": 282107,
-      "name": "J.P. MORGAN PRIME INC."
-    },
-    {
       "id": 114666,
       "name": "MKM PARTNERS LLC"
     },
@@ -11171,8 +11171,24 @@
   ],
   "individuals": [
     {
-      "id": 8275843,
-      "name": "DECLAN GOREY"
+      "id": 2830362,
+      "name": "Patrick Dempsey"
+    },
+    {
+      "id": 215527,
+      "name": "RICHARD SEVERIN FULD"
+    },
+    {
+      "id": 2783699,
+      "name": "BRAD DAVIS"
+    },
+    {
+      "id": 7045474,
+      "name": "Brad Terry"
+    },
+    {
+      "id": 6949587,
+      "name": "Susan F Axelrod"
     },
     {
       "id": 4429443,
@@ -11183,20 +11199,12 @@
       "name": "Matthew D Sable"
     },
     {
-      "id": 7045474,
-      "name": "Brad Terry"
-    },
-    {
       "id": 2212982,
       "name": "PAUL VIENICK"
     },
     {
       "id": 6930441,
       "name": "Brad Moore"
-    },
-    {
-      "id": 215527,
-      "name": "RICHARD SEVERIN FULD"
     },
     {
       "id": 322250,
@@ -11253,10 +11261,6 @@
     {
       "id": 4754959,
       "name": "RAHUL JAISING"
-    },
-    {
-      "id": 6949587,
-      "name": "Susan F Axelrod"
     },
     {
       "id": 2380166,
@@ -14269,10 +14273,6 @@
     {
       "id": 7122597,
       "name": "Rachid Alaoui Abdallaoui"
-    },
-    {
-      "id": 2830362,
-      "name": "Patrick Dempsey"
     },
     {
       "id": 4945805,
