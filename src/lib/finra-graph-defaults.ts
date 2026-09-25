@@ -27,7 +27,7 @@ export const DEFAULT_NODE_LABEL_GAP_PX = 0;
 
 /** Match d3 zoom scaleExtent in finra-graph.ts — max 1× (natural size). */
 export const GRAPH_ZOOM_MIN = 0.08;
-export const GRAPH_ZOOM_MAX = 1;
+export const GRAPH_ZOOM_MAX = 1.2;
 
 export function clampGraphZoom(zoomScale: number | string | null | undefined) {
 	const zoom = Number(zoomScale);

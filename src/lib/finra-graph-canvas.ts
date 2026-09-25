@@ -26,27 +26,28 @@ let suppressNextCanvasClick = false;
 let hoverMoveRaf: number | null = null;
 let pendingHoverClient: { x: number; y: number } | null = null;
 
-const CANVAS_NODE_SCALE = 1.5;
+const CANVAS_NODE_SCALE = 1.2;
 /** Normal canvas label size in screen pixels — static (does not change with zoom). */
 const CANVAS_DEFAULT_LABEL_SIZE = 26;
 /** Log-bold canvas label base size; multiplied by zoom so bold grows/shrinks with the view. */
-const CANVAS_BOLD_LABEL_SIZE = 30;
+const CANVAS_BOLD_LABEL_SIZE = 44;
 
 function getCanvasLabelScreenPx(isBoldLabel: boolean, zoomScale: number) {
-	const zoom = Math.max(0.01, Number(zoomScale) || 1);
-	if (isBoldLabel) return Math.max(11, Math.min(30, CANVAS_BOLD_LABEL_SIZE * zoom));
+	const zoom = Math.max(0.01, Number(zoomScale));
+	//if (isBoldLabel) return Math.max(66, Math.min(1, CANVAS_BOLD_LABEL_SIZE * zoom));
+	if (isBoldLabel) return Math.max(12, Math.min(49, CANVAS_BOLD_LABEL_SIZE * zoom));
 	// Scale with zoom; never smaller than 24px and never larger than 66px.
 	//return Math.max(24, Math.min(33, CANVAS_BOLD_LABEL_SIZE * zoom));
 
 	if (!isBoldLabel) return CANVAS_DEFAULT_LABEL_SIZE * zoom;
 }
 
-function shouldShowCanvasLabel(node: Node) {
-	const scale = currentTransform.k || 1;
-	const nodeId = String(node?.id);
-	const forcedLabelIds = new Set((currentOpts.logLabelNodeIds || []).map((id: string | number) => String(id)));
-	return forcedLabelIds.has(nodeId) || scale >= 0.45;
-}
+// function shouldShowCanvasLabel(node: Node) {
+// 	const scale = currentTransform.k || 1;
+// 	const nodeId = String(node?.id);
+// 	const forcedLabelIds = new Set((currentOpts.logLabelNodeIds || []).map((id: string | number) => String(id)));
+// 	return forcedLabelIds.has(nodeId) || scale >= 0.45;
+// }
 
 function isCanvasNodeLabelPainted(node: Node | null | undefined) {
 	if (!node) return false;

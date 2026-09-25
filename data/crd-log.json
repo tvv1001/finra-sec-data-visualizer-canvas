@@ -1,6 +1,30 @@
 {
   "firms": [
     {
+      "id": 25025,
+      "name": "E*TRADE CLEARING LLC"
+    },
+    {
+      "id": 29106,
+      "name": "E*TRADE SECURITIES LLC"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
+    },
+    {
+      "id": 7870,
+      "name": "TD AMERITRADE, INC."
+    },
+    {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
       "id": 514,
       "name": "LEHMAN BROTHERS INCORPORATED"
     },
@@ -173,10 +197,6 @@
       "name": "USAA FINANCIAL ADVISORS, INC."
     },
     {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
       "id": 250,
       "name": "EDWARD JONES"
     },
@@ -269,10 +289,6 @@
       "name": "J.P. MORGAN SECURITIES INC."
     },
     {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
-    },
-    {
       "id": 5393,
       "name": "CHARLES SCHWAB & CO., INC."
     },
@@ -287,10 +303,6 @@
     {
       "id": 816,
       "name": "CREDIT SUISSE SECURITIES (USA) LLC"
-    },
-    {
-      "id": 7870,
-      "name": "TD AMERITRADE, INC."
     },
     {
       "id": 5633,
@@ -695,10 +707,6 @@
     {
       "id": 5979,
       "name": "AMERIPRISE ADVISOR SERVICES, INC."
-    },
-    {
-      "id": 149777,
-      "name": "MORGAN STANLEY"
     },
     {
       "id": 128040,
@@ -1947,14 +1955,6 @@
     {
       "id": 1141,
       "name": "JULIUS BAER SECURITIES INC."
-    },
-    {
-      "id": 25025,
-      "name": "E*TRADE CLEARING LLC"
-    },
-    {
-      "id": 29106,
-      "name": "E*TRADE SECURITIES LLC"
     },
     {
       "id": 47873,
@@ -11171,6 +11171,14 @@
   ],
   "individuals": [
     {
+      "id": 2212982,
+      "name": "PAUL VIENICK"
+    },
+    {
+      "id": 6930441,
+      "name": "Brad Moore"
+    },
+    {
       "id": 215527,
       "name": "RICHARD SEVERIN FULD"
     },
@@ -14253,10 +14261,6 @@
     {
       "id": 2830362,
       "name": "Patrick Dempsey"
-    },
-    {
-      "id": 2212982,
-      "name": "PAUL VIENICK"
     },
     {
       "id": 4945805,
