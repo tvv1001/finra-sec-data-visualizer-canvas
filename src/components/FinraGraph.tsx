@@ -7,7 +7,15 @@ import ThemeToggle from './ThemeToggle';
 import { applyStickyParamsToUrl, buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
 import { RUNTIME_CLICK_EXPANSION_HOPS, RUNTIME_EXPANSION_HOPS, RUNTIME_SELECTION_HOPS } from '@/lib/finra-graph-defaults';
 import { consumeQueueGraphBridgePayload } from '@/lib/queueGraphBridge';
-import { GPU_RENDERER_STORAGE_KEY, GPU_TIER_STORAGE_KEY, HYBRID_GPU_STORAGE_KEY, SAFE_GPU_STORAGE_KEY, applySafeGpuDomState, probeWebGlGpuInfo, resolveSafeGpuEnabled } from '@/lib/gpu-capability';
+import {
+	GPU_RENDERER_STORAGE_KEY,
+	GPU_TIER_STORAGE_KEY,
+	HYBRID_GPU_STORAGE_KEY,
+	SAFE_GPU_STORAGE_KEY,
+	applySafeGpuDomState,
+	probeWebGlGpuInfo,
+	resolveSafeGpuEnabled,
+} from '@/lib/gpu-capability';
 
 const MOBILE_TOUCH_SLOP_PX = 12;
 const MOBILE_TOUCH_CLICK_SUPPRESSION_MS = 250;
@@ -293,13 +301,8 @@ function applySafeGpuMode() {
 	}
 
 	if (typeof console !== 'undefined' && console.info) {
-		const probeSummary = (info.probes || [])
-			.map((probe) => `${probe.powerPreference}:${probe.renderer || 'n/a'}`)
-			.join(' | ');
-		const onlyIgpu =
-			!resolved.hybrid &&
-			resolved.tier === 'integrated' &&
-			/hawk.?point|phoenix|rembrandt|radeon\s*780m|radeonsi/i.test(resolved.preferredRenderer || '');
+		const probeSummary = (info.probes || []).map((probe) => `${probe.powerPreference}:${probe.renderer || 'n/a'}`).join(' | ');
+		const onlyIgpu = !resolved.hybrid && resolved.tier === 'integrated' && /hawk.?point|phoenix|rembrandt|radeon\s*780m|radeonsi/i.test(resolved.preferredRenderer || '');
 		if (resolved.tier === 'hybrid') {
 			console.info(
 				`[finra-graph] Hybrid GPU mode. Preferred WebGL: ${resolved.preferredRenderer || 'n/a'}. SVG/backdrop filters stay OFF to avoid Mesa SIGILL — GPU compositing still runs. ?safe_gpu=0 re-enables filters (crash risk). Probes: ${probeSummary || 'none'}`,
@@ -1374,7 +1377,9 @@ export default function FinraGraph() {
 									Clear Firm
 								</button>
 							</div>
-							<div className='fg-log-drawer-actions-row' style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+							<div
+								className='fg-log-drawer-actions-row'
+								style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 								<input
 									type='text'
 									className='fg-selection-log-filter'
@@ -1611,7 +1616,9 @@ export default function FinraGraph() {
 				<main
 					className='fg-main'
 					id='fg-main'>
-					<canvas id='fg-canvas' style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'auto'}}></canvas>
+					<canvas
+						id='fg-canvas'
+						style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'auto' }}></canvas>
 					<div
 						id='fg-legend'
 						className='fg-legend'></div>
@@ -1671,8 +1678,11 @@ export default function FinraGraph() {
 							</div>
 							<h4 className='fg-empty-title'>Fetch nodes with the search field above.</h4>
 							<ul className='fg-empty-steps'>
-								<li>Manage visible nodes within the log panel.</li>
-								<li>Explore within the Dashboard to search for all of the possible connections.</li>
+								<li>
+									Selecting Firm nodes reveal it's BD/Control Positions (red). Full firm connection list can be seen within the dashboard, selected CRDs are added to the Queue
+									Graph list which will then be fetched onto the node graph when returning.
+								</li>
+								<li>Selecting Individual nodes reveal it's current and previous employment connections (blue).</li>
 							</ul>
 							<br />
 							<a
