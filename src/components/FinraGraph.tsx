@@ -337,9 +337,23 @@ export default function FinraGraph() {
 	const [findQuery, setFindQuery] = useState('');
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
 	const [isSidebarToolsOpen, setIsSidebarToolsOpen] = useState(true);
+	const [pageTitle, setPageTitle] = useState('FINRA Network Graph');
+
+	useEffect(() => {
+		const handleTitleUpdate = (e: any) => {
+			if (e.detail && e.detail !== 'FINRA Network Graph') {
+				setPageTitle(`${e.detail} | FINRA Network Graph`);
+			} else {
+				setPageTitle('FINRA Network Graph');
+			}
+		};
+		window.addEventListener('finra:title-update', handleTitleUpdate);
+		return () => window.removeEventListener('finra:title-update', handleTitleUpdate);
+	}, []);
 
 	useEffect(() => {
 		applySafeGpuMode();
+
 
 		const stored = localStorage.getItem('finra_sidebar_tools_open');
 		if (stored !== null) {
@@ -1106,6 +1120,7 @@ export default function FinraGraph() {
 			data-sidebar-pinned='false'
 			data-legend-open='false'
 			data-graph-empty='false'>
+			<title>{pageTitle}</title>
 			<header className='fg-header'>
 				<div className='fg-header-bar'>
 					<div className='fg-header-brand'>

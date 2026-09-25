@@ -1821,7 +1821,7 @@ html[data-theme='dark'] .fg-toolbar-status--top[data-dismissible='true'] {
 	font-size: 16px;
 	padding: 4px 8px;
 	border-radius: 5px;
-	border: 1px sol5d var(--border-strong);
+	border: 1px solid var(--border-strong);
 	background: var(--surface);
 	color: var(--text-h);
 	cursor: pointer;
@@ -1850,7 +1850,7 @@ a,
 	font-weight: 600;
 	padding: 6px 14px;
 	border-radius: 5px;
-	border: 1px sol5d var(--border-strong);
+	border: 1px solid var(--border-strong);
 	background: var(--surface);
 	color: var(--text-h);
 	cursor: pointer;
@@ -1877,7 +1877,7 @@ a,
 	font: 600 12px/1 var(--sans);
 	padding: 7px 10px;
 	border-radius: 5px;
-	border: 1px sol5d var(--border);
+	border: 1px solid var(--border);
 	background: var(--surface);
 	color: var(--text-h);
 	min-height: 34px;
@@ -1973,7 +1973,7 @@ a,
 	padding: 7px 9px;
 	min-height: 32px;
 	border-radius: 5px;
-	border: 1px sol5d var(--border);
+	border: 1px solid var(--border);
 	background: var(--surface);
 	color: var(--text-h);
 	cursor: pointer;
@@ -4389,6 +4389,12 @@ html[data-theme='light'] .fg-empty-card.fg-session-restore-card {
 		width: auto;
 	}
 
+	@media (max-width: 500px) {
+		.fg-header-brand {
+			display: none;
+		}
+	}
+
 	.fg-header-controls {
 		display: flex;
 		width: auto;
@@ -4396,16 +4402,16 @@ html[data-theme='light'] .fg-empty-card.fg-session-restore-card {
 		padding-top: 0;
 		min-width: 0;
 	}
-	/*
+
 	.fg-header-right-controls {
 		display: flex;
 		align-items: center;
 		justify-content: flex-end;
 		gap: 6px;
-		flex: 1 1 auto;
+		flex: 0 0 auto;
 		min-width: 0;
 		margin-left: auto;
-	} */
+	}
 
 	.fg-toolbar-status--top {
 		justify-content: flex-end;
@@ -6781,4 +6787,11 @@ button[type='submit'],
 .fg-link.highlighted-hop,
 line.fg-link.is-selected {
 	stroke-opacity: 1 !important;
+}
+
+@media (max-width: 860px) {
+	.fg-dashboard-graph-btn {
+		min-height: 42px;
+		padding: 10px 14px;
+	}
 }

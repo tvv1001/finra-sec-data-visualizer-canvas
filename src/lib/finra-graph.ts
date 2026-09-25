@@ -17258,15 +17258,13 @@ function showSidebarHint(options: { keepOpen?: boolean } = {}) {
 }
 
 function updateShortDetail(d) {
-	// #fg-short-detail no longer exists in the current sidebar markup (replaced by
-	// .fg-sb-title), but document.title updates must still happen regardless of
-	// whether that legacy element is present.
 	const el = document.getElementById('fg-short-detail');
 	if (!d) {
 		if (el) el.textContent = '';
 		try {
 			if (typeof window !== 'undefined') {
-				document.title = '';
+				document.title = 'FINRA Network Graph';
+				window.dispatchEvent(new CustomEvent('finra:title-update', { detail: 'FINRA Network Graph' }));
 			}
 		} catch {}
 		return;
@@ -17279,7 +17277,9 @@ function updateShortDetail(d) {
 	try {
 		if (typeof window !== 'undefined') {
 			const idLabel = id ? ` / CRD# ${id}` : '';
-			document.title = `${label}${idLabel}`;
+			const newTitle = `${label}${idLabel}`;
+			document.title = newTitle;
+			window.dispatchEvent(new CustomEvent('finra:title-update', { detail: newTitle }));
 		}
 	} catch {}
 }

@@ -4842,7 +4842,7 @@ function DashboardPageInner() {
 						</Link>
 						<button
 							type='button'
-							className={styles.rightPaneToggle}
+							className={styles.rightPaneToggleInline}
 							onClick={toggleNewCrdsOpen}
 							aria-expanded={newCrdsOpen}>
 							{newCrdsOpen ? 'Hide Panel' : 'new CRDs'}

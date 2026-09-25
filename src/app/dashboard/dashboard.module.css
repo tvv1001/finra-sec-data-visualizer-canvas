@@ -2831,7 +2831,7 @@
 	white-space: nowrap;
 }
 
-.rightPaneToggle {
+.rightPaneToggleInline {
 	margin-left: auto;
 	border: 1px solid var(--border-cyan);
 	background: rgba(6, 182, 212, 0.08);
@@ -2846,7 +2846,7 @@
 	border-radius: 0;
 }
 
-.rightPaneToggle:hover {
+.rightPaneToggleInline:hover {
 	background: rgba(6, 182, 212, 0.16);
 	color: #b5ecff;
 }
