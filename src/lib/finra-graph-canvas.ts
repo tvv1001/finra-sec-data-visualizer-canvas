@@ -30,12 +30,12 @@ const CANVAS_NODE_SCALE = 1.2;
 /** Normal canvas label size in screen pixels — static (does not change with zoom). */
 const CANVAS_DEFAULT_LABEL_SIZE = 26;
 /** Log-bold canvas label base size; multiplied by zoom so bold grows/shrinks with the view. */
-const CANVAS_BOLD_LABEL_SIZE = 44;
+const CANVAS_BOLD_LABEL_SIZE = 40;
 
 function getCanvasLabelScreenPx(isBoldLabel: boolean, zoomScale: number) {
 	const zoom = Math.max(0.01, Number(zoomScale));
 	//if (isBoldLabel) return Math.max(66, Math.min(1, CANVAS_BOLD_LABEL_SIZE * zoom));
-	if (isBoldLabel) return Math.max(12, Math.min(49, CANVAS_BOLD_LABEL_SIZE * zoom));
+	if (isBoldLabel) return Math.max(10, Math.min(40, CANVAS_BOLD_LABEL_SIZE * zoom));
 	// Scale with zoom; never smaller than 24px and never larger than 66px.
 	//return Math.max(24, Math.min(33, CANVAS_BOLD_LABEL_SIZE * zoom));
 

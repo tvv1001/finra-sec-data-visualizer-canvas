@@ -811,7 +811,7 @@ function locationTokensMatch(queryToken: string, candidateToken: string) {
 	if (queryToken === candidateToken) return true;
 	if (candidateToken.includes(queryToken) && queryToken.length >= 3) return true;
 	if (queryToken.includes(candidateToken) && candidateToken.length >= 3) return true;
-	if (queryToken.length < 5 || candidateToken.length < 5) return false;
+	if (queryToken.length < 3 || candidateToken.length < 3) return false;
 	const maxDistance = Math.max(1, Math.floor(Math.min(queryToken.length, candidateToken.length) * 0.25));
 	return getBoundedEditDistance(queryToken, candidateToken, maxDistance) <= maxDistance;
 }
@@ -823,15 +823,20 @@ function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	const nicknames = NICKNAME_MAP.get(queryToken);
 	if (nicknames && nicknames.includes(candidateToken)) return true;
 
-	// Fast-fail: fuzzy matches should generally share the same starting letter
-	if (queryToken[0] !== candidateToken[0]) return false;
-
 	// Candidate token contains the query token (e.g. 'hooten' contains 'hoot')
 	if (candidateToken.includes(queryToken) && queryToken.length >= 3) return true;
 
 	const minLength = Math.min(queryToken.length, candidateToken.length);
-	if (minLength < 4) return false;
+	if (minLength < 3) return false;
+
 	const maxDistance = Math.max(1, Math.floor(queryToken.length * 0.3));
+	if (Math.abs(queryToken.length - candidateToken.length) > maxDistance) return false;
+
+	// Fast-fail: fuzzy matches should generally share at least one of the first two letters
+	if (queryToken[0] !== candidateToken[0] && queryToken[0] !== candidateToken[1] && queryToken[1] !== candidateToken[0]) {
+		return false;
+	}
+
 	return getBoundedEditDistance(queryToken, candidateToken, maxDistance) <= maxDistance;
 }
 

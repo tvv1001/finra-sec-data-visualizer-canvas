@@ -2695,6 +2695,9 @@ export function rankFindNodeMatches(rawQuery, nodePool = [], liveLinks = []) {
 		}
 
 		if (bestScore > 0) {
+			if (isNodeInactive(node) && bestScore < 140) {
+				continue;
+			}
 			scored.push({
 				node,
 				score: bestScore,

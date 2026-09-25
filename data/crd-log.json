@@ -1,6 +1,26 @@
 {
   "firms": [
     {
+      "id": 8174,
+      "name": "UBS FINANCIAL SERVICES INC."
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 18718,
+      "name": "J.P. MORGAN SECURITIES INC."
+    },
+    {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
+      "id": 5685,
+      "name": "PRUCO SECURITIES, LLC."
+    },
+    {
       "id": 25025,
       "name": "E*TRADE CLEARING LLC"
     },
@@ -9,20 +29,12 @@
       "name": "E*TRADE SECURITIES LLC"
     },
     {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
       "id": 149777,
       "name": "MORGAN STANLEY"
     },
     {
       "id": 7870,
       "name": "TD AMERITRADE, INC."
-    },
-    {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
       "id": 514,
@@ -285,10 +297,6 @@
       "name": "STATE FARM VP MANAGEMENT CORP."
     },
     {
-      "id": 18718,
-      "name": "J.P. MORGAN SECURITIES INC."
-    },
-    {
       "id": 5393,
       "name": "CHARLES SCHWAB & CO., INC."
     },
@@ -371,10 +379,6 @@
     {
       "id": 19794,
       "name": "MORGAN STANLEY MARKET PRODUCTS INC."
-    },
-    {
-      "id": 8174,
-      "name": "UBS FINANCIAL SERVICES INC."
     },
     {
       "id": 2525,
@@ -503,10 +507,6 @@
     {
       "id": 42803,
       "name": "VALIC FINANCIAL ADVISORS, INC."
-    },
-    {
-      "id": 5685,
-      "name": "PRUCO SECURITIES, LLC."
     },
     {
       "id": 297591,
@@ -11171,6 +11171,22 @@
   ],
   "individuals": [
     {
+      "id": 8275843,
+      "name": "DECLAN GOREY"
+    },
+    {
+      "id": 4429443,
+      "name": "LINDSAY DENARDO HANS"
+    },
+    {
+      "id": 4835849,
+      "name": "Matthew D Sable"
+    },
+    {
+      "id": 7045474,
+      "name": "Brad Terry"
+    },
+    {
       "id": 2212982,
       "name": "PAUL VIENICK"
     },
@@ -11253,10 +11269,6 @@
     {
       "id": 4634160,
       "name": "SARAH MINEAU"
-    },
-    {
-      "id": 4835849,
-      "name": "Matthew D Sable"
     },
     {
       "id": 4144656,
@@ -14465,10 +14477,6 @@
     {
       "id": 1840894,
       "name": "RALPH MATTONE"
-    },
-    {
-      "id": 4429443,
-      "name": "LINDSAY DENARDO HANS"
     },
     {
       "id": 1530547,
