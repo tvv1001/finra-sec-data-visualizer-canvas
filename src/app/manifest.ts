@@ -1,19 +1,19 @@
 import type { MetadataRoute } from 'next';
 
-const siteUrl = 'https://finra-data-chart-next-02.vercel.app';
+const siteUrl = 'finra-sec-data-visualizer-canvas.vercel.app';
 
 export default function manifest(): MetadataRoute.Manifest {
 	return {
 		id: '/',
-		name: 'FINRA Network Graph',
-		short_name: 'FINRA Graph',
+		name: 'FINRA SEC Network Graph',
+		short_name: 'FINRA SEC Node Graph',
 		description: 'Explore FINRA BrokerCheck and SEC AdviserInfo relationships in an interactive network graph for people, firms, control entities, registrations, and disclosures.',
 		start_url: '/',
 		scope: '/',
 		display: 'standalone',
 		orientation: 'portrait',
 		background_color: '#F5F0E4',
-		theme_color: '#F97316',
+		theme_color: '#021860',
 		categories: ['finance', 'business', 'productivity'],
 		lang: 'en',
 		icons: [

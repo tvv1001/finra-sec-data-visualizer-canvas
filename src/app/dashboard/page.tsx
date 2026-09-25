@@ -2832,7 +2832,7 @@ function DashboardPageInner() {
 
 		const bcScope = pickFirstNonEmpty(basic.bcScope, body.bcScope, basic.brokerCheckScope, body.brokerCheckScope, body.bc_scope);
 		const iaScope = pickFirstNonEmpty(basic.iaScope, body.iaScope, basic.secScope, body.secScope, body.ia_scope);
-		const finraActive =
+		let finraActive =
 			!showFinra ? ''
 			: bcScope ? `FINRA: ${bcScope}`
 			: 'FINRA: Active';
@@ -2840,6 +2840,11 @@ function DashboardPageInner() {
 			!showSec ? ''
 			: iaScope ? `SEC: ${iaScope}`
 			: 'SEC: Active';
+			
+		if (!showFinra && !showSec) {
+			finraActive = 'Historical Record (No Live Data)';
+		}
+		
 		const subtitle = otherNames.length > 0 && currentRecordEntity === 'individual' ? otherNames[0] : '';
 
 		const directOwners = toArray(body.directOwners).concat(toArray(body.directOwnersExecutiveOfficers));
@@ -4967,12 +4972,12 @@ function DashboardPageInner() {
 														);
 													})()}
 												{detailedMainRecord?.finraActive && (
-													<span className={detailedMainRecord.finraActive.toLowerCase().includes('inactive') ? styles.recordBadgeInactive : styles.recordBadgeActive}>
+													<span className={/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|cancelled|canceled|previouslyregistered|nolongerregistered|notregistered|expanded|historical)/i.test(detailedMainRecord.finraActive.replace(/[^a-z0-9]+/gi, '')) ? styles.recordBadgeInactive : styles.recordBadgeActive}>
 														{detailedMainRecord.finraActive}
 													</span>
 												)}
 												{detailedMainRecord?.secActive && (
-													<span className={detailedMainRecord.secActive.toLowerCase().includes('inactive') ? styles.recordBadgeInactive : styles.recordBadgeActive}>
+													<span className={/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|cancelled|canceled|previouslyregistered|nolongerregistered|notregistered|expanded|historical)/i.test(detailedMainRecord.secActive.replace(/[^a-z0-9]+/gi, '')) ? styles.recordBadgeInactive : styles.recordBadgeActive}>
 														{detailedMainRecord.secActive}
 													</span>
 												)}

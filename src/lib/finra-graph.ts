@@ -9755,7 +9755,20 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 	const r = await fetchWithTimeout(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
 	if (!r.ok) throw new Error(`firm HTTP ${r.status}`);
 	const detail = unwrapDetailPayload(await r.json());
-	if (detail?.found === false) throw new Error(`firm ${firmId} not found`);
+	if (detail?.found === false) {
+		return {
+			nodes: [
+				{
+					id: `firm:${firmId}`,
+					label: queryLabel || `Firm ${firmId}`,
+					group: 'firm',
+					firmId: String(firmId),
+					stub: true,
+				},
+			],
+			links: [],
+		};
+	}
 
 	const firmNodeId = `firm:${firmId}`;
 	nodes.push({
@@ -11428,7 +11441,7 @@ function classifyActivityText(value) {
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '');
 	if (!normalized) return null;
-	if (/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|cancelled|canceled|previouslyregistered|nolongerregistered|notregistered)/.test(normalized)) {
+	if (/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|cancelled|canceled|previouslyregistered|nolongerregistered|notregistered|expanded)/.test(normalized)) {
 		return 'inactive';
 	}
 	if (/(active|approved|current)/.test(normalized)) {
@@ -11698,8 +11711,10 @@ function hasSecActivityEvidence(node) {
 	return false;
 }
 
-function isNodeInactive(node) {
+function isNodeInactive(node, visited = new Set()) {
 	if (!node || typeof node !== 'object') return false;
+	if (visited.has(node.id)) return false; // Prevent infinite recursion by defaulting to active if in a loop
+	visited.add(node.id);
 	const sourceTruth = getNodeSourceTruth(node);
 
 	if (node.group === 'firm') {
@@ -11712,12 +11727,28 @@ function isNodeInactive(node) {
 		if (finraFlags.hasActive || secFlags.hasActive || registrationStatusFlags.hasActive) return false;
 		if ((sourceTruth.finra || sourceTruth.sec) && Array.isArray(node.activeStates) && node.activeStates.length) return false;
 		if (node.isLegacy === 'Y' && !sourceTruth.sec) return true;
-		if (finraFlags.hasInactive || secFlags.hasInactive || registrationStatusFlags.hasInactive) return true;
-		
-		// Treat as stub (non-live) firm if no activity flags were present and no basic info is available.
-		if (!node.basicInformation && !node.bcScope && !node.firmStatus && !node.iaScope && !node.bdSecNumber && !node.iaSecNumber) {
-			return true;
+		const isFirmStub = node.stub || (!node.basicInformation && !node.bcScope && !node.firmStatus && !node.iaScope && !node.bdSecNumber && !node.iaSecNumber);
+		if (isFirmStub) {
+			const connectedLinks = (globalState.layoutLinks || []).filter((l) => {
+				const srcId = l.source?.id || l.source;
+				const tgtId = l.target?.id || l.target;
+				return srcId === node.id || tgtId === node.id;
+			});
+			if (connectedLinks.length > 0) {
+				const hasActiveLink = connectedLinks.some((l) => {
+					if (isPreviousEmploymentLink(l)) return false;
+					const otherId = (l.source?.id || l.source) === node.id ? (l.target?.id || l.target) : (l.source?.id || l.source);
+					const otherNode = globalState.layoutNodes?.find((n) => n.id === otherId);
+					if (!otherNode) return true;
+					if (isNodeInactive(otherNode, visited)) return false;
+					return true;
+				});
+				if (!hasActiveLink) return true;
+			} else {
+				return true;
+			}
 		}
+
 		return false;
 	}
 
@@ -11749,7 +11780,7 @@ function isNodeInactive(node) {
 					const otherId = (l.source?.id || l.source) === node.id ? (l.target?.id || l.target) : (l.source?.id || l.source);
 					const otherNode = globalState.layoutNodes?.find((n) => n.id === otherId);
 					if (!otherNode) return true;
-					if (otherNode.group === 'firm' && isNodeInactive(otherNode)) return false;
+					if (otherNode.group === 'firm' && isNodeInactive(otherNode, visited)) return false;
 					return true;
 				});
 				if (!hasActiveLink) return true;
@@ -11816,6 +11847,17 @@ function isPreviousEmploymentLink(link) {
 			const previous = [...(sourceNode.previousEmployments || []), ...(sourceNode.previousIAEmployments || [])];
 			const matchesPrevious = previous.some((employment) => String(employment?.firmId || employment?.firm_id || '').trim() === targetId);
 			if (matchesPrevious) return true;
+
+			// Fallback for first-load (before previous employments are fetched): 
+			// If the individual is intrinsically inactive, their employments cannot be current.
+			const sourceTruth = getNodeSourceTruth(sourceNode);
+			const finraSignalsEnabled = sourceTruth.finra;
+			const secSignalsEnabled = sourceTruth.sec || hasSecActivityEvidence(sourceNode);
+			const activityFlags = collectNodeActivityFlags([
+				...(finraSignalsEnabled ? [sourceNode.bcScope, sourceNode.basicInformation?.bcScope] : []),
+				...(secSignalsEnabled ? [sourceNode.iaScope, sourceNode.basicInformation?.iaScope] : []),
+			]);
+			if (activityFlags.hasInactive) return true;
 		}
 		return !isCurrentRegistration(link);
 	}
@@ -12674,6 +12716,7 @@ function updateNodeVisuals(
 	selection.each(function (d) {
 		const g = d3.select(this);
 		const inactive = isNodeInactive(d);
+		d._vizInactive = inactive;
 		const deg = d._deg || { total: 0, controls: 0, employed: 0 };
 		const isControlNode = deg.controls > 0;
 		const isSelectedNode = globalState.selectedId != null && String(globalState.selectedId) === String(d.id);
@@ -14950,6 +14993,14 @@ async function ensureFirmConnections(firmNode: any) {
 
 	const requestPromise = (async () => {
 		try {
+			const cachedPayload = readVisitedSync<any>(visitConnectionsKey(firmId));
+			if (cachedPayload && cachedPayload.found !== false) {
+				firmNode.currentConnections = Array.isArray(cachedPayload.currentConnections) ? cachedPayload.currentConnections : [];
+				firmNode.previousConnections = Array.isArray(cachedPayload.previousConnections) ? cachedPayload.previousConnections : [];
+				firmNode._connectionsLoaded = true;
+				return;
+			}
+			
 			const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
 			const timer = controller ? window.setTimeout(() => controller.abort(), 30000) : 0;
 			const res = await fetchWithTimeout(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
@@ -19733,6 +19784,18 @@ function renderFirmDetail(d: any) {
 			</div>`
 				:	''
 			}
+			${
+				!showFinra && !isIa && (d.currentConnections?.length > 0 || d.previousConnections?.length > 0) ?
+					`
+			<div class="fg-firm-summary__role">
+				<span class="fg-firm-summary__role-icon" aria-hidden="true" style="background:var(--color-node-inactive-stroke);color:white">?</span>
+				<div class="fg-firm-summary__role-copy">
+					<div class="fg-firm-summary__role-title" style="color:var(--text-secondary)">Historical Record</div>
+					<div class="fg-firm-summary__role-subtitle">Live CRD details are unavailable for this entity.</div>
+				</div>
+			</div>`
+				:	''
+			}
 		</div>`;
 
 	return `
@@ -19780,6 +19843,7 @@ function renderFirmDetail(d: any) {
 			</div>
 			<div class="fg-ext-links">
 				${showFinra && hasFinraPage && firmId ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
+				${!showFinra && !isIa && firmId ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; Verify Source (FINRA)</a>` : ''}
 				${
 					showSec && hasSecPage && Array.isArray(secDocumentLinks) && secDocumentLinks.length > 0 ?
 						secDocumentLinks

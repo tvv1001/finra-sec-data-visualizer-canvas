@@ -423,8 +423,12 @@ function isPreviousLink(link: Link) {
 function isInactiveNode(node: Node) {
 	if (!node) return false;
 	if (node.inactive === true || node.isInactive === true) return true;
-	const status = String(node.status || node.firmStatus || node.bcScope || node.iaScope || '').toLowerCase();
-	return ['inactive', 'terminated', 'withdrawn', 'not active'].includes(status);
+	const status = String(node.status || node.firmStatus || node.bcScope || node.iaScope || node.basicInformation?.firmStatus || node.basicInformation?.bcScope || node.basicInformation?.iaScope || '').toLowerCase();
+	if (status && ['inactive', 'terminated', 'withdrawn', 'not active', 'cancelled', 'canceled', 'expanded'].includes(status)) return true;
+	if (!node.basicInformation && !node.bcScope && !node.firmStatus && !node.iaScope && !node.bdSecNumber && !node.iaSecNumber) {
+		return true;
+	}
+	return false;
 }
 
 function drawNode(ctx: CanvasRenderingContext2D, n: Node, transform: any, size = 4, color = '#888', stroke = '#fff', strokeWidth = 1) {
@@ -501,7 +505,9 @@ function getLinkStyle(link: Link, linkFocusNodeIds: Set<string>, linkHighlightsA
 	const colors = resolveCachedThemeColors();
 	const source = endpointNode(link?.source);
 	const target = endpointNode(link?.target);
-	const inactive = isInactiveNode(source) || isInactiveNode(target);
+	const inactive =
+		(source._vizInactive !== undefined ? source._vizInactive : isInactiveNode(source)) ||
+		(target._vizInactive !== undefined ? target._vizInactive : isInactiveNode(target));
 	const previous = isPreviousLink(link);
 	const control = isControlLink(link);
 	const sId = String(source?.id);
@@ -649,7 +655,7 @@ export function drawCanvasFrame(
 
 	for (const n of visibleNodes) {
 		const colors = resolveCachedThemeColors();
-		const inactive = isInactiveNode(n);
+		const inactive = n._vizInactive !== undefined ? n._vizInactive : isInactiveNode(n);
 		const isSelected = opts.selectedId && String(opts.selectedId) === String(n.id);
 		const isPersistentlySelected = selectedNodeIds.has(String(n.id));
 		const isNodeSelected = Boolean(isSelected || isPersistentlySelected);
