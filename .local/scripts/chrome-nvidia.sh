@@ -60,7 +60,7 @@ EXTRA_FLAGS=(
 	--ozone-platform=x11
 	--enable-features=VaapiVideoDecoder
 	--ignore-gpu-blocklist
-	--enable-gpu-rasterization
+	--disable-gpu-rasterization
 	--new-window
 )
 

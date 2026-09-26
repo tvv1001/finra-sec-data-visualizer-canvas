@@ -17014,12 +17014,28 @@ function revealNeighbors(
 	const revealNextBatch = (batchIndex = 0) => {
 		const renderBatch = () => {
 			const batchHiddenIds = revealBatches[Math.min(batchIndex, revealBatches.length - 1)] || [];
+			const batchHiddenIdsSet = new Set(batchHiddenIds);
+			
+			// Efficiently gather only the candidate links touching this batch instead of filtering all links
+			const batchLinksToCheck = new Set<any>();
+			if (batchHiddenIdsSet.size > 0) {
+				for (const nid of batchHiddenIdsSet) {
+					for (const adjEntry of fullAdj.get(nid) || []) {
+						if (activeRenderedIds.has(adjEntry.nodeId) || batchHiddenIdsSet.has(adjEntry.nodeId)) {
+							if (typeof linkFilter === 'function' && !linkFilter(adjEntry.link)) continue;
+							batchLinksToCheck.add(adjEntry.link);
+						}
+					}
+				}
+			}
+			const candidateLinksSubset = Array.from(batchLinksToCheck);
+
 			const batchNodes =
 				batchHiddenIds.length ?
 					placeNodesNearConnections(
 						clickedNode,
-						globalState.graphData.nodes.filter((n) => batchHiddenIds.includes(n.id)),
-						candidateLinks,
+						globalState.graphData.nodes.filter((n) => batchHiddenIdsSet.has(n.id)),
+						candidateLinksSubset,
 						dist,
 					)
 				:	[];
@@ -17041,7 +17057,7 @@ function revealNeighbors(
 			}
 
 			const batchLinks = rewriteLinksForNodeIdMap(
-				candidateLinks
+				candidateLinksSubset
 					.filter((link) => {
 						const srcId = link.source?.id ?? link.source;
 						const tgtId = link.target?.id ?? link.target;
