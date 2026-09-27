@@ -86,6 +86,8 @@ function ensureCanvasTooltipEl() {
 		canvasTooltip.style.color = '#f8fafc';
 		canvasTooltip.style.font = '12px/1.35 Urbanist, system-ui, sans-serif';
 		canvasTooltip.style.boxShadow = '0 4px 14px rgba(2, 6, 23, 0.24)';
+		canvasTooltip.style.whiteSpace = 'pre-wrap';
+		canvasTooltip.style.maxWidth = '300px';
 		parentEl.appendChild(canvasTooltip);
 	}
 	return canvasTooltip;
@@ -96,7 +98,16 @@ function placeCanvasTooltip(node: Node, screenX: number, screenY: number) {
 	if (!tip || !parentEl) return;
 	const label = getNodeLabel(node) || String(node?.id || '');
 	const crd = extractCanvasNodeCrd(node);
-	tip.textContent = crd && String(crd) !== label ? `${label} · CRD# ${crd}` : label;
+	let text = crd && String(crd) !== label ? `${label} · CRD# ${crd}` : label;
+	
+	const otherNamesRaw = Array.isArray((node as any)?.otherNames) ? (node as any).otherNames : Array.isArray((node as any)?.basicInformation?.otherNames) ? (node as any).basicInformation.otherNames : [];
+	const otherNames = otherNamesRaw.map((n) => typeof n === 'string' ? n.trim() : '').filter(Boolean);
+	if (otherNames.length > 0) {
+		const uniqueNames = Array.from(new Set(otherNames));
+		text += `\nOther names: ${uniqueNames.join('; ')}`;
+	}
+	
+	tip.textContent = text;
 	const left = screenX + 10;
 	const top = screenY - 10;
 	tip.style.left = `${Math.max(4, Math.min(parentEl.clientWidth - tip.offsetWidth - 4, left))}px`;
@@ -104,8 +115,11 @@ function placeCanvasTooltip(node: Node, screenX: number, screenY: number) {
 }
 
 function updateCanvasTooltip(node: Node | null, clientX?: number, clientY?: number) {
-	if (!node || isCanvasNodeLabelPainted(node) || !parentEl) {
-		// Prefer keyboard-focus tooltip when the pointer is not over a unlabeled node.
+	if (currentOpts?.isMoving) {
+		hideCanvasTooltip();
+		return;
+	}
+	if (!node || !parentEl) {
 		syncCanvasFocusTooltip();
 		return;
 	}
@@ -133,10 +147,10 @@ export function syncCanvasFocusTooltip() {
 		return;
 	}
 	// Label already painted on the canvas — no tooltip needed.
-	if (isCanvasNodeLabelPainted(node)) {
+	/* if (isCanvasNodeLabelPainted(node)) {
 		if (!hoverNodeId || hoverNodeId === focusedId) hideCanvasTooltip();
 		return;
-	}
+	} */
 	// Keep hover tooltip if the pointer is over a different unlabeled node.
 	if (hoverNodeId && hoverNodeId !== focusedId) return;
 
@@ -167,7 +181,7 @@ function getHitNode(clientX: number, clientY: number) {
 	const wy = (y - currentTransform.y) * invK;
 	// Only probe nodes near the pointer — full-graph scans + measureText on every
 	// mousemove locked the main thread once graphs passed ~1000 nodes.
-	const probeRadius = 48 * invK;
+	const probeRadius = 24 + (48 * invK);
 
 	let bestNode = null;
 	let bestDist = Infinity;
@@ -180,7 +194,7 @@ function getHitNode(clientX: number, clientY: number) {
 		const dist = Math.sqrt(dx * dx + dy * dy);
 		const size = getCanvasNodeSize(n);
 
-		if (dist <= (size + 4) * invK) {
+		if (dist <= size + (4 * invK)) {
 			if (dist < bestDist) {
 				bestDist = dist;
 				bestNode = n;

@@ -680,6 +680,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 					linkFocusNodeIds,
 					labelScale: 1,
 					logLabelNodeIds,
+					isMoving: (globalState.simulation?.alpha() || 0) > 0.05,
 				});
 				if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 					try {
@@ -11960,6 +11961,14 @@ export function getNodeTooltipTitle(node) {
 	if (group) parts.push(group);
 	const crd = (node as any)?.crd || ((node as any)?.group === 'firm' ? (node as any)?.firmId : null) || (typeof node?.id === 'string' && node.id.startsWith('firm:') ? node.id.replace(/^firm:/, '') : null);
 	if (crd) parts.push(`CRD: ${crd}`);
+	
+	const otherNamesRaw = Array.isArray((node as any)?.otherNames) ? (node as any).otherNames : Array.isArray((node as any)?.basicInformation?.otherNames) ? (node as any).basicInformation.otherNames : [];
+	const otherNames = otherNamesRaw.map((n) => typeof n === 'string' ? n.trim() : '').filter(Boolean);
+	if (otherNames.length > 0) {
+		const uniqueNames = Array.from(new Set(otherNames));
+		parts.push(`Other names: ${uniqueNames.join('; ')}`);
+	}
+	
 	return parts.join('\n');
 }
 
@@ -14534,6 +14543,7 @@ async function ensureIndividualDetail(
 				console.warn('Failed to merge individual detail:', e);
 			}
 			logDetailLoadDebug(`Detail loaded for CRD ${crd}: ${personNode.disclosures?.length || 0} BC disclosures, ${personNode.iaDisclosures?.length || 0} IA disclosures`);
+			rerenderGraphNodesByIds([personNode.id]);
 			if (typeof refreshGraphColors === 'function') refreshGraphColors();
 		} catch (err) {
 			console.error(`Error fetching individual detail for ${crd}:`, err);
@@ -15331,6 +15341,7 @@ async function ensureFirmDetail(firmNode) {
 			firmNode._detailMissing = false;
 			firmNode._detailValidated = true;
 			logDetailLoadDebug(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
+			rerenderGraphNodesByIds([firmNode.id]);
 			if (globalState.selectedId === firmNode.id && shouldRevealSidebarPanel()) renderSidebar(firmNode, { reveal: true });
 		} catch (err) {
 			console.error(`Error fetching firm detail for ${firmId}:`, err);
