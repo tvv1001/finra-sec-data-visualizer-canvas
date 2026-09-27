@@ -179,7 +179,9 @@ function getNonLiveOrphanBody(payload: unknown): Record<string, any> | null {
 	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
 	const obj = payload as Record<string, any>;
 	if (obj.orphan && typeof obj.orphan === 'object') return obj.orphan as Record<string, any>;
-	const scope = String(obj.bcScope || '').toLowerCase().replace(/\s+/g, '');
+	const scope = String(obj.bcScope || '')
+		.toLowerCase()
+		.replace(/\s+/g, '');
 	const source = String(obj.source || '');
 	if (source.includes('form-bd') || scope === 'notinscope' || (obj.parentCrd && obj.position && obj.hasFinraData !== true)) {
 		return obj;
@@ -922,15 +924,7 @@ function parseOrphanOwnerHintsFromSearchParams(params: URLSearchParams | null | 
 	};
 }
 
-function buildNonLiveOwnerDashboardHref(params: {
-	crd: string;
-	parentCrd: string;
-	name?: string;
-	position?: string;
-	firmName?: string;
-	firmStatus?: string;
-	isNonLive?: boolean;
-}) {
+function buildNonLiveOwnerDashboardHref(params: { crd: string; parentCrd: string; name?: string; position?: string; firmName?: string; firmStatus?: string; isNonLive?: boolean }) {
 	const crd = pickFirstValidCrd(params.crd);
 	if (!crd) return '';
 	const parentCrd = pickFirstValidCrd(params.parentCrd);
@@ -1484,10 +1478,7 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 			}
 			// Omit address/city from the filter haystack — short tags like "ia" / "bd"
 			// were matching place names (e.g. "Williamsburg", "Alexandria").
-			result.haystack = [title, dateText, meta, crd, statusTag, currentFirmName, currentFirmId, ...(sourceTags || []), ...otherNamesArr]
-				.filter(Boolean)
-				.join(' ')
-				.toLowerCase();
+			result.haystack = [title, dateText, meta, crd, statusTag, currentFirmName, currentFirmId, ...(sourceTags || []), ...otherNamesArr].filter(Boolean).join(' ').toLowerCase();
 			return title ? result : null;
 		})
 		.filter(Boolean) as Array<{
@@ -1609,21 +1600,23 @@ async function hydrateSearchResultCardsBatch(cards: SearchResultCard[]): Promise
 		});
 		if (!res.ok) return cards;
 		const payload = await res.json();
-		return Array.isArray(payload?.cards) ? payload.cards.map((c: any, i: number) => {
-			if (!c.hydratedFromSidecar) return cards[i];
-			const label =
-				c.rawLabel ?
-					c.entity === 'firm' ?
-						formatFirmName(c.rawLabel)
-					:	formatPersonName(c.rawLabel)
-				:	c.label;
-			return {
-				...c,
-				label,
-				address: c.rawAddress || c.address,
-				otherNames: c.otherNames || [],
-			};
-		}) : cards;
+		return Array.isArray(payload?.cards) ?
+				payload.cards.map((c: any, i: number) => {
+					if (!c.hydratedFromSidecar) return cards[i];
+					const label =
+						c.rawLabel ?
+							c.entity === 'firm' ?
+								formatFirmName(c.rawLabel)
+							:	formatPersonName(c.rawLabel)
+						:	c.label;
+					return {
+						...c,
+						label,
+						address: c.rawAddress || c.address,
+						otherNames: c.otherNames || [],
+					};
+				})
+			:	cards;
 	} catch {
 		return cards;
 	}
@@ -1634,9 +1627,7 @@ function resolveParentSummaryUrl(data: Record<string, any> | null | undefined, p
 	const roots = [data, data?.merged, data?.finraNode, data?.secNode, data?.basicInformation].filter((v) => v && typeof v === 'object');
 	for (const root of roots) {
 		const secLinks = Array.isArray((root as any)?.secDocumentLinks) ? (root as any).secDocumentLinks : [];
-		const secSummaryLink = secLinks.find(
-			(link: any) => typeof link?.href === 'string' && /adviserinfo\.sec\.gov\//.test(link.href) && /\/summary\//.test(link.href),
-		);
+		const secSummaryLink = secLinks.find((link: any) => typeof link?.href === 'string' && /adviserinfo\.sec\.gov\//.test(link.href) && /\/summary\//.test(link.href));
 		if (secSummaryLink?.href) return String(secSummaryLink.href);
 	}
 
@@ -1685,22 +1676,14 @@ function OrphanProfileLinks({ parentCrd, parentType = 'firm' }: { parentCrd: str
 				active = false;
 			};
 		}
-		const endpoint = isParentIndividual
-			? `/api/finra/individual/${encodeURIComponent(safeParentCrd)}?merged=1`
-			: `/api/finra/firm/${encodeURIComponent(safeParentCrd)}?merged=1`;
+		const endpoint = isParentIndividual ? `/api/finra/individual/${encodeURIComponent(safeParentCrd)}?merged=1` : `/api/finra/firm/${encodeURIComponent(safeParentCrd)}?merged=1`;
 		fetch(endpoint)
 			.then((res) => res.json())
 			.then((data) => {
 				if (!active || !data || typeof data !== 'object') return;
 				const secUrl = resolveParentSummaryUrl(data, isParentIndividual ? 'individual' : 'firm', safeParentCrd);
-				const hasFinra =
-					data.hasFinraData === true ||
-					data.hasFinraData === false
-						? Boolean(data.hasFinraData)
-						: true; // non-live people always get a parent FINRA summary link when parent CRD is known
-				const hasSec =
-					Boolean(secUrl) &&
-					(data.hasSecData === true || data.hasSecData === false ? Boolean(data.hasSecData) || Boolean(secUrl) : Boolean(secUrl));
+				const hasFinra = data.hasFinraData === true || data.hasFinraData === false ? Boolean(data.hasFinraData) : true; // non-live people always get a parent FINRA summary link when parent CRD is known
+				const hasSec = Boolean(secUrl) && (data.hasSecData === true || data.hasSecData === false ? Boolean(data.hasSecData) || Boolean(secUrl) : Boolean(secUrl));
 				setStatus({
 					// Firm parents with a CRD always expose BrokerCheck firm summary for non-live people.
 					finra: isParentIndividual ? hasFinra : true,
@@ -2101,6 +2084,7 @@ function DashboardPageInner() {
 	const [sessionHasFetched, setSessionHasFetched] = useState(false);
 	const [localHistory, setLocalHistory] = useState<LocalHistoryEntry[]>([]);
 	const [isSelectionHistoryOpen, setIsSelectionHistoryOpen] = useState(true);
+	const [isQueueCopied, setIsQueueCopied] = useState(false);
 	const [isSelectionHistoryEditMode, setIsSelectionHistoryEditMode] = useState(false);
 	const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
 	const [newCrdsOpen, setNewCrdsOpen] = useState(true);
@@ -2217,11 +2201,7 @@ function DashboardPageInner() {
 			const historyIds = collectSelectedNodeIdsForGraphHref(localHistory);
 			const seed = pendingQueueGraphSeed;
 			pendingQueueGraphSeed = null;
-			const mergedPeople = Array.from(
-				new Map(
-					[...(bridgePayload?.people || []), ...(seed?.people || [])].map((person) => [String(person.crd), person]),
-				).values(),
-			);
+			const mergedPeople = Array.from(new Map([...(bridgePayload?.people || []), ...(seed?.people || [])].map((person) => [String(person.crd), person])).values());
 			const nodeIds = Array.from(new Set([...(seed?.nodeIds || []), ...(bridgePayload?.nodeIds || []), ...historyIds]));
 			const firmId = seed?.anchorFirmId || bridgePayload?.anchorFirmId || (currentRecordEntity === 'firm' && currentRecordId ? String(currentRecordId) : undefined);
 			const firmName = seed?.anchorFirmName || bridgePayload?.anchorFirmName;
@@ -2587,8 +2567,7 @@ function DashboardPageInner() {
 		const activeLoadKey = activeLoadSourceKeyRef.current;
 		if (activeLoadKey && activeLoadKey.startsWith(`${routeSelection.entity}:${routeSelection.id}:`)) return;
 
-		const orphanHints =
-			routeSelection.entity === 'individual' ? parseOrphanOwnerHintsFromSearchParams(searchParams) : null;
+		const orphanHints = routeSelection.entity === 'individual' ? parseOrphanOwnerHintsFromSearchParams(searchParams) : null;
 		const card: QueueCard = {
 			id: routeSelection.id,
 			entity: routeSelection.entity,
@@ -2698,7 +2677,9 @@ function DashboardPageInner() {
 		// Flattened non-live payloads (legacy visit-cache / direct redis shapes).
 		const looksNonLive =
 			String(obj.source || '').includes('form-bd') ||
-			String(obj.bcScope || '').toLowerCase().replace(/\s+/g, '') === 'notinscope' ||
+			String(obj.bcScope || '')
+				.toLowerCase()
+				.replace(/\s+/g, '') === 'notinscope' ||
 			Boolean(obj.parentCrd && (obj.position || obj.firmName) && obj.hasFinraData !== true && obj.hasSecData !== true);
 		if (looksNonLive && (obj.parentCrd || obj.firmName || obj.name)) return obj as Record<string, any>;
 		return null;
@@ -2840,11 +2821,11 @@ function DashboardPageInner() {
 			!showSec ? ''
 			: iaScope ? `SEC: ${iaScope}`
 			: 'SEC: Active';
-			
+
 		if (!showFinra && !showSec) {
 			finraActive = 'Historical Record (No Live Data)';
 		}
-		
+
 		const subtitle = otherNames.length > 0 && currentRecordEntity === 'individual' ? otherNames[0] : '';
 
 		const directOwners = toArray(body.directOwners).concat(toArray(body.directOwnersExecutiveOfficers));
@@ -2930,14 +2911,8 @@ function DashboardPageInner() {
 			}
 		}
 		// Non-live / orphan people: hydrate the parent firm card the same way as coworker employment rows.
-		const orphanParent = pickFirstValidCrd(
-			(mainJson as any)?.orphan?.parentCrd,
-			(mainJson as any)?.parentCrd,
-			orphanRecord?.parentCrd,
-		);
-		const orphanParentType = String(
-			(mainJson as any)?.orphan?.parentType || (mainJson as any)?.parentType || orphanRecord?.parentType || 'firm',
-		)
+		const orphanParent = pickFirstValidCrd((mainJson as any)?.orphan?.parentCrd, (mainJson as any)?.parentCrd, orphanRecord?.parentCrd);
+		const orphanParentType = String((mainJson as any)?.orphan?.parentType || (mainJson as any)?.parentType || orphanRecord?.parentType || 'firm')
 			.trim()
 			.toLowerCase();
 		if (orphanParent && orphanParentType !== 'individual') ids.add(orphanParent);
@@ -2969,8 +2944,7 @@ function DashboardPageInner() {
 	const deferredCurrentPreviewUnfiltered = useDeferredValue(connectionFilterPreviewUnfiltered);
 	const connectionHaystackOf = useCallback(
 		(item: { haystack?: string; title?: string; meta?: string; crd?: string; statusTag?: string; sourceTags?: string[]; otherNames?: string[] }) =>
-			item.haystack ||
-			[item.title, item.meta, item.crd, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])].filter(Boolean).join(' '),
+			item.haystack || [item.title, item.meta, item.crd, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])].filter(Boolean).join(' '),
 		[],
 	);
 	const currentConnectionPartition = useMemo(() => {
@@ -2982,28 +2956,14 @@ function DashboardPageInner() {
 			deferredCurrentFilterEnabled,
 			deferredCurrentPreviewUnfiltered,
 		);
-	}, [
-		deferredCurrentConnectionCards,
-		connectionHaystackOf,
-		deferredCurrentFilterTags,
-		deferredCurrentFilterQuery,
-		deferredCurrentFilterEnabled,
-		deferredCurrentPreviewUnfiltered,
-	]);
+	}, [deferredCurrentConnectionCards, connectionHaystackOf, deferredCurrentFilterTags, deferredCurrentFilterQuery, deferredCurrentFilterEnabled, deferredCurrentPreviewUnfiltered]);
 	const filteredCurrentConnectionCardsAll = useMemo(() => {
 		const filterActive =
-			!deferredCurrentPreviewUnfiltered &&
-			(Boolean(deferredCurrentFilterQuery.trim()) || (deferredCurrentFilterEnabled && deferredCurrentFilterTags.length > 0));
+			!deferredCurrentPreviewUnfiltered && (Boolean(deferredCurrentFilterQuery.trim()) || (deferredCurrentFilterEnabled && deferredCurrentFilterTags.length > 0));
 		// Keep relevance order from partitionConnectionsByFilter when filtering; otherwise newest first.
 		if (filterActive) return currentConnectionPartition.ordered;
 		return [...sortByMostRecentStartDate(currentConnectionPartition.matched), ...sortByMostRecentStartDate(currentConnectionPartition.unmatched)];
-	}, [
-		currentConnectionPartition,
-		deferredCurrentFilterEnabled,
-		deferredCurrentPreviewUnfiltered,
-		deferredCurrentFilterTags,
-		deferredCurrentFilterQuery,
-	]);
+	}, [currentConnectionPartition, deferredCurrentFilterEnabled, deferredCurrentPreviewUnfiltered, deferredCurrentFilterTags, deferredCurrentFilterQuery]);
 	const filteredCurrentConnectionCards = useMemo(() => filteredCurrentConnectionCardsAll.slice(0, currentRenderCount), [filteredCurrentConnectionCardsAll, currentRenderCount]);
 
 	const deferredPreviousConnectionCards = useDeferredValue(detailedMainRecord?.previousConnectionCards || []);
@@ -3649,8 +3609,7 @@ function DashboardPageInner() {
 			return persisted;
 		}
 
-		const baseRoute =
-			card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const baseRoute = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
 		const route = card.entity === 'individual' ? appendOrphanHintsToIndividualApiUrl(baseRoute, card.orphanHints) : baseRoute;
 		try {
 			const response = await fetch(route, {
@@ -3680,8 +3639,7 @@ function DashboardPageInner() {
 	}
 
 	async function fetchFallbackDetail(card: QueueCard) {
-		const baseRoute =
-			card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const baseRoute = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
 		const route = card.entity === 'individual' ? appendOrphanHintsToIndividualApiUrl(baseRoute, card.orphanHints) : baseRoute;
 
 		const response = await fetch(route, {
@@ -4840,13 +4798,13 @@ function DashboardPageInner() {
 							style={{ textDecoration: 'none', padding: '12px 16px', minHeight: '44px', fontWeight: 'bold' }}>
 							Graph
 						</Link>
-						<button
+						{/* <button
 							type='button'
 							className={styles.rightPaneToggleInline}
 							onClick={toggleNewCrdsOpen}
 							aria-expanded={newCrdsOpen}>
 							{newCrdsOpen ? 'Hide Panel' : 'new CRDs'}
-						</button>
+						</button> */}
 					</div>
 				</div>
 			</header>
@@ -4972,12 +4930,30 @@ function DashboardPageInner() {
 														);
 													})()}
 												{detailedMainRecord?.finraActive && (
-													<span className={/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|cancelled|canceled|previouslyregistered|nolongerregistered|notregistered|expanded|historical)/i.test(detailedMainRecord.finraActive.replace(/[^a-z0-9]+/gi, '')) ? styles.recordBadgeInactive : styles.recordBadgeActive}>
+													<span
+														className={
+															(
+																/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|cancelled|canceled|previouslyregistered|nolongerregistered|notregistered|expanded|historical)/i.test(
+																	detailedMainRecord.finraActive.replace(/[^a-z0-9]+/gi, ''),
+																)
+															) ?
+																styles.recordBadgeInactive
+															:	styles.recordBadgeActive
+														}>
 														{detailedMainRecord.finraActive}
 													</span>
 												)}
 												{detailedMainRecord?.secActive && (
-													<span className={/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|cancelled|canceled|previouslyregistered|nolongerregistered|notregistered|expanded|historical)/i.test(detailedMainRecord.secActive.replace(/[^a-z0-9]+/gi, '')) ? styles.recordBadgeInactive : styles.recordBadgeActive}>
+													<span
+														className={
+															(
+																/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|cancelled|canceled|previouslyregistered|nolongerregistered|notregistered|expanded|historical)/i.test(
+																	detailedMainRecord.secActive.replace(/[^a-z0-9]+/gi, ''),
+																)
+															) ?
+																styles.recordBadgeInactive
+															:	styles.recordBadgeActive
+														}>
 														{detailedMainRecord.secActive}
 													</span>
 												)}
@@ -5069,9 +5045,7 @@ function DashboardPageInner() {
 											const parentType = String(orphanRecord.parentType || (isFirmOrphan ? 'individual' : 'firm')).toLowerCase();
 											const parentIsIndividual = parentType === 'individual';
 											const parentCrd = pickFirstValidCrd(orphanRecord.parentCrd) || '';
-											const parentDashboardHref = parentCrd
-												? `/dashboard/${parentIsIndividual ? 'individual' : 'firm'}/${parentCrd}`
-												: '#';
+											const parentDashboardHref = parentCrd ? `/dashboard/${parentIsIndividual ? 'individual' : 'firm'}/${parentCrd}` : '#';
 											const parentLabel = parentIsIndividual ? 'Individual' : 'Firm';
 											const personName = formatPersonName(orphanRecord.name || mainJsonLabel || '');
 											const personPosition = formatUiText(orphanRecord.position) || '';
@@ -5082,16 +5056,8 @@ function DashboardPageInner() {
 												'';
 											const mailingAddressLine = formatAddress(orphanRecord.mailingAddress) || '';
 											const firmInfo = parentCrd && !parentIsIndividual ? employmentFirmInfo[parentCrd] : undefined;
-											const firmStatus = String(
-												(orphanRecord as any).firmStatus ||
-													(orphanRecord as any).status ||
-													firmInfo?.bcScope ||
-													firmInfo?.firmStatus ||
-													'',
-											).trim();
-											const inactiveParent =
-												firmInfo?.isActive === false ||
-												/inactive|terminated|revoked|suspended|notinscope/i.test(firmStatus.replace(/\s+/g, ''));
+											const firmStatus = String((orphanRecord as any).firmStatus || (orphanRecord as any).status || firmInfo?.bcScope || firmInfo?.firmStatus || '').trim();
+											const inactiveParent = firmInfo?.isActive === false || /inactive|terminated|revoked|suspended|notinscope/i.test(firmStatus.replace(/\s+/g, ''));
 											return (
 												<>
 													{(mainAddressLine || mailingAddressLine || orphanRecord.phone) && (
@@ -5180,15 +5146,13 @@ function DashboardPageInner() {
 														</div>
 													</section>
 
-													{!isFirmOrphan && parentCrd && !parentIsIndividual && (() => {
+													{!isFirmOrphan &&
+														parentCrd &&
+														!parentIsIndividual &&
+														(() => {
 															const statusLabel = inactiveParent ? 'Inactive' : 'Active';
-															const rowStatusClass = inactiveParent
-																? styles.currentConnectionStatusTagInactive
-																: styles.currentConnectionStatusTag;
-															const rowName =
-																formatFirmName(firmInfo?.firmName || orphanRecord.firmName) ||
-																formatFirmName(orphanRecord.firmName) ||
-																`Firm ${parentCrd}`;
+															const rowStatusClass = inactiveParent ? styles.currentConnectionStatusTagInactive : styles.currentConnectionStatusTag;
+															const rowName = formatFirmName(firmInfo?.firmName || orphanRecord.firmName) || formatFirmName(orphanRecord.firmName) || `Firm ${parentCrd}`;
 															const currentFirmName = firmInfo?.firmName ? String(firmInfo.firmName).trim() : '';
 															const normRowName = String(rowName || '')
 																.toLowerCase()
@@ -5205,17 +5169,8 @@ function DashboardPageInner() {
 																);
 																if (!alreadyInList) displayOtherNames.unshift(currentFirmName);
 															}
-															const addressLine =
-																mainAddressLine ||
-																formatAddress(firmInfo?.officeAddress) ||
-																formatAddress(firmInfo?.address) ||
-																'';
-															const metaLine = [
-																addressLine,
-																inactiveParent ? 'Inactive' : personPosition || 'Currently Employed',
-															]
-																.filter(Boolean)
-																.join(' • ');
+															const addressLine = mainAddressLine || formatAddress(firmInfo?.officeAddress) || formatAddress(firmInfo?.address) || '';
+															const metaLine = [addressLine, inactiveParent ? 'Inactive' : personPosition || 'Currently Employed'].filter(Boolean).join(' • ');
 															const sectionTitle = inactiveParent ? 'Previous Employment (1)' : 'Current Employment (1)';
 															const rowClass = inactiveParent ? styles.previousEmploymentRow : styles.currentEmploymentRow;
 															const sourceTags: string[] = [];
@@ -5250,8 +5205,7 @@ function DashboardPageInner() {
 																						const normRaw = String(n)
 																							.toLowerCase()
 																							.replace(/[^a-z0-9]/g, '');
-																						const isHighlighted =
-																							isRenamed && (normFormatted === normCurrentFirmName || normRaw === normCurrentFirmName);
+																						const isHighlighted = isRenamed && (normFormatted === normCurrentFirmName || normRaw === normCurrentFirmName);
 																						return (
 																							<Fragment key={`orphan-emp-other-${nIdx}`}>
 																								{nIdx > 0 && ', '}
@@ -5281,9 +5235,7 @@ function DashboardPageInner() {
 																		</div>
 																		<span className={styles.currentConnectionStatusTag}>Source {parentIsIndividual ? 'Individual' : 'Firm'}</span>
 																	</div>
-																	<div className={styles.detailRowMeta}>
-																		{[personPosition, `CRD#${parentCrd}`].filter(Boolean).join(' • ')}
-																	</div>
+																	<div className={styles.detailRowMeta}>{[personPosition, `CRD#${parentCrd}`].filter(Boolean).join(' • ')}</div>
 																	<div className={styles.detailRowSourceTags}>
 																		<span className={styles.currentConnectionSourceTag}>Parent Record</span>
 																	</div>
@@ -5700,168 +5652,177 @@ function DashboardPageInner() {
 														aria-expanded={detailDisclosuresOpen}>
 														<h4 className={styles.detailSectionTitle}>Disclosures</h4>
 														<div className={styles.detailToggleStats}>
-															<span className={styles.detailToggleStat}>Count: {detailedMainRecord.disclosureSummary.reduce((acc: number, d: any) => acc + (parseInt(d.disclosureCount) || 0), 0)}</span>
+															<span className={styles.detailToggleStat}>
+																Count: {detailedMainRecord.disclosureSummary.reduce((acc: number, d: any) => acc + (parseInt(d.disclosureCount) || 0), 0)}
+															</span>
 														</div>
-														<span className={styles.detailToggleChevron} aria-hidden='true'>{detailDisclosuresOpen ? '−' : '+'}</span>
+														<span
+															className={styles.detailToggleChevron}
+															aria-hidden='true'>
+															{detailDisclosuresOpen ? '−' : '+'}
+														</span>
 													</button>
 													{detailDisclosuresOpen && (
 														<>
-													<div className={styles.detailGrid}>
-														{detailedMainRecord.disclosureSummary.map((d: any) => (
-															<div
-																key={d.disclosureType}
-																className={styles.detailGridCard}>
-																<div className={styles.detailRowMain}>
-																	<span className={styles.detailRowName}>{d.disclosureType}</span>
-																	<span className={styles.detailInlineTag}>{d.disclosureCount}</span>
-																</div>
+															<div className={styles.detailGrid}>
+																{detailedMainRecord.disclosureSummary.map((d: any) => (
+																	<div
+																		key={d.disclosureType}
+																		className={styles.detailGridCard}>
+																		<div className={styles.detailRowMain}>
+																			<span className={styles.detailRowName}>{d.disclosureType}</span>
+																			<span className={styles.detailInlineTag}>{d.disclosureCount}</span>
+																		</div>
+																	</div>
+																))}
 															</div>
-														))}
-													</div>
-													{detailedMainRecord.rawDisclosures &&
-														detailedMainRecord.rawDisclosures.some((dis: any) => dis.disclosureDetail && Object.keys(dis.disclosureDetail).length > 0) && (
-															<div
-																style={{
-																	marginTop: '16px',
-																	display: 'flex',
-																	flexDirection: 'column',
-																	gap: '12px',
-																}}>
-																{detailedMainRecord.rawDisclosures
-																	.filter((dis: any) => dis.disclosureDetail && Object.keys(dis.disclosureDetail).length > 0)
-																	.map((dis: any, idx: number) => {
-																		const dtype = String(dis.disclosureType || dis.type || '').trim();
-																		const ddate = String(dis.eventDate || dis.date || '').trim();
-																		const dres = String(dis.disclosureResolution || dis.resolution || '').trim();
-																		const dd = dis.disclosureDetail || {};
-																		const isObj = dd && typeof dd === 'object' && !Array.isArray(dd);
-																		if (!isObj) return null;
+															{detailedMainRecord.rawDisclosures &&
+																detailedMainRecord.rawDisclosures.some((dis: any) => dis.disclosureDetail && Object.keys(dis.disclosureDetail).length > 0) && (
+																	<div
+																		style={{
+																			marginTop: '16px',
+																			display: 'flex',
+																			flexDirection: 'column',
+																			gap: '12px',
+																		}}>
+																		{detailedMainRecord.rawDisclosures
+																			.filter((dis: any) => dis.disclosureDetail && Object.keys(dis.disclosureDetail).length > 0)
+																			.map((dis: any, idx: number) => {
+																				const dtype = String(dis.disclosureType || dis.type || '').trim();
+																				const ddate = String(dis.eventDate || dis.date || '').trim();
+																				const dres = String(dis.disclosureResolution || dis.resolution || '').trim();
+																				const dd = dis.disclosureDetail || {};
+																				const isObj = dd && typeof dd === 'object' && !Array.isArray(dd);
+																				if (!isObj) return null;
 
-																		const allegs = String(dd['Allegations'] || dd['allegations'] || '').trim();
-																		const initiatedBy = String(dd['Initiated By'] || dd['initiatedBy'] || '').trim();
-																		const resolution = String(dd['Resolution'] || dd['resolution'] || '').trim();
-																		const sanctionText = String(dd['Sanctions'] || dd['sanctions'] || '').trim();
-																		const sanctionDetails = Array.isArray(dd['SanctionDetails'] || dd['Sanction Details']) ? dd['SanctionDetails'] || dd['Sanction Details'] : [];
-																		const brokerCommentRaw = dd['Broker Comment'] || dd['brokerComment'] || null;
-																		const comments =
-																			Array.isArray(brokerCommentRaw) ? brokerCommentRaw
-																			: brokerCommentRaw ? [brokerCommentRaw]
-																			: [];
-																		const settlementAmt = String(dd['Settlement Amount'] || dd['settlementAmount'] || '').trim();
-																		const docketFDA = String(dd['DocketNumberFDA'] || '').trim();
-																		const docketAAO = String(dd['DocketNumberAAO'] || '').trim();
-																		const arbDocket = String(dd['arbitrationDocketNumber'] || '').trim();
+																				const allegs = String(dd['Allegations'] || dd['allegations'] || '').trim();
+																				const initiatedBy = String(dd['Initiated By'] || dd['initiatedBy'] || '').trim();
+																				const resolution = String(dd['Resolution'] || dd['resolution'] || '').trim();
+																				const sanctionText = String(dd['Sanctions'] || dd['sanctions'] || '').trim();
+																				const sanctionDetails =
+																					Array.isArray(dd['SanctionDetails'] || dd['Sanction Details']) ? dd['SanctionDetails'] || dd['Sanction Details'] : [];
+																				const brokerCommentRaw = dd['Broker Comment'] || dd['brokerComment'] || null;
+																				const comments =
+																					Array.isArray(brokerCommentRaw) ? brokerCommentRaw
+																					: brokerCommentRaw ? [brokerCommentRaw]
+																					: [];
+																				const settlementAmt = String(dd['Settlement Amount'] || dd['settlementAmount'] || '').trim();
+																				const docketFDA = String(dd['DocketNumberFDA'] || '').trim();
+																				const docketAAO = String(dd['DocketNumberAAO'] || '').trim();
+																				const arbDocket = String(dd['arbitrationDocketNumber'] || '').trim();
 
-																		const sanctionBadges = sanctionDetails
-																			.map((s: any) => String(typeof s === 'object' ? s.Sanctions || s.sanctions || '' : s).trim())
-																			.filter(Boolean);
+																				const sanctionBadges = sanctionDetails
+																					.map((s: any) => String(typeof s === 'object' ? s.Sanctions || s.sanctions || '' : s).trim())
+																					.filter(Boolean);
 
-																		const handledDetailKeys = new Set(
-																			[
-																				'Allegations',
-																				'allegations',
-																				'Initiated By',
-																				'initiatedBy',
-																				'Resolution',
-																				'resolution',
-																				'Sanctions',
-																				'sanctions',
-																				'SanctionDetails',
-																				'Sanction Details',
-																				'Broker Comment',
-																				'brokerComment',
-																				'Settlement Amount',
-																				'settlementAmount',
-																				'DocketNumberFDA',
-																				'DocketNumberAAO',
-																				'arbitrationDocketNumber',
-																			].map((k) => k.toLowerCase().replace(/[^a-z0-9]/g, '')),
-																		);
+																				const handledDetailKeys = new Set(
+																					[
+																						'Allegations',
+																						'allegations',
+																						'Initiated By',
+																						'initiatedBy',
+																						'Resolution',
+																						'resolution',
+																						'Sanctions',
+																						'sanctions',
+																						'SanctionDetails',
+																						'Sanction Details',
+																						'Broker Comment',
+																						'brokerComment',
+																						'Settlement Amount',
+																						'settlementAmount',
+																						'DocketNumberFDA',
+																						'DocketNumberAAO',
+																						'arbitrationDocketNumber',
+																					].map((k) => k.toLowerCase().replace(/[^a-z0-9]/g, '')),
+																				);
 
-																		const extraDetailRows = Object.entries(dd)
-																			.map(([key, value]) => ({
-																				key,
-																				keyId: key.toLowerCase().replace(/[^a-z0-9]/g, ''),
-																				valueText: String(value).trim(),
-																			}))
-																			.filter(({ keyId, valueText }) => valueText && !handledDetailKeys.has(keyId));
+																				const extraDetailRows = Object.entries(dd)
+																					.map(([key, value]) => ({
+																						key,
+																						keyId: key.toLowerCase().replace(/[^a-z0-9]/g, ''),
+																						valueText: String(value).trim(),
+																					}))
+																					.filter(({ keyId, valueText }) => valueText && !handledDetailKeys.has(keyId));
 
-																		return (
-																			<div
-																				key={idx}
-																				className='fg-disclosure'
-																				style={{ margin: 0 }}>
-																				<div className='fg-dis-header'>
-																					<span className='fg-dis-type'>{dtype}</span>
-																					{ddate && <span className='fg-dis-date'>{ddate}</span>}
-																					{dres && <span className={`fg-dis-res ${/final|settled/i.test(dres) ? 'final' : 'pending'}`}>{dres}</span>}
-																				</div>
-																				{initiatedBy && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Initiated by:</span> {initiatedBy}
-																					</div>
-																				)}
-																				{allegs && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Allegations:</span>
-																						<div className='fg-dis-text'>{allegs}</div>
-																					</div>
-																				)}
-																				{resolution && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Resolution:</span> {resolution}
-																					</div>
-																				)}
-																				{sanctionText && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Sanctions:</span>
-																						<div className='fg-dis-text'>{sanctionText}</div>
-																					</div>
-																				)}
-																				{settlementAmt && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Settlement:</span> <strong>{settlementAmt}</strong>
-																					</div>
-																				)}
-																				{sanctionBadges.length > 0 && (
-																					<div className='fg-dis-sanctions'>
-																						{sanctionBadges.map((s: any, i: number) => (
-																							<span
-																								key={i}
-																								className='fg-badge inactive'>
-																								{s}
-																							</span>
+																				return (
+																					<div
+																						key={idx}
+																						className='fg-disclosure'
+																						style={{ margin: 0 }}>
+																						<div className='fg-dis-header'>
+																							<span className='fg-dis-type'>{dtype}</span>
+																							{ddate && <span className='fg-dis-date'>{ddate}</span>}
+																							{dres && <span className={`fg-dis-res ${/final|settled/i.test(dres) ? 'final' : 'pending'}`}>{dres}</span>}
+																						</div>
+																						{initiatedBy && (
+																							<div className='fg-dis-row'>
+																								<span className='fg-dis-label'>Initiated by:</span> {initiatedBy}
+																							</div>
+																						)}
+																						{allegs && (
+																							<div className='fg-dis-row'>
+																								<span className='fg-dis-label'>Allegations:</span>
+																								<div className='fg-dis-text'>{allegs}</div>
+																							</div>
+																						)}
+																						{resolution && (
+																							<div className='fg-dis-row'>
+																								<span className='fg-dis-label'>Resolution:</span> {resolution}
+																							</div>
+																						)}
+																						{sanctionText && (
+																							<div className='fg-dis-row'>
+																								<span className='fg-dis-label'>Sanctions:</span>
+																								<div className='fg-dis-text'>{sanctionText}</div>
+																							</div>
+																						)}
+																						{settlementAmt && (
+																							<div className='fg-dis-row'>
+																								<span className='fg-dis-label'>Settlement:</span> <strong>{settlementAmt}</strong>
+																							</div>
+																						)}
+																						{sanctionBadges.length > 0 && (
+																							<div className='fg-dis-sanctions'>
+																								{sanctionBadges.map((s: any, i: number) => (
+																									<span
+																										key={i}
+																										className='fg-badge inactive'>
+																										{s}
+																									</span>
+																								))}
+																							</div>
+																						)}
+																						{comments.length > 0 && (
+																							<div className='fg-dis-row'>
+																								<span className='fg-dis-label'>Broker comment:</span>
+																								<div className='fg-dis-text fg-dis-comment'>
+																									{comments.map((c: any, i: number) => (
+																										<div key={i}>{String(c)}</div>
+																									))}
+																								</div>
+																							</div>
+																						)}
+																						{(docketFDA || docketAAO || arbDocket) && (
+																							<div className='fg-dis-row fg-dis-dockets'>
+																								{[docketFDA && `FDA: ${docketFDA}`, docketAAO && `AAO: ${docketAAO}`, arbDocket && `Arb: ${arbDocket}`]
+																									.filter(Boolean)
+																									.join('  |  ')}
+																							</div>
+																						)}
+																						{extraDetailRows.map(({ key, valueText }, i) => (
+																							<div
+																								key={`extra-${i}`}
+																								className='fg-dis-row'>
+																								<span className='fg-dis-label'>{key}:</span>
+																								<div className='fg-dis-text'>{valueText}</div>
+																							</div>
 																						))}
 																					</div>
-																				)}
-																				{comments.length > 0 && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Broker comment:</span>
-																						<div className='fg-dis-text fg-dis-comment'>
-																							{comments.map((c: any, i: number) => (
-																								<div key={i}>{String(c)}</div>
-																							))}
-																						</div>
-																					</div>
-																				)}
-																				{(docketFDA || docketAAO || arbDocket) && (
-																					<div className='fg-dis-row fg-dis-dockets'>
-																						{[docketFDA && `FDA: ${docketFDA}`, docketAAO && `AAO: ${docketAAO}`, arbDocket && `Arb: ${arbDocket}`].filter(Boolean).join('  |  ')}
-																					</div>
-																				)}
-																				{extraDetailRows.map(({ key, valueText }, i) => (
-																					<div
-																						key={`extra-${i}`}
-																						className='fg-dis-row'>
-																						<span className='fg-dis-label'>{key}:</span>
-																						<div className='fg-dis-text'>{valueText}</div>
-																					</div>
-																				))}
-																			</div>
-																		);
-																	})}
-															</div>
-														)}
+																				);
+																			})}
+																	</div>
+																)}
 														</>
 													)}
 												</section>
@@ -5900,8 +5861,8 @@ function DashboardPageInner() {
 																		firmStatus: parentFirmStatus,
 																		isNonLive: isNonLiveOwner,
 																	})
-																:	crd ? `/dashboard/individual/${crd}`
-																:	'';
+																: crd ? `/dashboard/individual/${crd}`
+																: '';
 
 															const content = (
 																<>
@@ -5969,8 +5930,8 @@ function DashboardPageInner() {
 																		firmStatus: parentFirmStatus,
 																		isNonLive: isNonLiveOwner,
 																	})
-																:	crd ? `/dashboard/individual/${crd}`
-																:	'';
+																: crd ? `/dashboard/individual/${crd}`
+																: '';
 
 															const content = (
 																<>
@@ -6082,30 +6043,34 @@ function DashboardPageInner() {
 														<div className={styles.detailToggleStats}>
 															<span className={styles.detailToggleStat}>Count: {detailedMainRecord.brochureCards.length}</span>
 														</div>
-														<span className={styles.detailToggleChevron} aria-hidden='true'>{detailBrochuresOpen ? '−' : '+'}</span>
+														<span
+															className={styles.detailToggleChevron}
+															aria-hidden='true'>
+															{detailBrochuresOpen ? '−' : '+'}
+														</span>
 													</button>
 													{detailBrochuresOpen && (
 														<>
-													{detailedMainRecord.brochuresPart2Exempt && (
-														<div
-															className={styles.detailTextRow}
-															style={{ marginBottom: '6px' }}>
-															<strong>Part 2 Exempt:</strong> {detailedMainRecord.brochuresPart2Exempt}
-														</div>
-													)}
-													<div className={styles.detailGrid}>
-														{detailedMainRecord.brochureCards.map((item, idx) => (
-															<div
-																key={`brochure-${idx}`}
-																className={styles.detailGridCard}>
-																<div className={styles.detailRowMain}>
-																	<span className={styles.detailRowName}>{item.title}</span>
-																	{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+															{detailedMainRecord.brochuresPart2Exempt && (
+																<div
+																	className={styles.detailTextRow}
+																	style={{ marginBottom: '6px' }}>
+																	<strong>Part 2 Exempt:</strong> {detailedMainRecord.brochuresPart2Exempt}
 																</div>
-																{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
+															)}
+															<div className={styles.detailGrid}>
+																{detailedMainRecord.brochureCards.map((item, idx) => (
+																	<div
+																		key={`brochure-${idx}`}
+																		className={styles.detailGridCard}>
+																		<div className={styles.detailRowMain}>
+																			<span className={styles.detailRowName}>{item.title}</span>
+																			{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																		</div>
+																		{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
+																	</div>
+																))}
 															</div>
-														))}
-													</div>
 														</>
 													)}
 												</section>
@@ -6122,23 +6087,27 @@ function DashboardPageInner() {
 														<div className={styles.detailToggleStats}>
 															<span className={styles.detailToggleStat}>Count: {detailedMainRecord.noticeFilingCards.length}</span>
 														</div>
-														<span className={styles.detailToggleChevron} aria-hidden='true'>{detailNoticeFilingsOpen ? '−' : '+'}</span>
+														<span
+															className={styles.detailToggleChevron}
+															aria-hidden='true'>
+															{detailNoticeFilingsOpen ? '−' : '+'}
+														</span>
 													</button>
 													{detailNoticeFilingsOpen && (
 														<>
-													<div className={styles.detailGrid}>
-														{detailedMainRecord.noticeFilingCards.map((item, idx) => (
-															<div
-																key={`notice-filing-${idx}`}
-																className={styles.detailGridCard}>
-																<div className={styles.detailRowMain}>
-																	<span className={styles.detailRowName}>{item.title}</span>
-																	{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
-																</div>
-																{item.subtitle && <div className={styles.detailRowMeta}>Effective Date: {item.subtitle}</div>}
+															<div className={styles.detailGrid}>
+																{detailedMainRecord.noticeFilingCards.map((item, idx) => (
+																	<div
+																		key={`notice-filing-${idx}`}
+																		className={styles.detailGridCard}>
+																		<div className={styles.detailRowMain}>
+																			<span className={styles.detailRowName}>{item.title}</span>
+																			{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																		</div>
+																		{item.subtitle && <div className={styles.detailRowMeta}>Effective Date: {item.subtitle}</div>}
+																	</div>
+																))}
 															</div>
-														))}
-													</div>
 														</>
 													)}
 												</section>
@@ -6195,8 +6164,7 @@ function DashboardPageInner() {
 													const currentMatchedSet = currentConnectionPartition.matchedSet as Set<ConnectionCard>;
 													const previousMatchedSet = previousConnectionPartition.matchedSet as Set<ConnectionCard>;
 													const filterHighlightActive =
-														!connectionFilterPreviewUnfiltered &&
-														(Boolean(connectionsFilterQuery.trim()) || (connectionsFilterEnabled && connectionsFilterTags.length > 0));
+														!connectionFilterPreviewUnfiltered && (Boolean(connectionsFilterQuery.trim()) || (connectionsFilterEnabled && connectionsFilterTags.length > 0));
 													const toggleConnectionKey = (key: string) => {
 														if (!key) return;
 														setSelectedConnectionKeys((prev) => {
@@ -6262,8 +6230,7 @@ function DashboardPageInner() {
 														const metaClass = kind === 'current' ? styles.currentConnectionMeta : styles.previousConnectionMeta;
 														const rowKindClass = kind === 'current' ? styles.currentConnectionRow : styles.previousConnectionRow;
 														const unmatchedClass = isUnmatched ? styles.connectionFilterUnmatched : '';
-														const liveHighlight =
-															isUnmatched || !filterHighlightActive ? '' : [connectionsFilterQuery.trim(), ...connectionsFilterTags].filter(Boolean).join(' ');
+														const liveHighlight = isUnmatched || !filterHighlightActive ? '' : [connectionsFilterQuery.trim(), ...connectionsFilterTags].filter(Boolean).join(' ');
 														const dateStr =
 															kind === 'current' ?
 																item.startDate ?
@@ -6540,6 +6507,26 @@ function DashboardPageInner() {
 									clearSelectionHistory();
 								}}>
 								CLEAR
+							</button>
+							<button
+								type='button'
+								className={styles.middlePaneClearBtn}
+								onClick={(e) => {
+									e.stopPropagation();
+									if (displayCards.length === 0) return;
+									const crds = displayCards.map((c) => {
+										const rawId = c.id.replace(/^(person|firm)[:_]/, '');
+										let label = (c.name || '').trim();
+										if (!label || /^(node\s|unknown)/i.test(label)) {
+											label = c.entity === 'firm' ? 'Firm' : 'Individual';
+										}
+										return `${label} :: CRD# ${rawId}`;
+									}).join('\n');
+									navigator.clipboard.writeText(crds);
+									setIsQueueCopied(true);
+									setTimeout(() => setIsQueueCopied(false), 2000);
+								}}>
+								{isQueueCopied ? 'COPIED!' : 'COPY'}
 							</button>
 						</div>
 					</div>

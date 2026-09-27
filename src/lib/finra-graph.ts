@@ -4153,20 +4153,12 @@ function saveSelectionLog() {
 
 function getSecondaryId(d) {
 	if (d.group === 'individual') {
-		const crd = d.crd || d.id.split(':').pop() || '';
+		const crd = d.crd || String(d.id || '').split(':').pop() || '';
 		return crd ? `CRD# ${crd}` : '';
 	}
 	if (d.group === 'firm') {
-		const parts = [];
-		const crd = d.firmId || d.id.split(':').pop();
-		if (crd && /^\d+$/.test(crd)) {
-			parts.push(`CRD# ${crd}`);
-		}
-		const sec = d.bdSecNumber || d.iaSecNumber;
-		if (sec) {
-			parts.push(`SEC# ${sec}`);
-		}
-		return parts.length > 0 ? parts.join(' / ') : '';
+		const crd = d.firmId || String(d.id || '').split(':').pop() || '';
+		return crd && /^\d+$/.test(crd) ? `CRD# ${crd}` : '';
 	}
 	return '';
 }
