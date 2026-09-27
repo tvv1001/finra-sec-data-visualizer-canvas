@@ -36,33 +36,33 @@ export const metadata: Metadata = {
 	metadataBase: new URL(siteUrl),
 	manifest: '/manifest.webmanifest',
 	title: {
-		default: 'FINRA Network Graph',
-		template: '%s | FINRA Network Graph',
+		default: 'FINRA SEC Graph Explorer',
+		template: '%s | FINRA SEC Graph Explorer',
 	},
 	description: 'Explore FINRA BrokerCheck and SEC AdviserInfo relationships in an interactive network graph for people, firms, control entities, registrations, and disclosures.',
-	applicationName: 'FINRA Network Graph',
+	applicationName: 'FINRA SEC Graph Explorer',
 	keywords: ['FINRA', 'BrokerCheck', 'SEC AdviserInfo', 'IAPD', 'network graph', 'broker-dealer', 'investment adviser', 'CRD lookup', 'financial regulation'],
 	alternates: {
 		canonical: '/',
 	},
 	openGraph: {
-		title: 'FINRA Network Graph',
+		title: 'FINRA SEC Graph Explorer',
 		description: 'Interactive FINRA BrokerCheck and SEC AdviserInfo network visualization for exploring firms, people, employment, control, and disclosure relationships.',
 		url: siteUrl,
-		siteName: 'FINRA Network Graph',
+		siteName: 'FINRA SEC Graph Explorer',
 		type: 'website',
 		images: [
 			{
 				url: '/graph-screenshot.png',
 				width: 1280,
 				height: 720,
-				alt: 'FINRA Network Graph application screenshot',
+				alt: 'FINRA SEC Graph Explorer application screenshot',
 			},
 		],
 	},
 	twitter: {
 		card: 'summary_large_image',
-		title: 'FINRA Network Graph',
+		title: 'FINRA SEC Graph Explorer',
 		description: 'Browse FINRA BrokerCheck and SEC AdviserInfo records as an interactive relationship graph.',
 		images: ['/graph-screenshot.png'],
 	},
@@ -93,7 +93,7 @@ export const metadata: Metadata = {
 	},
 	appleWebApp: {
 		capable: true,
-		title: 'FINRA Graph',
+		title: 'FINRA SEC Graph Explorer',
 		statusBarStyle: 'default',
 	},
 };

@@ -337,14 +337,14 @@ export default function FinraGraph() {
 	const [findQuery, setFindQuery] = useState('');
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
 	const [isSidebarToolsOpen, setIsSidebarToolsOpen] = useState(true);
-	const [pageTitle, setPageTitle] = useState('FINRA Network Graph');
+	const [pageTitle, setPageTitle] = useState('FINRA SEC Graph Explorer');
 
 	useEffect(() => {
 		const handleTitleUpdate = (e: any) => {
-			if (e.detail && e.detail !== 'FINRA Network Graph') {
-				setPageTitle(`${e.detail} | FINRA Network Graph`);
+			if (e.detail && e.detail !== 'FINRA SEC Graph Explorer') {
+				setPageTitle(`${e.detail} | FINRA SEC Graph Explorer`);
 			} else {
-				setPageTitle('FINRA Network Graph');
+				setPageTitle('FINRA SEC Graph Explorer');
 			}
 		};
 		window.addEventListener('finra:title-update', handleTitleUpdate);

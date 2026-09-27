@@ -40,7 +40,7 @@ export default function manifest(): MetadataRoute.Manifest {
 				sizes: '1280x720',
 				type: 'image/png',
 				form_factor: 'wide',
-				label: 'FINRA Network Graph overview',
+				label: 'FINRA SEC Graph Explorer overview',
 			},
 		],
 		related_applications: [],

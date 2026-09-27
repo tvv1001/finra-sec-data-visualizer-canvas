@@ -5343,6 +5343,15 @@ function closeSelectionLogClearLabelsMenu() {
 	syncSelectionLogActionButtonStates();
 }
 
+
+function handleClearNonLogOutsideClick(event: MouseEvent) {
+	if (clearNonLogClickStage === 1) return;
+	const target = event.target instanceof Element ? event.target : null;
+	if (target?.closest('[data-fg-graph-action="clear-non-log"]')) return;
+	clearNonLogClickStage = 1;
+	syncClearNonLogButtonState();
+}
+
 function handleSelectionLogClearLabelsOutsideClick(event: MouseEvent) {
 	if (!isSelectionLogClearLabelsMenuOpen) return;
 	const target = event.target instanceof Element ? event.target : null;
@@ -7544,6 +7553,7 @@ export function init(
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
 	document.addEventListener('click', handleDelegatedButtonClicks);
 	document.addEventListener('click', handleSelectionLogClearLabelsOutsideClick);
+	document.addEventListener('click', handleClearNonLogOutsideClick);
 	// Fetch/search status stays until the close button (#fg-subset-info-pin) is used.
 	// Do not dismiss on click-outside or focus changes.
 	syncSelectionLogActionButtonStates();
@@ -17284,8 +17294,8 @@ function updateShortDetail(d) {
 		if (el) el.textContent = '';
 		try {
 			if (typeof window !== 'undefined') {
-				document.title = 'FINRA Network Graph';
-				window.dispatchEvent(new CustomEvent('finra:title-update', { detail: 'FINRA Network Graph' }));
+				document.title = 'FINRA SEC Graph Explorer';
+				window.dispatchEvent(new CustomEvent('finra:title-update', { detail: 'FINRA SEC Graph Explorer' }));
 			}
 		} catch {}
 		return;
