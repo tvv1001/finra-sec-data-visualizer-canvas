@@ -4837,7 +4837,7 @@ function DashboardPageInner() {
 							href={graphHref}
 							onClick={handleGraphBackClick}
 							className='fg-ghost-btn'
-							style={{ textDecoration: 'none' }}>
+							style={{ textDecoration: 'none', padding: '12px 16px', minHeight: '44px', fontWeight: 'bold' }}>
 							Graph
 						</Link>
 						<button

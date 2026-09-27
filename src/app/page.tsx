@@ -4,11 +4,11 @@ import dynamic from 'next/dynamic';
 const FinraGraph = dynamic(() => import('@/components/FinraGraph'), {
 	ssr: false,
 	loading: () => (
-		<div className='fg-loading-shell'>
+		<div id='finra-app' className='fg-app-loading'>
 			<header className='fg-header'>
 				<div className='fg-header-bar'>
 					<div className='fg-header-brand'>
-						<h1 className='fg-title'>FINRA</h1>
+						<h1 className='fg-title'>FINRA/SEC</h1>
 					</div>
 				</div>
 			</header>

@@ -1,6 +1,62 @@
 {
   "firms": [
     {
+      "id": 119241,
+      "name": "HERITAGE ADVISORY SERVICES, INC."
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 7471,
+      "name": "PRUDENTIAL-BACHE SECURITIES INC."
+    },
+    {
+      "id": 5249,
+      "name": "MANEQUITY, INC."
+    },
+    {
+      "id": 8174,
+      "name": "UBS PAINEWEBBER INC."
+    },
+    {
+      "id": 6321,
+      "name": "IDS LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 18272,
+      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 6363,
+      "name": "AMERIPRISE FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 45915,
+      "name": "SUMMITALLIANCE SECURITIES, L.L.C."
+    },
+    {
+      "id": 133019,
+      "name": "HERITAGE FINANCIAL SYSTEMS, INC."
+    },
+    {
+      "id": 11469,
+      "name": "WESTMORELAND CAPITAL CORPORATION"
+    },
+    {
+      "id": 103863,
+      "name": "FARMERS FINANCIAL SOLUTIONS, LLC"
+    },
+    {
+      "id": 361,
+      "name": "GOLDMAN, SACHS & CO."
+    },
+    {
+      "id": 142871,
+      "name": "XMS CAPITAL PARTNERS, LLC"
+    },
+    {
       "id": 3870,
       "name": "JEFFERSON PILOT SECURITIES CORPORATION"
     },
@@ -97,10 +153,6 @@
       "name": "PRUDENTIAL ANNUITIES DISTRIBUTORS, INC"
     },
     {
-      "id": 6363,
-      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
-    },
-    {
       "id": 104555,
       "name": "STRATEGIC ADVISERS LLC"
     },
@@ -133,16 +185,8 @@
       "name": "B. C. ZIEGLER AND COMPANY"
     },
     {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
       "id": 283942,
       "name": "BOFA SECURITIES, INC."
-    },
-    {
-      "id": 7471,
-      "name": "PRUDENTIAL SECURITIES INCORPORATED"
     },
     {
       "id": 6540,
@@ -203,10 +247,6 @@
     {
       "id": 6361,
       "name": "BLYTH EASTMAN DILLON & CO. INCORPORATED"
-    },
-    {
-      "id": 8174,
-      "name": "PAINE, WEBBER, JACKSON & CURTIS INC."
     },
     {
       "id": 31194,
@@ -275,10 +315,6 @@
     {
       "id": 3466,
       "name": "GOLDMAN SACHS EXECUTION & CLEARING, L.P."
-    },
-    {
-      "id": 361,
-      "name": "GOLDMAN SACHS & CO. LLC"
     },
     {
       "id": 17454,
@@ -367,10 +403,6 @@
     {
       "id": 759,
       "name": "SECURITIES MANAGEMENT & RESEARCH, INC."
-    },
-    {
-      "id": 6321,
-      "name": "IDS LIFE INSURANCE COMPANY"
     },
     {
       "id": 29106,
@@ -603,10 +635,6 @@
     {
       "id": 138164,
       "name": "FORTIGENT, LLC"
-    },
-    {
-      "id": 142871,
-      "name": "XMS CAPITAL PARTNERS, LLC"
     },
     {
       "id": 7654,
@@ -1173,10 +1201,6 @@
       "name": "EVERHART ADVISORS"
     },
     {
-      "id": 103863,
-      "name": "FARMERS FINANCIAL SOLUTIONS, LLC"
-    },
-    {
       "id": 5309,
       "name": "FBL MARKETING SERVICES, LLC"
     },
@@ -1447,10 +1471,6 @@
     {
       "id": 17490,
       "name": "NATCITY INVESTMENTS, INC."
-    },
-    {
-      "id": 18272,
-      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
     },
     {
       "id": 33856,
@@ -3003,10 +3023,6 @@
     {
       "id": 169685,
       "name": "FARMERS FIRST INSURANCE"
-    },
-    {
-      "id": 5249,
-      "name": "MANEQUITY, INC."
     },
     {
       "id": 6284,
@@ -5495,22 +5511,6 @@
     {
       "id": 2269,
       "name": "VAN ECK SECURITIES CORPORATION"
-    },
-    {
-      "id": 119241,
-      "name": "HERITAGE ADVISORY SERVICES, INC."
-    },
-    {
-      "id": 45915,
-      "name": "SUMMITALLIANCE SECURITIES, L.L.C."
-    },
-    {
-      "id": 133019,
-      "name": "HERITAGE FINANCIAL SYSTEMS, INC."
-    },
-    {
-      "id": 11469,
-      "name": "WESTMORELAND CAPITAL CORPORATION"
     },
     {
       "id": 136572,
@@ -8471,6 +8471,14 @@
   ],
   "individuals": [
     {
+      "id": 1085996,
+      "name": "Timothy Dale Register"
+    },
+    {
+      "id": 6077780,
+      "name": "MATTHEW JAMES GILBERT"
+    },
+    {
       "id": 4034158,
       "name": "Jason Craig Loveless"
     },
@@ -8653,10 +8661,6 @@
     {
       "id": 4194266,
       "name": "MATTHEW KLAUS ENYEDI"
-    },
-    {
-      "id": 6077780,
-      "name": "MATTHEW JAMES GILBERT"
     },
     {
       "id": 5804448,
@@ -11569,10 +11573,6 @@
     {
       "id": 1103883,
       "name": "CHARLES BACON BAILEY"
-    },
-    {
-      "id": 1085996,
-      "name": "Timothy Dale Register"
     },
     {
       "id": 6659503,
