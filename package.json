@@ -4,7 +4,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "bash .local/scripts/start-local-redis.sh && NODE_OPTIONS=--max-old-space-size=8192 next dev -p 4444",
-		"dev:clean": "bash .local/scripts/start-local-redis.sh && rm -rf .next && next dev -p 4444",
+		"dev:clean": "bash .local/scripts/start-local-redis.sh && rm -rf .next && NODE_OPTIONS=--max-old-space-size=8192 next dev -p 4444",
 		"redis:start": "bash /home/lenny/Dev/db/redis/start-redis.sh",
 		"redis:commander": "npx --yes redis-commander --noload --nosave --redis-host 127.0.0.1 --redis-port 6379 --redis-db 0 --redis-label local --address 127.0.0.1 --port 8081",
 		"prebuild": "node .local/scripts/prebuild.js",

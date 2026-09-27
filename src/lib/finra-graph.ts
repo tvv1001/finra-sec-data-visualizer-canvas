@@ -2155,7 +2155,7 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	const [nodePrefix, rawNodeId] = normalizedNodeId.split(':');
 	if (rawNodeId && /^[0-9]+$/.test(rawNodeId) && (nodePrefix === 'person' || nodePrefix === 'firm')) {
 		try {
-			const fetchedBatch = nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId, null, { includePreviousEmployments: true }) : await fetchFirmBatch(rawNodeId);
+			const fetchedBatch = nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId, null, { includePreviousEmployments: false }) : await fetchFirmBatch(rawNodeId);
 			if (fetchedBatch.nodes.length || fetchedBatch.links.length) {
 				mergeIntoGraphData(fetchedBatch.nodes, fetchedBatch.links);
 				globalState.appendFetched?.(fetchedBatch.nodes, fetchedBatch.links);
@@ -8302,22 +8302,11 @@ export function init(
 						);
 					}
 					// Build graph-visible firm connections from embedded employment data.
-					// Historical/previous employers stay in the sidebar detail stack, unless
-					// the previous employer firm is already on the screen, in which case we connect them.
-					const onScreenFirmIds = new Set((globalState.layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)));
-					const prevEmps = [
-						...(parsed?.previousEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
-						...(parsed?.previousIAEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
-					].filter((e) => {
-						const fid = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.organizationId || e?.orgId || '').trim();
-						const sid = String(e?.bdSECNumber || e?.bdSecNumber || e?.iaSECNumber || e?.iaSecNumber || e?.firm_bd_sec_number || '').trim();
-						return onScreenFirmIds.has(fid) || onScreenFirmIds.has(sid);
-					});
-
+					// Historical/previous employers stay in the sidebar detail stack.
+					// The user requested that we do not automatically connect previous gray lines on search bar fetches.
 					const emps = [
 						...(parsed?.currentEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
 						...(parsed?.currentIAEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
-						...prevEmps,
 					];
 					for (const e of emps) {
 						const fid = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.firmId || '').trim();
@@ -8581,7 +8570,7 @@ export function init(
 							if (!rawId) return null;
 							try {
 								const onScreenFirmIds = Array.from(new Set((globalState.layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId))));
-								const batch = target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId, null, { includePreviousEmployerIds: onScreenFirmIds as string[] });
+								const batch = target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId, null, { includePreviousEmployerIds: [] });
 								const liveTargetNode = globalState.layoutNodes?.find((node) => node.id === targetId) || null;
 								const primaryNode = Array.isArray(batch?.nodes) ? batch.nodes.find((node) => node?.id === targetId) || null : null;
 								if (liveTargetNode && primaryNode && typeof primaryNode === 'object') {
@@ -14564,7 +14553,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 	if (!personNode || !detail) return;
 	// Clicking a person node should surface all of its known firm links, including previous/
 	// historical employers, so the graph matches the person's full relationship history.
-	const { includePrevious = true } = options;
+	const { includePrevious = false } = options;
 
 	const personId = personNode.id;
 	const newNodes = [];
@@ -16251,6 +16240,7 @@ async function ensureExpansionDataForNode(
 	hops: number | 'all' = getDefaultExpansionHops(),
 	options: {
 		matchExistingOnly?: boolean;
+		injectEmploymentGraph?: boolean;
 	} = {},
 ) {
 	if (!clickedNodeId) return { nodes: [], links: [] };
@@ -16289,7 +16279,7 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 
 	try {
 		// Cap graph-expand Redis work so deep links remain responsive on a shared Redis instance.
-		await Promise.race([ensureExpansionDataForNode(node.id, normalizedHops), new Promise<void>((resolve) => setTimeout(() => resolve(), 4000))]);
+		await Promise.race([ensureExpansionDataForNode(node.id, normalizedHops, { injectEmploymentGraph: false }), new Promise<void>((resolve) => setTimeout(() => resolve(), 4000))]);
 	} catch (error) {
 		console.warn('Failed to fetch route-selected neighborhood from server:', error);
 	}
