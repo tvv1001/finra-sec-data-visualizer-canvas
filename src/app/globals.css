@@ -6795,3 +6795,44 @@ line.fg-link.is-selected {
 		padding: 10px 14px;
 	}
 }
+
+/* Select to keep mode disables node interactions */
+body.fg-select-to-keep-active .fg-node,
+body.fg-select-to-keep-active .fg-node * {
+	pointer-events: none !important;
+}
+body.fg-select-to-keep-active .fg-main,
+body.fg-select-to-keep-active .fg-canvas-group {
+	cursor: crosshair !important;
+}
+
+/* Clear Labels (enabled state matches clear highlight blue) */
+button.fg-clear-labels-control__toggle:not(:disabled),
+.fg-clear-labels-control__menu button.fg-ghost-btn:not(:disabled) {
+	background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%) !important;
+	border-color: rgba(37, 99, 235, 0.45) !important;
+	color: #1d4ed8 !important;
+	box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12) !important;
+}
+
+button.fg-clear-labels-control__toggle:not(:disabled):hover,
+.fg-clear-labels-control__menu button.fg-ghost-btn:not(:disabled):hover {
+	background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%) !important;
+	border-color: rgba(37, 99, 235, 0.6) !important;
+	color: #1e40af !important;
+}
+
+html[data-theme='dark'] button.fg-clear-labels-control__toggle:not(:disabled),
+html[data-theme='dark'] .fg-clear-labels-control__menu button.fg-ghost-btn:not(:disabled) {
+	background: rgba(37, 99, 235, 0.22) !important;
+	border-color: rgba(96, 165, 250, 0.45) !important;
+	color: #93c5fd !important;
+	box-shadow: none !important;
+}
+
+html[data-theme='dark'] button.fg-clear-labels-control__toggle:not(:disabled):hover,
+html[data-theme='dark'] .fg-clear-labels-control__menu button.fg-ghost-btn:not(:disabled):hover {
+	background: rgba(37, 99, 235, 0.32) !important;
+	border-color: rgba(147, 197, 253, 0.6) !important;
+	color: #bfdbfe !important;
+}

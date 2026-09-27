@@ -4995,6 +4995,7 @@ let selectToKeepDragBehavior: d3.DragBehavior<Element, unknown, unknown> | null 
 
 function toggleSelectToKeepMode(button?: HTMLButtonElement) {
 	isSelectToKeepMode = !isSelectToKeepMode;
+	document.body.classList.toggle('fg-select-to-keep-active', isSelectToKeepMode);
 
 	const interactionTarget = d3.select('#fg-main');
 
@@ -5754,10 +5755,11 @@ function bindHoverAndFocus(selection) {
 			// mouseover/out in addition to enter/leave: more reliable when the pointer is over
 			// nested hit-areas/labels inside the node group.
 			.on('mouseenter mouseover', function (event, d) {
+				if (isSelectToKeepMode) return;
 				setHoveredNode(d.id);
 			})
 			.on('mouseleave', function (event, d) {
-				// Only clear when truly leaving this node (not moving between its children).
+				if (isSelectToKeepMode) return;
 				const related = event?.relatedTarget;
 				if (related && typeof this.contains === 'function' && this.contains(related)) return;
 				setHoveredNode(null);
@@ -13752,6 +13754,7 @@ function fluidDrag() {
 	return d3
 		.drag()
 		.on('start', function (event, d: GraphSimulationNode) {
+			if (isSelectToKeepMode) return;
 			// Cancel any pending click-spread animation
 			if (globalState.spreadAnimId) {
 				cancelAnimationFrame(globalState.spreadAnimId);
@@ -13772,6 +13775,7 @@ function fluidDrag() {
 			globalState.simulation.alphaTarget(0.3).restart();
 		})
 		.on('drag', function (event, d: GraphSimulationNode) {
+			if (isSelectToKeepMode) return;
 			// Calculate delta from previous position
 			const prevX = d.fx ?? d.x;
 			const prevY = d.fy ?? d.y;
@@ -16364,6 +16368,7 @@ function pinNodeAndReleaseOthers(pinnedNode) {
 }
 
 export async function handleNodeOpen(event, d) {
+	if (isSelectToKeepMode) return;
 	if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
 	pinNodeAndReleaseOthers(d);
 	openNodeWithExpansion(d, { syncRoute: true });

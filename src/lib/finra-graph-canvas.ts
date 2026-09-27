@@ -156,6 +156,7 @@ function isControlPositionNode(node: Node) {
 }
 
 function getHitNode(clientX: number, clientY: number) {
+	if (document.body.classList.contains('fg-select-to-keep-active')) return null;
 	if (!canvas) return null;
 	const rect = canvas.getBoundingClientRect();
 	const x = clientX - rect.left;

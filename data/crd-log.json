@@ -1,6 +1,18 @@
 {
   "firms": [
     {
+      "id": 104555,
+      "name": "STRATEGIC ADVISERS, INC."
+    },
+    {
+      "id": 134139,
+      "name": "CAMBRIDGE INVESTMENT RESEARCH ADVISORS, INC."
+    },
+    {
+      "id": 155377,
+      "name": "POGSON & MATT WEALTH MANAGEMENT GROUP"
+    },
+    {
       "id": 119241,
       "name": "HERITAGE ADVISORY SERVICES, INC."
     },
@@ -153,10 +165,6 @@
       "name": "PRUDENTIAL ANNUITIES DISTRIBUTORS, INC"
     },
     {
-      "id": 104555,
-      "name": "STRATEGIC ADVISERS LLC"
-    },
-    {
       "id": 7784,
       "name": "FIDELITY BROKERAGE SERVICES LLC"
     },
@@ -279,10 +287,6 @@
     {
       "id": 705,
       "name": "RAYMOND JAMES & ASSOCIATES, INC."
-    },
-    {
-      "id": 134139,
-      "name": "CAMBRIDGE INVESTMENT RESEARCH ADVISORS, INC."
     },
     {
       "id": 24049,
@@ -8470,6 +8474,10 @@
     }
   ],
   "individuals": [
+    {
+      "id": 2250270,
+      "name": "RONALD DAN GREGG"
+    },
     {
       "id": 1085996,
       "name": "Timothy Dale Register"
