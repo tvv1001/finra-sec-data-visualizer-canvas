@@ -770,6 +770,7 @@ body {
 .fg-bottom-status__text {
 	min-width: 0;
 	overflow: hidden;
+	contain: strict;
 	text-overflow: ellipsis;
 }
 
@@ -799,6 +800,7 @@ body {
 	flex-direction: column;
 	height: 100svh;
 	overflow: hidden;
+	contain: strict;
 	/* Prevent rubber-band bounce from propagating to the page on iOS */
 	overscroll-behavior: none;
 	--fg-empty-target-center: 50vw;
@@ -856,6 +858,7 @@ body {
 	text-align: right;
 	white-space: nowrap;
 	overflow: hidden;
+	contain: strict;
 	text-overflow: ellipsis;
 	pointer-events: none;
 	opacity: 0;
@@ -1383,6 +1386,7 @@ html[data-theme='light'] .fg-find-counter {
 	align-items: center;
 	justify-content: flex-end;
 	overflow: hidden;
+	contain: strict;
 	min-width: 0;
 	flex: 1 1 220px;
 }
@@ -1491,6 +1495,7 @@ html[data-theme='light'] .fg-find-counter {
 	white-space: nowrap;
 	max-width: 220px;
 	overflow: hidden;
+	contain: strict;
 	text-overflow: ellipsis;
 }
 
@@ -1542,6 +1547,7 @@ html[data-theme='dark'] .fg-toolbar-status--top[data-dismissible='true'] {
 	padding: 0;
 	border-radius: 5px;
 	overflow: hidden;
+	contain: strict;
 	background: linear-gradient(180deg, rgba(219, 234, 254, 0.98) 0%, rgba(191, 219, 254, 0.96) 100%);
 	border: 1px solid rgba(37, 99, 235, 0.22);
 	box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
@@ -2046,6 +2052,7 @@ a,
 .fg-toolbar-status--top[data-dismissible='true'] .fg-subset-info[data-transient='true'] {
 	white-space: nowrap;
 	overflow: hidden;
+	contain: strict;
 	text-overflow: ellipsis;
 }
 /* ── Clear-session button (legacy alias) ─────────────────────────────────── */
@@ -2076,6 +2083,7 @@ a,
 	display: flex;
 	flex: 1;
 	overflow: hidden;
+	contain: strict;
 	position: relative;
 }
 
@@ -2249,6 +2257,7 @@ a,
 	min-width: 0;
 	white-space: nowrap;
 	overflow: hidden;
+	contain: strict;
 	text-overflow: ellipsis;
 	height: 35px;
 }
@@ -3712,6 +3721,7 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	flex: 1;
 	position: relative;
 	overflow: hidden;
+	contain: strict;
 	background: var(--bg);
 	z-index: 0;
 	touch-action: none;
@@ -4616,6 +4626,7 @@ html[data-theme='light'] .fg-empty-card.fg-session-restore-card {
 		align-items: center;
 		white-space: nowrap;
 		overflow: hidden;
+	contain: strict;
 	}
 
 	#finra-app[data-legend-toggle='true'] .fg-bottom-status__indicator {
@@ -5240,6 +5251,7 @@ html[data-theme='dark'] .fg-crd-paste-import {
 	flex: 1;
 	cursor: pointer;
 	overflow: hidden;
+	contain: strict;
 	text-overflow: ellipsis;
 	white-space: normal;
 	word-break: break-word;
@@ -5909,6 +5921,7 @@ button[type='submit'],
 	flex: auto;
 	min-height: 0;
 	overflow: hidden;
+	contain: strict;
 }
 .recent-fetched-item.active,
 .recent-fetched-item.rf-active {
@@ -6540,6 +6553,7 @@ button[type='submit'],
 	padding: 12px;
 	display: flex;
 	overflow: hidden;
+	contain: strict;
 	box-shadow:
 		0 1px 2px #0000003d,
 		0 10px 24px #00000047;
@@ -6835,4 +6849,12 @@ html[data-theme='dark'] .fg-clear-labels-control__menu button.fg-ghost-btn:not(:
 	background: rgba(37, 99, 235, 0.32) !important;
 	border-color: rgba(147, 197, 253, 0.6) !important;
 	color: #bfdbfe !important;
+}
+
+#fg-canvas {
+	will-change: transform;
+}
+
+.fg-svg-layer {
+	will-change: transform;
 }

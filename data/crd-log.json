@@ -1,6 +1,74 @@
 {
   "firms": [
     {
+      "id": 108983,
+      "name": "HURLEY FINANCIAL GROUP, INC."
+    },
+    {
+      "id": 120894,
+      "name": "GENEOS WEALTH MANAGEMENT, INC."
+    },
+    {
+      "id": 43285,
+      "name": "M HOLDINGS SECURITIES, INC."
+    },
+    {
+      "id": 131000,
+      "name": "KNOX CAPITAL ADVISORS, LLC"
+    },
+    {
+      "id": 104961,
+      "name": "LEFAVI WEALTH MANAGEMENT"
+    },
+    {
+      "id": 7784,
+      "name": "FIDELITY BROKERAGE SERVICES, INC."
+    },
+    {
+      "id": 15873,
+      "name": "KEY INVESTMENTS INC."
+    },
+    {
+      "id": 7059,
+      "name": "SALOMON SMITH BARNEY INC."
+    },
+    {
+      "id": 2580,
+      "name": "THE LINCOLN NATIONAL LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 3978,
+      "name": "LINCOLN FINANCIAL ADVISORS CORPORATION"
+    },
+    {
+      "id": 151300,
+      "name": "KCG SECURITIES, LLC"
+    },
+    {
+      "id": 10684,
+      "name": "BRUCE A. LEFAVI SECURITIES, INC."
+    },
+    {
+      "id": 6627,
+      "name": "AXA ADVISORS, LLC"
+    },
+    {
+      "id": 7556,
+      "name": "MORGAN STANLEY DW INC."
+    },
+    {
+      "id": 8174,
+      "name": "UBS FINANCIAL SERVICES INC."
+    },
+    {
+      "id": 149018,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC"
+    },
+    {
+      "id": 6694,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
+    },
+    {
       "id": 112118,
       "name": "GV FINANCIAL ADVISORS, INC."
     },
@@ -71,10 +139,6 @@
     {
       "id": 104555,
       "name": "STRATEGIC ADVISERS LLC"
-    },
-    {
-      "id": 7784,
-      "name": "FIDELITY BROKERAGE SERVICES LLC"
     },
     {
       "id": 116823,
@@ -167,10 +231,6 @@
     {
       "id": 5685,
       "name": "PRUCO SECURITIES CORPORATION"
-    },
-    {
-      "id": 7556,
-      "name": "DEAN WITTER REYNOLDS INC."
     },
     {
       "id": 4,
@@ -273,10 +333,6 @@
       "name": "THE EQUITABLE LIFE ASSURANCE SOCIETY OF THE UNITED STATES"
     },
     {
-      "id": 6627,
-      "name": "EQUICO SECURITIES, INC."
-    },
-    {
       "id": 8292,
       "name": "MARINER FINANCIAL SERVICES, INC."
     },
@@ -331,10 +387,6 @@
     {
       "id": 283942,
       "name": "BOFA SECURITIES, INC."
-    },
-    {
-      "id": 7059,
-      "name": "CITIGROUP GLOBAL MARKETS INC."
     },
     {
       "id": 5979,
@@ -415,14 +467,6 @@
     {
       "id": 340688,
       "name": "FORREST MICHAEL LEICHTBERG"
-    },
-    {
-      "id": 108983,
-      "name": "HURLEY FINANCIAL GROUP, INC."
-    },
-    {
-      "id": 120894,
-      "name": "GENEOS WEALTH MANAGEMENT, INC."
     },
     {
       "id": 1232,
@@ -543,10 +587,6 @@
     {
       "id": 235,
       "name": "E. F. HUTTON & COMPANY INC"
-    },
-    {
-      "id": 8174,
-      "name": "UBS FINANCIAL SERVICES INC."
     },
     {
       "id": 154431,
@@ -1005,14 +1045,6 @@
       "name": "MISSION CONTROL INVESTMENT STRATEGIES, LLC"
     },
     {
-      "id": 149018,
-      "name": "RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC"
-    },
-    {
-      "id": 6694,
-      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
-    },
-    {
       "id": 110476,
       "name": "BBVA WEALTH SOLUTIONS INC."
     },
@@ -1371,14 +1403,6 @@
     {
       "id": 11469,
       "name": "WESTMORELAND CAPITAL CORPORATION"
-    },
-    {
-      "id": 2580,
-      "name": "THE LINCOLN NATIONAL LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 3978,
-      "name": "LINCOLN FINANCIAL ADVISORS CORPORATION"
     },
     {
       "id": 6604,
@@ -2927,10 +2951,6 @@
     {
       "id": 323556,
       "name": "LRI INVESTMENTS"
-    },
-    {
-      "id": 43285,
-      "name": "M HOLDINGS SECURITIES, INC."
     },
     {
       "id": 152237,
@@ -5057,10 +5077,6 @@
       "name": "N.I.S. FINANCIAL SERVICES, INC."
     },
     {
-      "id": 131000,
-      "name": "KNOX CAPITAL ADVISORS, LLC"
-    },
-    {
       "id": 294464,
       "name": "MAGELLAN CAPITAL LLC"
     },
@@ -5767,10 +5783,6 @@
     {
       "id": 105670,
       "name": "PRUDENTIAL INVESTMENTS LLC"
-    },
-    {
-      "id": 15873,
-      "name": "KEY INVESTMENTS INC."
     },
     {
       "id": 10273,
@@ -10927,6 +10939,18 @@
   ],
   "individuals": [
     {
+      "id": 7315901,
+      "name": "DANIEL J THOM"
+    },
+    {
+      "id": 2780321,
+      "name": "MICHELLE DAWN FRANCE"
+    },
+    {
+      "id": 4689763,
+      "name": "Jason Edward Pryor"
+    },
+    {
       "id": 2535691,
       "name": "WILLIAM LUCAS NICHOLS"
     },
@@ -11069,10 +11093,6 @@
     {
       "id": 8218216,
       "name": "Forrest Michael Leichtberg"
-    },
-    {
-      "id": 7315901,
-      "name": "DANIEL J THOM"
     },
     {
       "id": 6090358,
