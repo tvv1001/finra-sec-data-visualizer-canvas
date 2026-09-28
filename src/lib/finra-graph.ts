@@ -1734,6 +1734,7 @@ export async function applyGraphTemplate(templateId: string) {
 		refreshTraceState();
 		syncTraceLabelPresentation();
 		syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 		updateFetchStatus(`Loaded template “${template.name}”`);
 		return true;
 	} catch (error) {
@@ -2936,6 +2937,7 @@ function applySelectionLogLabelState({
 	reapplySelectionState();
 	syncTraceLabelPresentation();
 	syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 }
 
 function requestPersistentSelectionLogStorage() {
@@ -3084,6 +3086,7 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 		refreshGraphColors();
 	} else {
 		syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 	}
 	emitFindState();
 	return true;
@@ -3636,6 +3639,7 @@ function clearSelectionLogLabels(scope: SelectionLogClearLabelsScope = 'all') {
 	reapplySelectionState();
 	syncTraceLabelPresentation();
 	syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 	return enlargedNodeIds.length;
 }
 
@@ -4208,6 +4212,7 @@ function addToSelectionLog(d, options: { skipBold?: boolean } = {}) {
 	saveSelectionLog();
 	scheduleSelectionLogUI();
 	syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 }
 
 function removeSelectionLogEntry(entryId: string) {
@@ -4327,6 +4332,7 @@ function removeSelectionLogEntry(entryId: string) {
 	refreshTraceState();
 	syncTraceLabelPresentation();
 	syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 }
 
 function clearSelectionLogEntriesByScope(scope: 'all' | 'people' | 'firms') {
@@ -4343,6 +4349,7 @@ function clearSelectionLogEntriesByScope(scope: 'all' | 'people' | 'firms') {
 	refreshTraceState();
 	syncTraceLabelPresentation();
 	syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 	return nextLog.length;
 }
 
@@ -4729,6 +4736,7 @@ function pruneGraphDataToKeepIds(keepIds: Set<string>) {
 				refreshTraceState();
 				syncTraceLabelPresentation();
 				syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 			} catch {
 				/* ignore */
 			}
@@ -4738,6 +4746,7 @@ function pruneGraphDataToKeepIds(keepIds: Set<string>) {
 		refreshTraceState();
 		syncTraceLabelPresentation();
 		syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 	}
 }
 
@@ -5306,6 +5315,7 @@ function updateSelectionLogUI() {
 						reapplySelectionState();
 						syncTraceLabelPresentation();
 						syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 					});
 				}
 				groupWrap.appendChild(div);
@@ -5447,6 +5457,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		reapplySelectionState();
 		syncTraceLabelPresentation();
 		syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 		return;
 	}
 
@@ -5556,6 +5567,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		refreshTraceState();
 		syncTraceLabelPresentation();
 		syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 		flashSelectionLogActionButton(target, 'Pruned!');
 	}
 }
@@ -5737,6 +5749,7 @@ function setFocusedNode(id) {
 	if (globalState.canvasModeActive) {
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 		syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 		// After the coalesced draw paints (or skips) labels, show the focus CRD tooltip if needed.
 		if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
 			window.requestAnimationFrame(() => {
@@ -10376,6 +10389,7 @@ async function hydratePendingNodeIds(
 		saveSelectionLog();
 		updateSelectionLogUI();
 		syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 	}
 }
 
@@ -12535,6 +12549,7 @@ function reapplySelectionState() {
 		syncClearHighlightsButtonState();
 		if (globalState.canvasModeActive) {
 			syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 		}
 		return;
 	}
@@ -16610,6 +16625,7 @@ function selectNode(
 	} else {
 		// skipLog path still needs canvas selection/link chrome (route re-entry, etc.).
 		syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 	}
 	refreshTraceState();
 	sidebarSelectedNode = d;
@@ -17338,6 +17354,7 @@ function clearHighlights() {
 	highlightLinks({ rootIds: new Set(), nodeIds: new Set(), hopNodeIds: new Set(), linkKeys: new Set() });
 	syncClearHighlightsButtonState();
 	syncSelectionLogAuxiliaryRenderers();
+			scheduleGraphTickPositions(null, null, null);
 	// Clear Highlight returns the address bar to `/` (sticky query params kept).
 	emitSelectedNodeRoute(null, { replace: true });
 	try {

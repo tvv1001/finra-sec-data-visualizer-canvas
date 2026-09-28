@@ -1,6 +1,74 @@
 {
   "firms": [
     {
+      "id": 17507,
+      "name": "FIDELITY INVESTMENTS INSTITUTIONAL SERVICES COMPANY, INC."
+    },
+    {
+      "id": 754,
+      "name": "SCUDDER INVESTOR SERVICES, INC."
+    },
+    {
+      "id": 5496,
+      "name": "SUN LIFE OF CANADA (U.S.) DISTRIBUTORS, INC."
+    },
+    {
+      "id": 4,
+      "name": "A. G. EDWARDS & SONS, INC."
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO ADVISORS, LLC"
+    },
+    {
+      "id": 11025,
+      "name": "WELLS FARGO ADVISORS FINANCIAL NETWORK, LLC"
+    },
+    {
+      "id": 307857,
+      "name": "MAYFLOWER ADVISORS"
+    },
+    {
+      "id": 120222,
+      "name": "PRIVATE CLIENT SERVICES, LLC"
+    },
+    {
+      "id": 159563,
+      "name": "CHANCELLOR FINANCIAL GROUP WB LP"
+    },
+    {
+      "id": 5685,
+      "name": "PRUCO SECURITIES CORPORATION"
+    },
+    {
+      "id": 7556,
+      "name": "DEAN WITTER REYNOLDS INC."
+    },
+    {
+      "id": 463,
+      "name": "JANNEY MONTGOMERY SCOTT LLC"
+    },
+    {
+      "id": 130814,
+      "name": "NFSG CORPORATION"
+    },
+    {
+      "id": 104065,
+      "name": "NEWBRIDGE SECURITIES CORPORATION"
+    },
+    {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
+      "id": 104555,
+      "name": "STRATEGIC ADVISERS LLC"
+    },
+    {
+      "id": 7784,
+      "name": "FIDELITY BROKERAGE SERVICES LLC"
+    },
+    {
       "id": 108983,
       "name": "HURLEY FINANCIAL GROUP, INC."
     },
@@ -19,10 +87,6 @@
     {
       "id": 104961,
       "name": "LEFAVI WEALTH MANAGEMENT"
-    },
-    {
-      "id": 7784,
-      "name": "FIDELITY BROKERAGE SERVICES, INC."
     },
     {
       "id": 15873,
@@ -51,10 +115,6 @@
     {
       "id": 6627,
       "name": "AXA ADVISORS, LLC"
-    },
-    {
-      "id": 7556,
-      "name": "MORGAN STANLEY DW INC."
     },
     {
       "id": 8174,
@@ -113,10 +173,6 @@
       "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
     {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
-    },
-    {
       "id": 361,
       "name": "GOLDMAN SACHS & CO. LLC"
     },
@@ -135,10 +191,6 @@
     {
       "id": 20472,
       "name": "TIAA-CREF INDIVIDUAL & INSTITUTIONAL SERVICES, LLC"
-    },
-    {
-      "id": 104555,
-      "name": "STRATEGIC ADVISERS LLC"
     },
     {
       "id": 116823,
@@ -225,30 +277,6 @@
       "name": "ACANTHUS U.S. LIMITED"
     },
     {
-      "id": 159563,
-      "name": "CHANCELLOR FINANCIAL GROUP WB LP"
-    },
-    {
-      "id": 5685,
-      "name": "PRUCO SECURITIES CORPORATION"
-    },
-    {
-      "id": 4,
-      "name": "A. G. EDWARDS & SONS, INC."
-    },
-    {
-      "id": 463,
-      "name": "JANNEY MONTGOMERY SCOTT LLC"
-    },
-    {
-      "id": 130814,
-      "name": "NFSG CORPORATION"
-    },
-    {
-      "id": 104065,
-      "name": "NEWBRIDGE SECURITIES CORPORATION"
-    },
-    {
       "id": 16999,
       "name": "BANC ONE SECURITIES CORPORATION"
     },
@@ -275,10 +303,6 @@
     {
       "id": 5167,
       "name": "NYLIFE SECURITIES LLC"
-    },
-    {
-      "id": 19616,
-      "name": "WELLS FARGO CLEARING SERVICES, LLC"
     },
     {
       "id": 104790,
@@ -647,10 +671,6 @@
     {
       "id": 8348,
       "name": "T. ROWE PRICE INVESTMENT SERVICES, INC."
-    },
-    {
-      "id": 11025,
-      "name": "WELLS FARGO ADVISORS FINANCIAL NETWORK, LLC"
     },
     {
       "id": 10740,
@@ -2219,10 +2239,6 @@
     {
       "id": 17117,
       "name": "FIRST HORIZON ADVISORS, INC."
-    },
-    {
-      "id": 17507,
-      "name": "FIDELITY INVESTMENTS INSTITUTIONAL SERVICES COMPANY, INC."
     },
     {
       "id": 3496,
@@ -4837,10 +4853,6 @@
       "name": "ING BARING (U.S.) SECURITIES, INC."
     },
     {
-      "id": 754,
-      "name": "SCUDDER INVESTOR SERVICES, INC."
-    },
-    {
       "id": 17039,
       "name": "OLD KENT FINANCIAL ADVISORS"
     },
@@ -6649,10 +6661,6 @@
       "name": "AMEREST SECURITIES, INC."
     },
     {
-      "id": 5496,
-      "name": "SUN LIFE FINANCIAL DISTRIBUTORS, INC."
-    },
-    {
       "id": 739,
       "name": "SYMETRA SECURITIES, INC."
     },
@@ -8247,10 +8255,6 @@
     {
       "id": 106649,
       "name": "FRAZIER FINANCIAL ADVISORS, LLC"
-    },
-    {
-      "id": 120222,
-      "name": "PRIVATE CLIENT SERVICES, LLC"
     },
     {
       "id": 329816,
@@ -10939,6 +10943,18 @@
   ],
   "individuals": [
     {
+      "id": 3153170,
+      "name": "JOHN L WILCOX"
+    },
+    {
+      "id": 1406613,
+      "name": "TIMOTHY DANIEL JUNE"
+    },
+    {
+      "id": 7774051,
+      "name": "LUCAS LOC THAI"
+    },
+    {
       "id": 7315901,
       "name": "DANIEL J THOM"
     },
@@ -10989,10 +11005,6 @@
     {
       "id": 6516138,
       "name": "DENYS PAUL WILFRED WILKINSON"
-    },
-    {
-      "id": 1406613,
-      "name": "TIMOTHY DANIEL JUNE"
     },
     {
       "id": 4392432,
