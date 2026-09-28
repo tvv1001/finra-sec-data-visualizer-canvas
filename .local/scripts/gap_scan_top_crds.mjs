@@ -21,7 +21,7 @@ import {
 
 const ROOT = process.cwd();
 const WINDOW = Number((process.argv.find((a) => a.startsWith('--window=')) || '--window=5000').slice('--window='.length)) || 5000;
-const OFFSET = Math.max(0, Number((process.argv.find((a) => a.startsWith('--offset=')) || '--offset=0').slice('--offset='.length)) || 0);
+const OFFSET = Number((process.argv.find((a) => a.startsWith('--offset=')) || '--offset=0').slice('--offset='.length)) || 0;
 const SLEEP_MS = Number((process.argv.find((a) => a.startsWith('--sleep=')) || '--sleep=300').slice('--sleep='.length)) || 300;
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice('--only='.length); // individual|firm|''
 const REPORT_PATH = path.join(ROOT, `.local/tmp/gap_scan_offset_${OFFSET}_report.json`);

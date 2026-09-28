@@ -803,7 +803,10 @@ export default function FinraGraph() {
 			setFindMatchState({ total: 0, activeOrdinal: 0 });
 			return;
 		}
-		window.dispatchEvent(new CustomEvent(FIND_QUERY_EVENT, { detail: { query } }));
+		const timer = setTimeout(() => {
+			window.dispatchEvent(new CustomEvent(FIND_QUERY_EVENT, { detail: { query } }));
+		}, 200);
+		return () => clearTimeout(timer);
 	}, [findQuery, graphReady, isFindBarOpen, isMounted]);
 
 	useEffect(() => {

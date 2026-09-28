@@ -2539,13 +2539,22 @@ function collectSearchableNodeKeys(node) {
 	return keys.map((entry) => String(entry || '').trim()).filter(Boolean);
 }
 
+let levenshteinV0 = new Uint16Array(256);
+let levenshteinV1 = new Uint16Array(256);
+
 function getLevenshteinDistance(a: string, b: string): number {
 	if (a === b) return 0;
 	if (a.length === 0) return b.length;
 	if (b.length === 0) return a.length;
+	
+	if (b.length >= levenshteinV0.length) {
+		levenshteinV0 = new Uint16Array(b.length + 1);
+		levenshteinV1 = new Uint16Array(b.length + 1);
+	}
 
-	const v0 = new Array(b.length + 1);
-	const v1 = new Array(b.length + 1);
+	const v0 = levenshteinV0;
+	const v1 = levenshteinV1;
+	
 	for (let i = 0; i <= b.length; i++) v0[i] = i;
 	for (let i = 0; i < a.length; i++) {
 		v1[0] = i + 1;
