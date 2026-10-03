@@ -7390,6 +7390,97 @@ function ensureGraphViewportVisible({ duration = 0 }: { duration?: number } = {}
 	});
 }
 
+function getLayoutReflowCooling(nodeCount = globalState.layoutNodes?.length || 0) {
+	const isLarge = nodeCount > 300;
+	const isHuge = nodeCount > 1000;
+	return {
+		isLarge,
+		isHuge,
+		alpha:
+			isHuge ? 0.28
+			: isLarge ? 0.34
+			: 0.42,
+		alphaDecay:
+			isHuge ? 0.012
+			: isLarge ? 0.008
+			: 0.006,
+		velocityDecay:
+			isHuge ? 0.72
+			: isLarge ? 0.78
+			: 0.84,
+		safetyStopMs:
+			isHuge ? 9000
+			: isLarge ? 13000
+			: 17000,
+	};
+}
+
+/** Unpin the whole graph and reheat like the Refresh button so new nodes flow in. */
+function reheatLayoutLikeRefresh(options: { newNodes?: any[]; alpha?: number; eventName?: string } = {}) {
+	if (!globalState.simulation || !Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length) return;
+	const newNodes = Array.isArray(options.newNodes) ? options.newNodes : [];
+	const cooling = getLayoutReflowCooling(globalState.layoutNodes.length);
+	const eventName = options.eventName || 'fetch-reflow';
+
+	if (globalState.activeSpreadFrozenNodes?.length) {
+		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
+		globalState.activeSpreadFrozenNodes = [];
+	}
+	for (const node of globalState.layoutNodes) {
+		node.fx = null;
+		node.fy = null;
+	}
+	newNodes.forEach((node, idx) => {
+		if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return;
+		const angle = (idx / Math.max(1, newNodes.length)) * Math.PI * 2;
+		const jitter =
+			cooling.isHuge ? 10
+			: cooling.isLarge ? 12
+			: 16;
+		node.x += Math.cos(angle) * jitter + (Math.random() - 0.5) * 5;
+		node.y += Math.sin(angle) * jitter + (Math.random() - 0.5) * 5;
+		node.vx = 0;
+		node.vy = 0;
+	});
+
+	if (globalState.spreadReleaseTimer) {
+		clearTimeout(globalState.spreadReleaseTimer);
+		globalState.spreadReleaseTimer = null;
+	}
+	if (globalState.refreshLayoutStopTimer) {
+		clearTimeout(globalState.refreshLayoutStopTimer);
+		globalState.refreshLayoutStopTimer = null;
+	}
+
+	const prevAlphaDecay = globalState.simulation.alphaDecay?.() ?? 0.0228;
+	const prevVelocityDecay = globalState.simulation.velocityDecay?.() ?? 0.4;
+	try {
+		globalState.simulation.alphaDecay(cooling.alphaDecay);
+		globalState.simulation.velocityDecay(cooling.velocityDecay);
+	} catch {
+		/* ignore */
+	}
+
+	const finalize = () => {
+		try {
+			globalState.simulation?.alphaDecay?.(prevAlphaDecay);
+			globalState.simulation?.velocityDecay?.(prevVelocityDecay);
+			globalState.simulation?.alphaTarget?.(0);
+			globalState.simulation?.on?.(`end.${eventName}`, null);
+		} catch {
+			/* ignore */
+		}
+		globalState.spreadReleaseTimer = null;
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
+	};
+
+	const restartAlpha = Number.isFinite(options.alpha) ? Number(options.alpha) : newNodes.length > 0 ? cooling.alpha : Math.max(0.16, cooling.alpha * 0.7);
+	globalState.simulation.alphaTarget(0);
+	globalState.simulation.alpha(restartAlpha).restart();
+	globalState.simulation.on(`end.${eventName}`, finalize);
+	globalState.spreadReleaseTimer = setTimeout(finalize, cooling.safetyStopMs);
+}
+
 function refreshNodeLayout() {
 	if (!globalState.simulation || !Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length) return;
 
@@ -7399,12 +7490,16 @@ function refreshNodeLayout() {
 	const centerX = width / 2;
 	const centerY = height / 2;
 	const nodeCount = globalState.layoutNodes.length;
-	const isLarge = nodeCount > 300;
-	const isHuge = nodeCount > 1000;
+	const cooling = getLayoutReflowCooling(nodeCount);
 	const jitterBase =
-		isHuge ? 10
-		: isLarge ? 8
+		cooling.isHuge ? 10
+		: cooling.isLarge ? 8
 		: 6;
+
+	if (globalState.activeSpreadFrozenNodes?.length) {
+		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
+		globalState.activeSpreadFrozenNodes = [];
+	}
 
 	globalState.layoutNodes.forEach((node, index) => {
 		node.fx = null;
@@ -7429,31 +7524,51 @@ function refreshNodeLayout() {
 		clearTimeout(globalState.refreshLayoutStopTimer);
 		globalState.refreshLayoutStopTimer = null;
 	}
+	if (globalState.spreadReleaseTimer) {
+		clearTimeout(globalState.spreadReleaseTimer);
+		globalState.spreadReleaseTimer = null;
+	}
+
+	const prevAlphaDecay = globalState.simulation.alphaDecay?.() ?? 0.0228;
+	const prevVelocityDecay = globalState.simulation.velocityDecay?.() ?? 0.4;
+	try {
+		globalState.simulation.alphaDecay(cooling.alphaDecay);
+		globalState.simulation.velocityDecay(cooling.velocityDecay);
+	} catch {
+		/* ignore */
+	}
 
 	// Create a stable finalize function so other code (e.g. revealNeighbors)
 	// can delay the final stop briefly after newly-revealed nodes settle.
 	globalState.refreshFinalizeLayoutFn = () => {
-		globalState.simulation.alphaTarget(0);
+		try {
+			globalState.simulation?.alphaDecay?.(prevAlphaDecay);
+			globalState.simulation?.velocityDecay?.(prevVelocityDecay);
+			globalState.simulation?.alphaTarget?.(0);
+		} catch {
+			/* ignore */
+		}
 		globalState.refreshLayoutStopTimer = null;
 		try {
 			saveSession();
 		} catch {
 			// non-critical
 		}
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	};
 
 	// Let the refresh reheat briefly, then cool naturally to D3's alpha minimum.
-	// A non-zero alphaTarget keeps the simulation energized and prevents settling.
 	globalState.simulation.alphaTarget(0);
-	globalState.simulation
-		.alpha(
-			isHuge ? 0.28
-			: isLarge ? 0.34
-			: 0.42,
-		)
-		.restart();
-
+	globalState.simulation.alpha(cooling.alpha).restart();
 	globalState.simulation.on('end.refresh-layout', globalState.refreshFinalizeLayoutFn);
+	globalState.refreshLayoutStopTimer = setTimeout(() => {
+		try {
+			globalState.simulation?.on?.('end.refresh-layout', null);
+		} catch {
+			/* ignore */
+		}
+		if (globalState.refreshFinalizeLayoutFn) globalState.refreshFinalizeLayoutFn();
+	}, cooling.safetyStopMs);
 }
 
 function hasAffirmativeDisclosureFlag(value) {
@@ -13761,36 +13876,12 @@ function appendFetchedImpl(
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	});
 
-	const allowedMoving = new Set(impactedIds || []);
-	if (typeof globalState.lastExpandOriginNode !== 'undefined' && globalState.lastExpandOriginNode?.id) {
-		allowedMoving.add(globalState.lastExpandOriginNode.id);
-	}
-	if (globalState.activeSpreadFrozenNodes.length) {
-		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
-		globalState.activeSpreadFrozenNodes = [];
-	}
-	globalState.activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
-
-	globalState.simulation.alpha(getIncrementalRestartAlpha(globalState.layoutNodes.length, uniqNodes.length)).restart();
-
-	if (typeof globalState.spreadReleaseTimer !== 'undefined' && globalState.spreadReleaseTimer) {
-		clearTimeout(globalState.spreadReleaseTimer);
-		globalState.spreadReleaseTimer = null;
-	}
-	const settleMs = globalState.layoutNodes.length > 800 ? 900 : globalState.layoutNodes.length > 300 ? 1400 : 2200;
-	globalState.spreadReleaseTimer = setTimeout(() => {
-		try {
-			globalState.simulation?.alphaTarget?.(0);
-			globalState.simulation?.alpha?.(0);
-			globalState.simulation?.stop?.();
-		} catch {
-			/* ignore */
-		}
-		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
-		globalState.activeSpreadFrozenNodes = [];
-		globalState.spreadReleaseTimer = null;
-		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
-	}, settleMs);
+	reheatLayoutLikeRefresh({
+		newNodes: uniqNodes,
+		alpha:
+			uniqNodes.length > 0 ? undefined : Math.max(0.12, getIncrementalRestartAlpha(globalState.layoutNodes.length, Math.max(1, impactedIds?.length || 0))),
+		eventName: 'fetch-reflow',
+	});
 }
 
 function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?: boolean } = {}) {
@@ -14603,28 +14694,7 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	globalState.simulation.force('link').links(globalState.layoutLinks);
 	globalState.simulation.force('collision').radius((d) => getNodeCollisionRadius(d, globalState.layoutNodes.length));
 
-	const allowedMoving = new Set(toAdd.map((n) => n.id));
-	if (typeof globalState.lastExpandOriginNode !== 'undefined' && globalState.lastExpandOriginNode?.id) {
-		allowedMoving.add(globalState.lastExpandOriginNode.id);
-	}
-	if (globalState.activeSpreadFrozenNodes.length) {
-		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
-		globalState.activeSpreadFrozenNodes = [];
-	}
-	globalState.activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
-
-	globalState.simulation.alpha(getIncrementalRestartAlpha(globalState.layoutNodes.length, toAdd.length)).restart();
-
-	if (typeof globalState.spreadReleaseTimer !== 'undefined' && globalState.spreadReleaseTimer) {
-		clearTimeout(globalState.spreadReleaseTimer);
-		globalState.spreadReleaseTimer = null;
-	}
-	globalState.spreadReleaseTimer = setTimeout(() => {
-		globalState.simulation?.alphaTarget?.(0);
-		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
-		globalState.activeSpreadFrozenNodes = [];
-		globalState.spreadReleaseTimer = null;
-	}, 300);
+	reheatLayoutLikeRefresh({ newNodes: toAdd, eventName: 'inject-reflow' });
 
 	// Persist session so reload restores these nodes
 	saveSession();
@@ -17823,25 +17893,7 @@ function revealNeighbors(
 			globalState.simulation.force('link').links(globalState.layoutLinks);
 			globalState.simulation.force('collision').radius((d) => getNodeCollisionRadius(d, globalState.layoutNodes.length));
 
-			// Freeze settled nodes before reheat so only the clicked node + this batch move.
-			const allowedMoving = new Set(batchNodeIds);
-			if (clickedNode?.id) allowedMoving.add(clickedNode.id);
-			if (globalState.activeSpreadFrozenNodes.length) {
-				releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
-				globalState.activeSpreadFrozenNodes = [];
-			}
-			globalState.activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
-			globalState.simulation.alpha(getIncrementalRestartAlpha(globalState.layoutNodes.length, batchNodes.length)).restart();
-			if (globalState.spreadReleaseTimer) {
-				clearTimeout(globalState.spreadReleaseTimer);
-				globalState.spreadReleaseTimer = null;
-			}
-			globalState.spreadReleaseTimer = setTimeout(() => {
-				globalState.simulation?.alphaTarget?.(0);
-				releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
-				globalState.activeSpreadFrozenNodes = [];
-				globalState.spreadReleaseTimer = null;
-			}, 300);
+			reheatLayoutLikeRefresh({ newNodes: batchNodes, eventName: 'reveal-reflow' });
 
 			if (batchIndex < revealBatches.length - 1) {
 				const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, globalState.layoutNodes.length);
@@ -18135,22 +18187,8 @@ function spreadNeighbors(
 		: getNeighborIds(clickedNode.id);
 	if (neighborIdSet.size === 0) return;
 
-	// For performance, we can skip the animation and just update positions.
-	// The user is OK with reduced animation. Freeze every already-settled node
-	// first so this reheat only lets the clicked node and the newly revealed
-	// neighbors move — otherwise the whole graph (and its highlighted "controls"
-	// lines) visibly floats around before re-settling.
-	const allowedMoving = new Set(neighborIdSet);
-	allowedMoving.add(clickedNode.id);
-	const frozen = freezeSettledNodesExcept(allowedMoving);
-	globalState.activeSpreadFrozenNodes = frozen;
-	globalState.simulation.alpha(0.1).restart();
-	globalState.spreadReleaseTimer = setTimeout(() => {
-		globalState.simulation.alphaTarget(0);
-		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
-		globalState.activeSpreadFrozenNodes = [];
-		globalState.spreadReleaseTimer = null;
-	}, 300);
+	// Unpin + reflow the whole graph; do not re-jitter already-placed neighbors.
+	reheatLayoutLikeRefresh({ eventName: 'neighbor-reflow' });
 	return;
 
 	// The animation code below is being bypassed for performance.

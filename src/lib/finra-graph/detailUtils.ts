@@ -169,6 +169,18 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 	}
 	if (bi.bcScope) targetNode.bcScope = bi.bcScope;
 	if (bi.iaScope) targetNode.iaScope = bi.iaScope;
+	// Keep viz inactive flag aligned with FINRA scope ("InActive" ≠ Active).
+	{
+		const scope = String(bi.bcScope || detail?.bcScope || '')
+			.trim()
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '');
+		if (scope && /(inactive|terminated|revoked|suspended|withdrawn|barred|expelled)/.test(scope)) {
+			targetNode._vizInactive = true;
+		} else if (scope && /(active|approved|current)/.test(scope)) {
+			targetNode._vizInactive = false;
+		}
+	}
 	if (detail.hasSecData != null) targetNode.hasSecData = detail.hasSecData;
 	if (detail.hasFinraData != null) targetNode.hasFinraData = detail.hasFinraData;
 
