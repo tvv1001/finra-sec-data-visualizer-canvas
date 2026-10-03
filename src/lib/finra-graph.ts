@@ -5,6 +5,7 @@ import { globalState } from './finra-graph-core/state';
  */
 
 import * as d3Module from 'd3';
+import type { QueueGraphBridgePerson } from './queueGraphBridge';
 import {
 	flattenEmploymentRecords as flattenEmploymentRecordsImpl,
 	buildSyntheticFirmNodeId as buildSyntheticFirmNodeIdImpl,
@@ -2460,7 +2461,7 @@ let pendingRouteAutoExpand = false; // optional auto-expand requested with route
 let pendingRouteForceAutoExpand = false; // allow route requests to expand even when the node is already selected
 let pendingSelectedNodeIds: string[] = []; // node ids to hydrate into the selection log
 let pendingCanvasNodeIds: string[] = []; // node ids to fetch and add to canvas (but not log) from a shared `?selected=` link
-let pendingQueueGraphSeed: { anchorFirmId?: string; anchorFirmName?: string; people?: Array<{ crd: string; name?: string; isCurrent?: boolean }> } | null = null;
+let pendingQueueGraphSeed: { anchorFirmId?: string; anchorFirmName?: string; people?: QueueGraphBridgePerson[] } | null = null;
 let isolateToSharedSelection = false; // when true, skip the baseline/profile graph load and render only the shared `?selected=` + routed nodes
 const SELECTION_LOG_IDB_DB_NAME = 'finra_selection_log_store';
 const SELECTION_LOG_IDB_STORE_NAME = 'selection_log_store';
