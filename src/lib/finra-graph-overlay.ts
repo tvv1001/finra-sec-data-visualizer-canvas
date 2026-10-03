@@ -220,7 +220,12 @@ function createLabelElement(node: Node) {
 export function updateOverlay(
 	nodes: Node[],
 	transform: { x: number; y: number; k: number },
-	opts: { selectedId?: string | number; labelScale?: number; logLabelNodeIds?: Array<string | number> } = {},
+	opts: {
+		selectedId?: string | number;
+		labelScale?: number;
+		logLabelNodeIds?: Array<string | number>;
+		priorityLabelNodeIds?: Array<string | number>;
+	} = {},
 ) {
 	if (!container || !parentEl) return;
 	// Only show overlay labels once the user is zoomed in enough.
@@ -240,9 +245,11 @@ export function updateOverlay(
 	// choose nodes to label only when zoomed in enough
 	const toLabel: Node[] = [];
 	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
-	if (forcedLabelIds.size) {
+	const priorityLabelIds = new Set((opts.priorityLabelNodeIds || []).map((id) => String(id)));
+	if (forcedLabelIds.size || priorityLabelIds.size) {
 		visible.forEach((node) => {
-			if (forcedLabelIds.has(String(node.id))) toLabel.push(node);
+			const id = String(node.id);
+			if (forcedLabelIds.has(id) || priorityLabelIds.has(id)) toLabel.push(node);
 		});
 	}
 	if (scale >= OVERLAY_LABEL_ZOOM_THRESHOLD) {

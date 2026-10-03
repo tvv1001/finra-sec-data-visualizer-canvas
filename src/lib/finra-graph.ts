@@ -680,10 +680,12 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 			try {
 				const transform = getCurrentZoomTransform();
 				const logLabelNodeIds = getSelectionLogLabelNodeIds();
+				const priorityLabelNodeIds = getCanvasPriorityLabelNodeIds();
 				globalState.pixiApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
 					selectedId: globalState.selectedId,
 					labelScale: 1,
 					logLabelNodeIds,
+					priorityLabelNodeIds,
 				});
 				if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 					try {
@@ -691,6 +693,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 							selectedId: globalState.selectedId,
 							labelScale: 1,
 							logLabelNodeIds,
+							priorityLabelNodeIds,
 						});
 					} catch (e) {}
 				}
@@ -703,6 +706,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 			try {
 				const transform = getCurrentZoomTransform();
 				const logLabelNodeIds = getSelectionLogLabelNodeIds();
+				const priorityLabelNodeIds = getCanvasPriorityLabelNodeIds();
 				const linkFocusNodeIds = getCanvasLinkFocusNodeIds();
 				globalState.canvasApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
 					selectedId: globalState.selectedId,
@@ -711,6 +715,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 					linkFocusNodeIds,
 					labelScale: 1,
 					logLabelNodeIds,
+					priorityLabelNodeIds,
 					isMoving: (globalState.simulation?.alpha() || 0) > 0.05,
 				});
 				if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
@@ -719,6 +724,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 							selectedId: globalState.selectedId,
 							labelScale: 1,
 							logLabelNodeIds,
+							priorityLabelNodeIds,
 						});
 					} catch (e) {}
 				}
@@ -3345,15 +3351,54 @@ function getCanvasLinkFocusNodeIds() {
 	);
 }
 
+/** Firm ids linked by employment to the selected person — forced canvas labels even when zoomed out. */
+function getSelectedPersonEmploymentNeighborLabelIds() {
+	const selectedId = String(globalState.selectedId || '').trim();
+	if (!selectedId || !selectedId.startsWith('person:')) return [] as string[];
+	const personNode =
+		(globalState.layoutNodes || []).find((node) => String(node?.id || '') === selectedId) ||
+		(globalState.graphData?.nodes || []).find((node) => String(node?.id || '') === selectedId) ||
+		null;
+	if (!personNode || personNode.group !== 'individual') return [] as string[];
+
+	const firmIds = new Set<string>();
+	for (const employment of flattenEmploymentRecords(personNode)) {
+		const firmNodeId = resolveEmploymentConnectionFirmNodeId(employment);
+		if (firmNodeId) firmIds.add(firmNodeId);
+	}
+	const considerLink = (link) => {
+		if (!isPersonClickEmploymentLink(link)) return;
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		if (sourceId === selectedId && targetId) firmIds.add(targetId);
+		if (targetId === selectedId && sourceId) firmIds.add(sourceId);
+	};
+	for (const link of globalState.layoutLinks || []) considerLink(link);
+	for (const link of globalState.graphData?.links || []) considerLink(link);
+
+	const visibleIds = new Set((globalState.layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
+	return Array.from(firmIds).filter((id) => visibleIds.has(id));
+}
+
+function getCanvasPriorityLabelNodeIds() {
+	return getSelectedPersonEmploymentNeighborLabelIds();
+}
+
 let selectionLogAuxRenderFrame: number | null = null;
 
 function syncSelectionLogAuxiliaryRenderersNow() {
 	const transform = getCurrentZoomTransform();
 	const logLabelNodeIds = getSelectionLogLabelNodeIds();
+	const priorityLabelNodeIds = getCanvasPriorityLabelNodeIds();
 	const linkFocusNodeIds = getCanvasLinkFocusNodeIds();
 	if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
 		try {
-			globalState.overlayApi.update(globalState.layoutNodes || [], transform, { selectedId: globalState.selectedId, labelScale: 1, logLabelNodeIds });
+			globalState.overlayApi.update(globalState.layoutNodes || [], transform, {
+				selectedId: globalState.selectedId,
+				labelScale: 1,
+				logLabelNodeIds,
+				priorityLabelNodeIds,
+			});
 		} catch {}
 	}
 	if (globalState.canvasApi && typeof globalState.canvasApi.drawFrame === 'function') {
@@ -3365,6 +3410,7 @@ function syncSelectionLogAuxiliaryRenderersNow() {
 				linkFocusNodeIds,
 				labelScale: 1,
 				logLabelNodeIds,
+				priorityLabelNodeIds,
 			});
 		} catch {}
 	}
@@ -3374,6 +3420,7 @@ function syncSelectionLogAuxiliaryRenderersNow() {
 				selectedId: globalState.selectedId,
 				labelScale: 1,
 				logLabelNodeIds,
+				priorityLabelNodeIds,
 			});
 		} catch {}
 	}

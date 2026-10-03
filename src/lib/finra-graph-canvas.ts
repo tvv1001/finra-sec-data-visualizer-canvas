@@ -640,6 +640,8 @@ export function drawCanvasFrame(
 		linkFocusNodeIds?: Array<string | number>;
 		labelScale?: number;
 		logLabelNodeIds?: Array<string | number>;
+		/** Force label visibility without Log Bold styling (e.g. selected person's employers). */
+		priorityLabelNodeIds?: Array<string | number>;
 	} = {},
 ) {
 	currentNodes = nodes;
@@ -648,6 +650,7 @@ export function drawCanvasFrame(
 	currentOpts = {
 		...opts,
 		logLabelNodeIds: Array.isArray(opts.logLabelNodeIds) ? opts.logLabelNodeIds : currentOpts.logLabelNodeIds || [],
+		priorityLabelNodeIds: Array.isArray(opts.priorityLabelNodeIds) ? opts.priorityLabelNodeIds : currentOpts.priorityLabelNodeIds || [],
 	};
 	currentTransform = transform;
 	const selectedNodeIds = new Set((opts.selectedNodeIds || []).map((id) => String(id)));
@@ -743,6 +746,7 @@ export function drawCanvasFrame(
 	const globalCanvasLabelZoomThreshold = 0.45;
 	const selectedCanvasLabelZoomThreshold = globalCanvasLabelZoomThreshold;
 	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
+	const priorityLabelIds = new Set((opts.priorityLabelNodeIds || []).map((id) => String(id)));
 	const focusedNodeId = opts.focusedNodeId != null ? String(opts.focusedNodeId).trim() : '';
 	const labelBudget =
 		visibleNodes.length > 1000 ? 160
@@ -752,7 +756,7 @@ export function drawCanvasFrame(
 	const labelCandidates = visibleNodes
 		.filter((node) => {
 			const id = String(node.id);
-			return forcedLabelIds.has(id) || hoverNodeId === id || (focusedNodeId && id === focusedNodeId);
+			return forcedLabelIds.has(id) || priorityLabelIds.has(id) || hoverNodeId === id || (focusedNodeId && id === focusedNodeId);
 		})
 		.map((node) => node.id);
 	const labelCandidateIds = new Set(labelCandidates);
@@ -783,6 +787,7 @@ export function drawCanvasFrame(
 		const isHovered = hoverNodeId === String(n.id);
 		const isFocused = Boolean(focusedNodeId && focusedNodeId === String(n.id));
 		const isForcedLabel = forcedLabelIds.has(String(n.id));
+		const isPriorityForcedLabel = priorityLabelIds.has(String(n.id));
 		const isBoldLabel = isForcedLabel;
 		const isControlPosition = isControlPositionNode(n);
 		const hasCurrentFirmConnections = n.group === 'firm' && Number(n?._deg?.total || 0) > 0;
@@ -850,7 +855,7 @@ export function drawCanvasFrame(
 			ctx.stroke();
 		}
 
-		if (shouldShowLabel && (isForcedLabel || scale >= selectedCanvasLabelZoomThreshold)) {
+		if (shouldShowLabel && (isForcedLabel || isPriorityForcedLabel || scale >= selectedCanvasLabelZoomThreshold)) {
 			renderedLabelCount += 1;
 			canvasLabelVisibleIds.add(String(n.id));
 			const pending = { n, isBoldLabel, inactive, size };
