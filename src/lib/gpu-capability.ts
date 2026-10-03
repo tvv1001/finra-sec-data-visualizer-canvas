@@ -147,9 +147,12 @@ export function resolveSafeGpuEnabled(options: {
 	const probes = options.probes?.length ? options.probes : [{ renderer: options.renderer || '', vendor: options.vendor || '', powerPreference: 'default' }];
 	const preferred = pickPreferredGpuProbe(probes);
 	const hybridOptIn = readHybridGpuOptIn(options.search || '', options.storageGet);
-	const hybrid = Boolean(options.hybrid) || detectHybridGpu(probes) || hybridOptIn;
+	const probedHybrid = Boolean(options.hybrid) || detectHybridGpu(probes);
 	let tier = classifyGpuCapability(preferred.renderer, preferred.vendor);
-	// User-declared hybrid, or probes saw both dGPU + iGPU.
+	// ?dgpu=1 means "I also have a dGPU" when probes only show an iGPU.
+	// It must not force hybrid when every probe is already dedicated (NVIDIA-only).
+	const sawIntegrated = tier === 'integrated' || probes.some((probe) => classifyGpuCapability(probe.renderer, probe.vendor) === 'integrated');
+	const hybrid = probedHybrid || (hybridOptIn && sawIntegrated);
 	if (hybrid) tier = 'hybrid';
 
 	if (override === 'force-on') {

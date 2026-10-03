@@ -57,17 +57,65 @@ export function normalizeIndividualDetailPayload(detail: unknown, fallbackCrd = 
 	if (!isPlainObject(detail)) return detail;
 	const normalized: AnyRecord = { ...detail };
 
-	const currentEmployments = mergeUniqueArrays(toArray(normalized.currentEmployments), toArray(normalized.ind_current_employments));
-	const previousEmployments = mergeUniqueArrays(toArray(normalized.previousEmployments), toArray(normalized.ind_previous_employments));
-	const currentIAEmployments = mergeUniqueArrays(toArray(normalized.currentIAEmployments), toArray(normalized.ind_ia_current_employments));
-	const previousIAEmployments = mergeUniqueArrays(toArray(normalized.previousIAEmployments), toArray(normalized.ind_ia_previous_employments));
+	let currentEmployments = mergeUniqueArrays(toArray(normalized.currentEmployments), toArray(normalized.ind_current_employments));
+	let previousEmployments = mergeUniqueArrays(toArray(normalized.previousEmployments), toArray(normalized.ind_previous_employments));
+	let currentIAEmployments = mergeUniqueArrays(toArray(normalized.currentIAEmployments), toArray(normalized.ind_ia_current_employments));
+	let previousIAEmployments = mergeUniqueArrays(toArray(normalized.previousIAEmployments), toArray(normalized.ind_ia_previous_employments));
 	const registeredStates = mergeUniqueArrays(toArray(normalized.registeredStates), toArray(normalized.ind_registered_states));
 	const registeredSROs = mergeUniqueArrays(toArray(normalized.registeredSROs), toArray(normalized.ind_registered_sros));
 
+	// Promote recent previous employments to current if the individual recently went inactive
+	// and has no current employments. This keeps them visible in the graph and firm connections.
+	if (currentEmployments.length === 0 && currentIAEmployments.length === 0) {
+		const now = Date.now();
+		const isRecent = (emp: any) => {
+			if (!emp?.registrationEndDate) return false;
+			const end = new Date(emp.registrationEndDate).getTime();
+			// Within last 60 days or in the future
+			return !Number.isNaN(end) && now - end < 60 * 24 * 60 * 60 * 1000;
+		};
+
+		const recentPrev = previousEmployments.filter(isRecent);
+		if (recentPrev.length > 0) {
+			currentEmployments = recentPrev;
+			previousEmployments = previousEmployments.filter((e) => !isRecent(e));
+		}
+
+		const recentPrevIA = previousIAEmployments.filter(isRecent);
+		if (recentPrevIA.length > 0) {
+			currentIAEmployments = recentPrevIA;
+			previousIAEmployments = previousIAEmployments.filter((e) => !isRecent(e));
+		}
+	}
+
+	// Deduplicate: if an employment firm is currently active (in currentEmployments or currentIAEmployments),
+	// remove any entries for that same firm from previousEmployments and previousIAEmployments.
+	// This prevents duplicate graph edges and duplicate display in "Previous Employment" when
+	// someone drops a FINRA registration but retains an SEC IA registration at the same firm.
+	const currentFirmIds = new Set<string>();
+	for (const emp of [...currentEmployments, ...currentIAEmployments]) {
+		const firmId = String(emp?.firmId || emp?.firm_id || '').trim();
+		if (firmId) currentFirmIds.add(firmId);
+	}
+	if (currentFirmIds.size > 0) {
+		previousEmployments = previousEmployments.filter((emp) => {
+			const firmId = String(emp?.firmId || emp?.firm_id || '').trim();
+			return !firmId || !currentFirmIds.has(firmId);
+		});
+		previousIAEmployments = previousIAEmployments.filter((emp) => {
+			const firmId = String(emp?.firmId || emp?.firm_id || '').trim();
+			return !firmId || !currentFirmIds.has(firmId);
+		});
+	}
+
 	if (currentEmployments.length) normalized.currentEmployments = currentEmployments;
+	else delete normalized.currentEmployments;
 	if (previousEmployments.length) normalized.previousEmployments = previousEmployments;
+	else delete normalized.previousEmployments;
 	if (currentIAEmployments.length) normalized.currentIAEmployments = currentIAEmployments;
+	else delete normalized.currentIAEmployments;
 	if (previousIAEmployments.length) normalized.previousIAEmployments = previousIAEmployments;
+	else delete normalized.previousIAEmployments;
 	if (registeredStates.length) normalized.registeredStates = registeredStates;
 	if (registeredSROs.length) normalized.registeredSROs = registeredSROs;
 

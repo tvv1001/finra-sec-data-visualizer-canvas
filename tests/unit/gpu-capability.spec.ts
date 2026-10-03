@@ -127,4 +127,43 @@ describe('gpu-capability', () => {
 		expect(resolved.hybrid).toBe(true);
 		expect(resolved.enabled).toBe(true);
 	});
+
+	it('does not force hybrid for ?dgpu=1 when every probe is already dedicated NVIDIA', () => {
+		const probes = [
+			{
+				powerPreference: 'high-performance' as const,
+				renderer: 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 5060 Laptop GPU/PCIe/SSE2, OpenGL 4.5.0)',
+				vendor: 'Google Inc. (NVIDIA Corporation)',
+			},
+			{
+				powerPreference: 'default' as const,
+				renderer: 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 5060 Laptop GPU/PCIe/SSE2, OpenGL 4.5.0)',
+				vendor: 'Google Inc. (NVIDIA Corporation)',
+			},
+			{
+				powerPreference: 'low-power' as const,
+				renderer: 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 5060 Laptop GPU/PCIe/SSE2, OpenGL 4.5.0)',
+				vendor: 'Google Inc. (NVIDIA Corporation)',
+			},
+		];
+		const resolved = resolveSafeGpuEnabled({ probes, search: '?dgpu=1&safe_gpu=0' });
+		expect(resolved.hybrid).toBe(false);
+		expect(resolved.tier).toBe('dedicated');
+		expect(resolved.enabled).toBe(false);
+		expect(resolved.override).toBe('force-off');
+		expect(resolved.preferredRenderer).toMatch(/RTX 5060/i);
+	});
+
+	it('keeps empty probes non-hybrid even with ?dgpu=1', () => {
+		const resolved = resolveSafeGpuEnabled({
+			renderer: '',
+			vendor: '',
+			probes: [],
+			search: '?dgpu=1&safe_gpu=0',
+		});
+		expect(resolved.hybrid).toBe(false);
+		expect(resolved.tier).toBe('unknown');
+		expect(resolved.enabled).toBe(false);
+		expect(resolved.override).toBe('force-off');
+	});
 });

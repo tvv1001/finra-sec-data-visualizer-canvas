@@ -15,6 +15,9 @@ export type QueueGraphBridgePerson = {
 	name?: string;
 	/** true = current connection on the anchor firm; false = previous */
 	isCurrent?: boolean;
+	/** Person's own FINRA/IA scope (Active even when previous at the anchor firm). */
+	bcScope?: string;
+	iaScope?: string;
 };
 
 export type QueueGraphBridgePayload = {
@@ -47,10 +50,14 @@ function normalizePeople(people: unknown): QueueGraphBridgePerson[] {
 		const crd = String((raw as any)?.crd ?? (raw as any)?.id ?? '').trim();
 		if (!/^\d{1,10}$/.test(crd) || seen.has(crd)) continue;
 		seen.add(crd);
+		const bcScope = String((raw as any)?.bcScope || '').trim() || undefined;
+		const iaScope = String((raw as any)?.iaScope || '').trim() || undefined;
 		out.push({
 			crd,
 			name: String((raw as any)?.name || (raw as any)?.title || '').trim() || undefined,
 			isCurrent: (raw as any)?.isCurrent === true,
+			...(bcScope ? { bcScope } : {}),
+			...(iaScope ? { iaScope } : {}),
 		});
 	}
 	return out;

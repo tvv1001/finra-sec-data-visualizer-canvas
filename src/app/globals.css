@@ -6838,10 +6838,4 @@ html[data-theme='dark'] .fg-clear-labels-control__menu button.fg-ghost-btn:not(:
 	color: #bfdbfe !important;
 }
 
-#fg-canvas {
-	will-change: transform;
-}
 
-.fg-svg-layer {
-	will-change: transform;
-}

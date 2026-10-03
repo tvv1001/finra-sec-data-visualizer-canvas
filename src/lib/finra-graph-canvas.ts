@@ -17,6 +17,11 @@ let currentLinks: Link[] = [];
 let currentOpts: any = {};
 let currentTransform = { x: 0, y: 0, k: 1 };
 let hoverNodeId: string | null = null;
+/** CSS-pixel canvas size from the last resize — avoids getBoundingClientRect every frame. */
+let canvasCssWidth = 1;
+let canvasCssHeight = 1;
+/** id → node for link endpoint resolution without O(n) find per link. */
+let currentNodeById = new Map<string, Node>();
 let canvasTooltip: HTMLDivElement | null = null;
 let canvasLabelVisibleIds = new Set<string>();
 /** Screen-space label hit boxes from the last draw — avoids measureText on every pointer event. */
@@ -26,7 +31,7 @@ let suppressNextCanvasClick = false;
 let hoverMoveRaf: number | null = null;
 let pendingHoverClient: { x: number; y: number } | null = null;
 
-const CANVAS_NODE_SCALE = 1.2;
+const CANVAS_NODE_SCALE = 1.25;
 /** Normal canvas label size in screen pixels — static (does not change with zoom). */
 const CANVAS_DEFAULT_LABEL_SIZE = 26;
 /** Log-bold canvas label base size; multiplied by zoom so bold grows/shrinks with the view. */
@@ -99,14 +104,17 @@ function placeCanvasTooltip(node: Node, screenX: number, screenY: number) {
 	const label = getNodeLabel(node) || String(node?.id || '');
 	const crd = extractCanvasNodeCrd(node);
 	let text = crd && String(crd) !== label ? `${label} · CRD# ${crd}` : label;
-	
-	const otherNamesRaw = Array.isArray((node as any)?.otherNames) ? (node as any).otherNames : Array.isArray((node as any)?.basicInformation?.otherNames) ? (node as any).basicInformation.otherNames : [];
-	const otherNames = otherNamesRaw.map((n) => typeof n === 'string' ? n.trim() : '').filter(Boolean);
+
+	const otherNamesRaw =
+		Array.isArray((node as any)?.otherNames) ? (node as any).otherNames
+		: Array.isArray((node as any)?.basicInformation?.otherNames) ? (node as any).basicInformation.otherNames
+		: [];
+	const otherNames = otherNamesRaw.map((n) => (typeof n === 'string' ? n.trim() : '')).filter(Boolean);
 	if (otherNames.length > 0) {
 		const uniqueNames = Array.from(new Set(otherNames));
 		text += `\nOther names: ${uniqueNames.join('; ')}`;
 	}
-	
+
 	tip.textContent = text;
 	const left = screenX + 10;
 	const top = screenY - 10;
@@ -181,7 +189,7 @@ function getHitNode(clientX: number, clientY: number) {
 	const wy = (y - currentTransform.y) * invK;
 	// Only probe nodes near the pointer — full-graph scans + measureText on every
 	// mousemove locked the main thread once graphs passed ~1000 nodes.
-	const probeRadius = 24 + (48 * invK);
+	const probeRadius = 24 + 48 * invK;
 
 	let bestNode = null;
 	let bestDist = Infinity;
@@ -194,7 +202,7 @@ function getHitNode(clientX: number, clientY: number) {
 		const dist = Math.sqrt(dx * dx + dy * dy);
 		const size = getCanvasNodeSize(n);
 
-		if (dist <= size + (4 * invK)) {
+		if (dist <= size + 4 * invK) {
 			if (dist < bestDist) {
 				bestDist = dist;
 				bestNode = n;
@@ -399,13 +407,33 @@ export function destroyCanvas() {
 	parentEl = null;
 }
 
+function resolveCanvasDpr(nodeCount = currentNodes?.length || 0) {
+	const device = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+	// High-DPI backing stores dominate partition_alloc during dense redraws.
+	// Cap at 1× once the graph is large; avoid toggling every frame (realloc thrash).
+	if (nodeCount > 300) return 1;
+	if (nodeCount > 150) return Math.min(1.25, Math.max(1, device));
+	return Math.max(1, device);
+}
+
 function resize() {
 	if (!canvas || !parentEl || !ctx) return;
 	const rect = parentEl.getBoundingClientRect();
 	const w = Math.max(1, Math.floor(rect.width));
 	const h = Math.max(1, Math.floor(rect.height));
-	canvas.width = Math.floor(w * dpr);
-	canvas.height = Math.floor(h * dpr);
+	const nextDpr = resolveCanvasDpr(currentNodes?.length || 0);
+	const nextW = Math.floor(w * nextDpr);
+	const nextH = Math.floor(h * nextDpr);
+	// Assigning canvas.width/height reallocates the GPU/CPU backing store.
+	// Skip when the buffer size is unchanged (zoom/pan used to thrash this).
+	const sizeChanged = canvas.width !== nextW || canvas.height !== nextH || dpr !== nextDpr;
+	canvasCssWidth = w;
+	canvasCssHeight = h;
+	dpr = nextDpr;
+	if (sizeChanged) {
+		canvas.width = nextW;
+		canvas.height = nextH;
+	}
 	canvas.style.width = `${w}px`;
 	canvas.style.height = `${h}px`;
 	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -416,7 +444,9 @@ function worldToScreen(x: number, y: number, transform: { x: number; y: number; 
 }
 
 function endpointNode(endpoint: Node) {
-	return endpoint && typeof endpoint === 'object' ? endpoint : currentNodes.find((node) => String(node.id) === String(endpoint));
+	if (endpoint && typeof endpoint === 'object') return endpoint;
+	if (endpoint == null) return null;
+	return currentNodeById.get(String(endpoint)) || null;
 }
 
 function isControlLink(link: Link) {
@@ -438,11 +468,21 @@ function isPreviousLink(link: Link) {
 function isInactiveNode(node: Node) {
 	if (!node) return false;
 	if (node.inactive === true || node.isInactive === true) return true;
-	const status = String(node.status || node.firmStatus || node.bcScope || node.iaScope || node.basicInformation?.firmStatus || node.basicInformation?.bcScope || node.basicInformation?.iaScope || '').toLowerCase();
-	if (status && ['inactive', 'terminated', 'withdrawn', 'not active', 'cancelled', 'canceled', 'expanded'].includes(status)) return true;
-	if (!node.basicInformation && !node.bcScope && !node.firmStatus && !node.iaScope && !node.bdSecNumber && !node.iaSecNumber) {
-		return true;
+	const bc = String(node.bcScope || node.basicInformation?.bcScope || '').toLowerCase();
+	const ia = String(node.iaScope || node.basicInformation?.iaScope || '').toLowerCase();
+	const firm = String(node.status || node.firmStatus || node.basicInformation?.firmStatus || '').toLowerCase();
+	const status = firm || bc || ia;
+	// Real Active scope always wins over a stale queue stub `_vizInactive: true`
+	// (previous-at-firm used to force that flag even for Active brokers).
+	if (bc.includes('active') || ia.includes('active') || firm.includes('active') || status.includes('approved')) {
+		return false;
 	}
+	if (node._vizInactive === true) return true;
+	if (node._vizInactive === false) return false;
+	if (status && ['inactive', 'terminated', 'withdrawn', 'not active', 'cancelled', 'canceled', 'expanded'].includes(status)) return true;
+	// Missing scope/detail alone must not mark people inactive — Queue graph stubs
+	// often lack those fields until enrich runs, and treating them inactive painted
+	// current employment as invisible gray ghosts under the firm.
 	return false;
 }
 
@@ -516,13 +556,26 @@ function getColorForGroup(g: string) {
 	return colors.defaultText;
 }
 
-function getLinkStyle(link: Link, linkFocusNodeIds: Set<string>, linkHighlightsActive: boolean, nodeGroupMap: Map<string, string>) {
-	const colors = resolveCachedThemeColors();
+function getLinkStyle(
+	link: Link,
+	linkFocusNodeIds: Set<string>,
+	linkHighlightsActive: boolean,
+	nodeGroupMap: Map<string, string>,
+	colors: Record<string, string>,
+	personFocusActive: boolean,
+) {
 	const source = endpointNode(link?.source);
 	const target = endpointNode(link?.target);
-	const inactive =
-		(source._vizInactive !== undefined ? source._vizInactive : isInactiveNode(source)) ||
-		(target._vizInactive !== undefined ? target._vizInactive : isInactiveNode(target));
+	if (!source || !target) {
+		return {
+			color: colors.defaultLine,
+			width: 0.78,
+			selectedWidthMultiplier: 1,
+			opacity: 0.5,
+			dash: [] as number[],
+		};
+	}
+	const inactive = isInactiveNode(source) || isInactiveNode(target);
 	const previous = isPreviousLink(link);
 	const control = isControlLink(link);
 	const sId = String(source?.id);
@@ -537,6 +590,10 @@ function getLinkStyle(link: Link, linkFocusNodeIds: Set<string>, linkHighlightsA
 	const tTrigger = linkFocusNodeIds.has(tId) && !tFirm;
 
 	const selected = isHovered || sTrigger || tTrigger;
+	// Firm-only focus ids must not dim the whole graph. Firm selection skips hop walks, so
+	// treating firm ids as linkHighlightsActive made Queue-graph current employment vanish
+	// while thicker red Form BD control strokes stayed readable.
+	const highlightsActive = Boolean(linkHighlightsActive && personFocusActive);
 	return {
 		color:
 			inactive || previous ? colors.inactiveStroke
@@ -549,7 +606,7 @@ function getLinkStyle(link: Link, linkFocusNodeIds: Set<string>, linkHighlightsA
 		selectedWidthMultiplier: selected ? 1.5 : 1,
 		opacity:
 			selected ? 1
-			: linkHighlightsActive ? 0.34
+			: highlightsActive ? 0.34
 			: inactive ? 0.92
 			: control ? 1
 			: previous ? 0.92
@@ -585,14 +642,32 @@ export function drawCanvasFrame(
 	const selectedNodeIds = new Set((opts.selectedNodeIds || []).map((id) => String(id)));
 	const linkFocusNodeIds = new Set((opts.linkFocusNodeIds || []).map((id) => String(id).trim()).filter(Boolean));
 	const linkHighlightsActive = linkFocusNodeIds.size > 0;
-	const nodeGroupMap = new Map();
+	const nodeGroupMap = new Map<string, string>();
+	currentNodeById = new Map();
 	for (const n of nodes) {
-		nodeGroupMap.set(String(n.id), n.group);
+		const id = String(n.id);
+		nodeGroupMap.set(id, n.group);
+		currentNodeById.set(id, n);
 	}
+	// Hoist once per frame — getLinkStyle used to Array.from(focusIds) per link.
+	const personFocusActive = Array.from(linkFocusNodeIds).some((id) => nodeGroupMap.get(String(id)) !== 'firm');
 	if (!canvas || !ctx || !parentEl) return;
-	const rect = parentEl.getBoundingClientRect();
-	const w = rect.width;
-	const h = rect.height;
+	// Apply node-count DPR caps using cached CSS size (avoid getBoundingClientRect per paint).
+	{
+		const nextDpr = resolveCanvasDpr(nodes.length);
+		const wCss = canvasCssWidth || parentEl.clientWidth || 1;
+		const hCss = canvasCssHeight || parentEl.clientHeight || 1;
+		const nextW = Math.floor(wCss * nextDpr);
+		const nextH = Math.floor(hCss * nextDpr);
+		if (canvas.width !== nextW || canvas.height !== nextH || dpr !== nextDpr) {
+			dpr = nextDpr;
+			canvas.width = nextW;
+			canvas.height = nextH;
+		}
+	}
+	const w = canvasCssWidth || parentEl.clientWidth || 1;
+	const h = canvasCssHeight || parentEl.clientHeight || 1;
+	const colors = resolveCachedThemeColors();
 	// Draw in device pixels while positioning labels in CSS-pixel screen space.
 	// The zoom transform is applied only by worldToScreen, never to the font.
 	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -610,28 +685,43 @@ export function drawCanvasFrame(
 	const visibleNodes = nodes.filter((n) => n && Number.isFinite(n.x) && Number.isFinite(n.y) && n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY);
 
 	// Draw links in the same role-specific palette as the SVG renderer.
+	// Batch by style key so identical strokes share one beginPath/stroke.
+	const zoom = transform.k || 1;
+	const zoomOutScale = zoom >= 1 ? 1 : 0.7 + zoom * 0.3;
+	type LinkBatch = { color: string; width: number; opacity: number; dash: number[]; segments: number[] };
+	const linkBatches = new Map<string, LinkBatch>();
 	for (const l of links) {
-		const a = l.source;
-		const b = l.target;
-		if (!a || !b) continue;
+		const a = typeof l.source === 'object' ? l.source : currentNodeById.get(String(l.source));
+		const b = typeof l.target === 'object' ? l.target : currentNodeById.get(String(l.target));
+		if (!a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x) || !Number.isFinite(a.y) || !Number.isFinite(b.y)) continue;
 		// cheap bbox test
 		if (a.x < minX && b.x < minX) continue;
 		if (a.x > maxX && b.x > maxX) continue;
 		if (a.y < minY && b.y < minY) continue;
 		if (a.y > maxY && b.y > maxY) continue;
+		const style = getLinkStyle(l, linkFocusNodeIds, linkHighlightsActive, nodeGroupMap, colors, personFocusActive);
+		const lineWidth = style.width * style.selectedWidthMultiplier * zoomOutScale;
+		const dashKey = style.dash.length ? style.dash.join(',') : '';
+		const batchKey = `${style.color}|${lineWidth}|${style.opacity}|${dashKey}`;
+		let batch = linkBatches.get(batchKey);
+		if (!batch) {
+			batch = { color: style.color, width: lineWidth, opacity: style.opacity, dash: style.dash, segments: [] };
+			linkBatches.set(batchKey, batch);
+		}
 		const sa = worldToScreen(a.x, a.y, transform);
 		const sb = worldToScreen(b.x, b.y, transform);
-		const style = getLinkStyle(l, linkFocusNodeIds, linkHighlightsActive, nodeGroupMap);
+		batch.segments.push(sa.x, sa.y, sb.x, sb.y);
+	}
+	for (const batch of linkBatches.values()) {
 		ctx.beginPath();
-		ctx.setLineDash(style.dash);
-		// Keep links thin at every zoom; only taper further when the graph is zoomed out.
-		const zoom = transform.k || 1;
-		const zoomOutScale = zoom >= 1 ? 1 : 0.7 + zoom * 0.3;
-		ctx.lineWidth = style.width * style.selectedWidthMultiplier * zoomOutScale;
-		ctx.strokeStyle = style.color;
-		ctx.globalAlpha = style.opacity;
-		ctx.moveTo(sa.x, sa.y);
-		ctx.lineTo(sb.x, sb.y);
+		ctx.setLineDash(batch.dash);
+		ctx.lineWidth = batch.width;
+		ctx.strokeStyle = batch.color;
+		ctx.globalAlpha = batch.opacity;
+		for (let i = 0; i < batch.segments.length; i += 4) {
+			ctx.moveTo(batch.segments[i], batch.segments[i + 1]);
+			ctx.lineTo(batch.segments[i + 2], batch.segments[i + 3]);
+		}
 		ctx.stroke();
 	}
 	ctx.setLineDash([]);
@@ -669,8 +759,7 @@ export function drawCanvasFrame(
 	const pendingBoldLabels: PendingLabel[] = [];
 
 	for (const n of visibleNodes) {
-		const colors = resolveCachedThemeColors();
-		const inactive = n._vizInactive !== undefined ? n._vizInactive : isInactiveNode(n);
+		const inactive = isInactiveNode(n);
 		const isSelected = opts.selectedId && String(opts.selectedId) === String(n.id);
 		const isPersistentlySelected = selectedNodeIds.has(String(n.id));
 		const isNodeSelected = Boolean(isSelected || isPersistentlySelected);
@@ -754,11 +843,8 @@ export function drawCanvasFrame(
 	}
 
 	const paintLabel = ({ n, isBoldLabel, inactive, size }: PendingLabel) => {
-		const colors = resolveCachedThemeColors();
 		const p = worldToScreen(n.x, n.y, transform);
 		const labelSize = getCanvasLabelScreenPx(isBoldLabel, transform.k);
-		ctx.save();
-		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.font = `${isBoldLabel ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT} ${labelSize}px Urbanist, system-ui, sans-serif`;
 		ctx.fillStyle =
 			inactive ? '#64748b'
@@ -788,14 +874,13 @@ export function drawCanvasFrame(
 			x1: p.x + labelWidth / 2,
 			y1: labelY + labelSize * 1.2,
 		});
-		ctx.textAlign = 'start';
-		ctx.textBaseline = 'alphabetic';
-		ctx.restore();
 	};
 
 	// Normal labels first, then log-bold labels on top of every node.
 	for (const pending of pendingNormalLabels) paintLabel(pending);
 	for (const pending of pendingBoldLabels) paintLabel(pending);
+	ctx.textAlign = 'start';
+	ctx.textBaseline = 'alphabetic';
 
 	// Arrow-key focus: show CRD tooltip when the focused node's label was not painted.
 	syncCanvasFocusTooltip();

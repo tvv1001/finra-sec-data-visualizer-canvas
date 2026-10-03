@@ -641,10 +641,40 @@ function startProgressiveRevealForGraph(_nodeCount = globalState.layoutNodes?.le
 	// Intentionally left as a no-op so large graphs stay on the SVG renderer.
 }
 
+// Dense canvas paints at 60fps thrash Chromium partition_alloc (~200–300MB/s RSS)
+// even when JS heap stays ~80MB. Cap paint cadence while the force sim is hot.
+let graphTickLastPaintAt = 0;
+let graphTickThrottleTimer: ReturnType<typeof setTimeout> | null = null;
+
+function getGraphPaintMinIntervalMs() {
+	const count = globalState.layoutNodes?.length || 0;
+	const alpha = globalState.simulation?.alpha?.() || 0;
+	const moving = alpha > 0.03;
+	if (count > 800 && moving) return 110;
+	if (count > 400 && moving) return 80;
+	if (count > 200 && moving) return 55;
+	if (count > 800) return 50;
+	if (count > 400) return 33;
+	return 0;
+}
+
 function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
 	if (globalState.graphTickFrameId != null) return;
+	const minIntervalMs = getGraphPaintMinIntervalMs();
+	if (minIntervalMs > 0 && typeof performance !== 'undefined') {
+		const elapsed = performance.now() - graphTickLastPaintAt;
+		if (elapsed < minIntervalMs) {
+			if (graphTickThrottleTimer != null) return;
+			graphTickThrottleTimer = setTimeout(() => {
+				graphTickThrottleTimer = null;
+				scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection);
+			}, Math.max(1, minIntervalMs - elapsed));
+			return;
+		}
+	}
 	globalState.graphTickFrameId = requestAnimationFrame(() => {
 		globalState.graphTickFrameId = null;
+		if (typeof performance !== 'undefined') graphTickLastPaintAt = performance.now();
 		if (globalState.pixiModeActive && globalState.pixiApi && typeof globalState.pixiApi.drawFrame === 'function') {
 			try {
 				const transform = getCurrentZoomTransform();
@@ -701,6 +731,10 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 }
 
 function cancelGraphTickPositions() {
+	if (graphTickThrottleTimer != null) {
+		clearTimeout(graphTickThrottleTimer);
+		graphTickThrottleTimer = null;
+	}
 	if (globalState.graphTickFrameId == null) return;
 	cancelAnimationFrame(globalState.graphTickFrameId);
 	globalState.graphTickFrameId = null;
@@ -828,6 +862,13 @@ const SEED_QUERY_FETCH_CONCURRENCY = 5;
 // hydration small so a second search is not starved by Redis/disk GETs.
 const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 5;
 const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 5;
+/** Progressive database-search canvas flushes: coalesce pages so a large on-screen graph is not rebuilt per hit page. */
+const SEARCH_FLUSH_MIN_INTERVAL_MS = 280;
+const SEARCH_FLUSH_NODE_THRESHOLD = 36;
+/** Soft cap on text-search hits; shrinks when the canvas is already dense to keep inject work bounded. */
+const MAX_TEXT_SEARCH_HITS_BASE = 200;
+const MAX_TEXT_SEARCH_HITS_DENSE = 80;
+const SEARCH_DENSE_GRAPH_NODE_THRESHOLD = 200;
 /** Shared-selection / canvas import hydration chunk size. */
 const ON_SCREEN_DETAIL_FETCH_BATCH_SIZE = 5;
 /** Log-list / bulk restore: higher fan-out + larger chunks so hundreds of CRDs don't crawl. */
@@ -2163,7 +2204,11 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 				liveNode = globalState.layoutNodes?.find((node) => node.id === normalizedNodeId) || globalState.graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
 			}
 		} catch (error) {
-			console.warn('Failed to hydrate route-selected node directly from detail APIs:', error);
+			const message = String((error as any)?.message || error || '');
+			// Missing local detail is common for Queue-graph CRDs under EXTERNAL_API_DISABLED.
+			if (!/not found/i.test(message)) {
+				console.warn('Failed to hydrate route-selected node directly from detail APIs:', error);
+			}
 		}
 	}
 
@@ -3334,8 +3379,14 @@ function syncSelectionLogAuxiliaryRenderersNow() {
 }
 
 function syncSelectionLogAuxiliaryRenderers() {
-	// Coalesce click/log/hover paint into one rAF so large graphs do not stack
-	// multiple full canvas redraws on a single selection.
+	// Canvas/pixi already paint selection + log-bold chrome in scheduleGraphTickPositions.
+	// Route through that single rAF so a click cannot stack two full drawFrame calls
+	// (aux render frame + graph tick frame) back-to-back.
+	if (globalState.canvasModeActive || globalState.pixiModeActive) {
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
+		return;
+	}
+	// SVG/overlay path: coalesce click/log/hover paint into one rAF.
 	if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
 		syncSelectionLogAuxiliaryRenderersNow();
 		return;
@@ -3602,16 +3653,31 @@ function getTraceLogNodeIds() {
 	const visibleNodeIds = new Set((globalState.layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
 	return Array.from(new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id))));
 }
+let cachedSelectionLogLabelNodeIds: string[] | null = null;
+let cachedSelectionLogLabelCacheKey = '';
+
+function invalidateSelectionLogLabelNodeIdCache() {
+	cachedSelectionLogLabelNodeIds = null;
+	cachedSelectionLogLabelCacheKey = '';
+}
+
 function getSelectionLogLabelNodeIds() {
 	if (!isSelectionLogBold) return [];
+	const layoutCount = globalState.layoutNodes?.length || 0;
+	const cacheKey = `${layoutCount}|${selectedNodesLog.length}|${clearedSelectionLogLabelNodeIds.size}|${rememberedSelectionLogBoldNodeIds.size}|${forceFirmsBold ? 1 : 0}`;
+	if (cachedSelectionLogLabelNodeIds && cachedSelectionLogLabelCacheKey === cacheKey) {
+		return cachedSelectionLogLabelNodeIds;
+	}
 	const visibleNodeIds = new Set((globalState.layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
-	return Array.from(
+	cachedSelectionLogLabelNodeIds = Array.from(
 		new Set(
 			selectedNodesLog
 				.map((entry) => String(entry?.id || '').trim())
 				.filter((id) => Boolean(id) && visibleNodeIds.has(id) && isSelectionLogEntryBold(id)),
 		),
 	);
+	cachedSelectionLogLabelCacheKey = cacheKey;
+	return cachedSelectionLogLabelNodeIds;
 }
 
 function normalizeSelectionLogClearLabelsScope(scope: string | null | undefined): SelectionLogClearLabelsScope {
@@ -4153,7 +4219,9 @@ function loadSelectionLog() {
 	});
 }
 
-function saveSelectionLog() {
+let selectionLogSaveTimer: number | null = null;
+
+function persistSelectionLogNow() {
 	try {
 		localStorage.setItem(LS_LOG_KEY, JSON.stringify(selectedNodesLog));
 	} catch (e) {
@@ -4162,6 +4230,19 @@ function saveSelectionLog() {
 	if (typeof window !== 'undefined' && 'indexedDB' in window) {
 		void saveSelectionLogToIndexedDB(selectedNodesLog);
 	}
+}
+
+function saveSelectionLog() {
+	// Debounce localStorage + IndexedDB so rapid clicks/imports do not block the main thread.
+	if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+		if (selectionLogSaveTimer != null) return;
+		selectionLogSaveTimer = window.setTimeout(() => {
+			selectionLogSaveTimer = null;
+			persistSelectionLogNow();
+		}, 140);
+		return;
+	}
+	persistSelectionLogNow();
 }
 
 function getSecondaryId(d) {
@@ -4184,7 +4265,16 @@ function upsertSelectionLogEntry(entries: Array<SelectionLogEntry>, entry: Selec
 	return nextEntries;
 }
 
-function addToSelectionLog(d, options: { skipBold?: boolean } = {}) {
+function addToSelectionLog(
+	d,
+	options: {
+		skipBold?: boolean;
+		/** Skip localStorage/IDB writes — caller persists once after a bulk add. */
+		skipPersist?: boolean;
+		/** Skip selection-log DOM + canvas paint — caller schedules once after a bulk add. */
+		skipPaint?: boolean;
+	} = {},
+) {
 	const secondaryId = getSecondaryId(d);
 	const entry = {
 		id: d.id,
@@ -4193,11 +4283,16 @@ function addToSelectionLog(d, options: { skipBold?: boolean } = {}) {
 		group: d.group,
 	};
 
+	const clickedLogId = String(d.id || '').trim();
+	const alreadyInLog = selectedNodesLog.some((existing) => String(existing?.id || '').trim() === clickedLogId);
+	const wasCleared = clearedSelectionLogLabelNodeIds.has(clickedLogId);
+	const wasRememberedBold = rememberedSelectionLogBoldNodeIds.has(clickedLogId);
+
 	// Only add if this node was explicitly selected (not just visited/expanded).
 	// Re-selecting an existing node moves it to the most-recent slot.
 	selectedNodesLog = upsertSelectionLogEntry(selectedNodesLog, entry);
-	const clickedLogId = String(d.id || '').trim();
-	
+	invalidateSelectionLogLabelNodeIdCache();
+
 	if (options.skipBold) {
 		clearedSelectionLogLabelNodeIds.add(clickedLogId);
 		forgetSelectionLogBoldId(clickedLogId);
@@ -4207,12 +4302,31 @@ function addToSelectionLog(d, options: { skipBold?: boolean } = {}) {
 		clearedSelectionLogLabelNodeIds.delete(clickedLogId);
 		if (isSelectionLogBold) rememberSelectionLogBoldId(clickedLogId);
 	}
-	
-	saveClearedSelectionLogLabelsPreference();
-	saveSelectionLog();
-	scheduleSelectionLogUI();
-	syncSelectionLogAuxiliaryRenderers();
-			scheduleGraphTickPositions(null, null, null);
+
+	// Only force a full log rebuild when Log Bold is on and the row's bold chrome changes.
+	// Imported CRDs are stored as cleared (skipBold); with Log Bold off that flag does not
+	// affect row DOM, so a click can bump the existing row instead of rebuilding ~1MB of HTML.
+	const boldStateChanged =
+		isSelectionLogBold &&
+		(wasCleared !== clearedSelectionLogLabelNodeIds.has(clickedLogId) ||
+			wasRememberedBold !== rememberedSelectionLogBoldNodeIds.has(clickedLogId));
+
+	if (!options.skipPersist) {
+		saveClearedSelectionLogLabelsPreference();
+		saveSelectionLog();
+	}
+	if (!options.skipPaint) {
+		// Re-select of an existing row: move the DOM node instead of rebuilding the full list.
+		if (alreadyInLog && !boldStateChanged && bumpSelectionLogEntryInDom(clickedLogId)) {
+			// Drop any pending full rebuild from an earlier click so idle work cannot
+			// recreate the entire ~1MB log after a successful in-place bump.
+			cancelScheduledSelectionLogUI();
+		} else {
+			scheduleSelectionLogUI();
+		}
+		// Canvas mode coalesces through scheduleGraphTickPositions inside this helper.
+		syncSelectionLogAuxiliaryRenderers();
+	}
 }
 
 function removeSelectionLogEntry(entryId: string) {
@@ -5123,26 +5237,88 @@ function applySelectToKeep(button?: HTMLButtonElement) {
 
 let selectionLogUiFrame: number | null = null;
 
+let selectionLogUiGeneration = 0;
+
+function cancelScheduledSelectionLogUI() {
+	selectionLogUiGeneration += 1;
+	if (selectionLogUiFrame != null && typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+		window.cancelAnimationFrame(selectionLogUiFrame);
+		selectionLogUiFrame = null;
+	}
+}
+
 function scheduleSelectionLogUI() {
 	if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
 		updateSelectionLogUI();
 		return;
 	}
 	if (selectionLogUiFrame != null) return;
+	const generation = selectionLogUiGeneration;
 	selectionLogUiFrame = window.requestAnimationFrame(() => {
 		selectionLogUiFrame = null;
-		updateSelectionLogUI();
+		if (generation !== selectionLogUiGeneration) return;
+		// Wait until after paint + a short idle gap so a 900+ entry log rebuild cannot
+		// steal the click frame (setTimeout(0) still raced the second rAF).
+		const run = () => {
+			if (generation !== selectionLogUiGeneration) return;
+			updateSelectionLogUI();
+		};
+		if (typeof (window as any).requestIdleCallback === 'function') {
+			(window as any).requestIdleCallback(run, { timeout: 120 });
+		} else {
+			window.setTimeout(run, 48);
+		}
 	});
 }
 
+/** Move an existing log row to the top of its group without rebuilding ~1MB of DOM. */
+function bumpSelectionLogEntryInDom(entryId: string): boolean {
+	const id = String(entryId || '').trim();
+	if (!id) return false;
+	// Only touch containers that already rendered rows. The hidden standalone panel often
+	// has an empty list while the sidebar list is populated — requiring both used to force
+	// a full rebuild on every click.
+	const containers = Array.from(document.querySelectorAll<HTMLElement>('#fg-selection-log-list, #fg-sidebar-selection-log-list')).filter(
+		(container) => container.querySelector('.fg-log-entry'),
+	);
+	if (!containers.length) return false;
+	let moved = false;
+	for (const container of containers) {
+		const escapedId =
+			typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ?
+				CSS.escape(id)
+			:	id.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+		const entry = container.querySelector<HTMLElement>(`.fg-log-entry[data-log-id="${escapedId}"]`);
+		if (!entry) return false;
+		const group = entry.closest('.fg-selection-log-group');
+		if (!group) return false;
+		const header = group.querySelector('.fg-selection-log-group__header');
+		const insertBeforeNode = header ? header.nextSibling : group.firstChild;
+		if (insertBeforeNode === entry) {
+			moved = true;
+			continue;
+		}
+		group.insertBefore(entry, insertBeforeNode);
+		moved = true;
+	}
+	return moved;
+}
+
 function updateSelectionLogUI() {
-	const containers = Array.from(document.querySelectorAll<HTMLElement>('#fg-selection-log-list, #fg-sidebar-selection-log-list'));
+	const containers = Array.from(document.querySelectorAll<HTMLElement>('#fg-selection-log-list, #fg-sidebar-selection-log-list')).filter((container) => {
+		// Skip the hidden standalone panel — rebuilding both lists doubled click cost (~1MB HTML × 2).
+		if (container.id === 'fg-selection-log-list') {
+			const panel = document.getElementById('fg-selection-log');
+			if (!panel || panel.classList.contains('hidden')) return false;
+		}
+		return true;
+	});
 	document.querySelectorAll<HTMLElement>('#fg-selection-log, #fg-selection-log-list, #fg-sidebar-selection-log-list').forEach((panel) => {
 		panel.dataset.logBold = isSelectionLogBold ? 'true' : 'false';
 	});
 
-	// Force a node update on the canvas so labels can reflect isLogged status
-	if (typeof (window as any).updateNodeStyles === 'function') {
+	// Pixi path only — skip when that renderer has no sprites (canvas-2d mode).
+	if (typeof (window as any).updateNodeStyles === 'function' && !globalState.canvasModeActive) {
 		(window as any).updateNodeStyles();
 	}
 
@@ -5222,6 +5398,7 @@ function updateSelectionLogUI() {
 				const isBoldChoice = rememberedSelectionLogBoldNodeIds.has(entryId) || isSelectionLogEntryBold(entryId);
 				const isLabelShown = isSelectionLogEntryBold(entryId);
 				div.className = `fg-log-entry ${entry.group}${isSelectionLogEditMode ? ' is-editing' : ''}${isBoldChoice ? ' is-bold-entry' : ''}${isLabelShown ? ' is-label-bold' : ''}`;
+				div.dataset.logId = entryId;
 				const text = `${entry.label} :: ${entry.secondaryId}`;
 				const entryTextTitle = isSelectionLogEditMode ? 'Edit mode enabled' : 'Click to copy';
 				const actionButtonTitle = isSelectionLogEditMode ? 'Remove from log' : 'Copy to clipboard';
@@ -5747,9 +5924,8 @@ function setFocusedNode(id) {
 	if (globalState.focusedNodeId === nextId) return;
 	globalState.focusedNodeId = nextId;
 	if (globalState.canvasModeActive) {
-		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
+		// One coalesced canvas paint — syncSelectionLogAuxiliaryRenderers routes to scheduleGraphTickPositions.
 		syncSelectionLogAuxiliaryRenderers();
-			scheduleGraphTickPositions(null, null, null);
 		// After the coalesced draw paints (or skips) labels, show the focus CRD tooltip if needed.
 		if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
 			window.requestAnimationFrame(() => {
@@ -5828,8 +6004,8 @@ function isAutoExpansionLink(link) {
 	const rel = String(link.relationship || '')
 		.trim()
 		.toLowerCase();
-	// Person clicks must still draw employment/registration lines — including previous
-	// jobs and links that touch inactive (gray) parent firms. Those render dashed.
+	// Multi-hop auto-expansion stays on current employment/registration only so
+	// historical gray links do not fan the graph out through old employers.
 	if (rel.includes('employed') || rel.includes('registered') || isPreviousEmploymentLink(link)) {
 		if (isPreviousEmploymentLink(link) || rel.includes('previous')) return false;
 		if (rel === 'employed_by' || rel === 'registered_by') return isCurrentRegistration(link) || (typeof link.isCurrent === 'boolean' ? link.isCurrent : true);
@@ -5843,6 +6019,13 @@ function isAutoExpansionLink(link) {
 	// General fallback for neutral or unlabeled links
 	if (!rel || rel === 'neutral') return true;
 	return false;
+}
+
+/** Direct person-click reveal: current employers plus previous (gray) employment links. */
+function isPersonClickEmploymentLink(link) {
+	if (!link) return false;
+	if (isAutoExpansionLink(link)) return true;
+	return isPreviousEmploymentLink(link);
 }
 
 // Clicking a firm node should only reveal its Form BD — Direct Owners & Executive
@@ -6753,7 +6936,7 @@ async function restoreSelectionLogOnlyGraph() {
 	const stubs = buildSelectionLogStubNodes(selectedNodesLog);
 	if (stubs.length) {
 		mergeIntoGraphData(stubs, []);
-		globalState.appendFetched?.(stubs, []);
+		globalState.appendFetched?.(stubs, [], { skipPersist: true, skipFindRefresh: true, skipSimRestart: true });
 		showEmpty(false);
 		document.getElementById('fg-empty-default')?.classList.add('hidden');
 		document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
@@ -8032,7 +8215,9 @@ export function init(
 				const PAGE_SIZE = 100; // FINRA Solr supports up to 100 per page
 				// Keep sidecar-backed search responsive; callers can still page through
 				// results explicitly instead of materializing an unbounded graph import.
-				const MAX_TEXT_SEARCH_HITS = 200;
+				const existingCanvasCount = Array.isArray(globalState.layoutNodes) ? globalState.layoutNodes.length : 0;
+				const MAX_TEXT_SEARCH_HITS =
+					existingCanvasCount >= SEARCH_DENSE_GRAPH_NODE_THRESHOLD ? MAX_TEXT_SEARCH_HITS_DENSE : MAX_TEXT_SEARCH_HITS_BASE;
 
 				const fetchSingleCrd = async (crd) => {
 					const SINGLE_PAGE_SIZE = 12;
@@ -8119,33 +8304,8 @@ export function init(
 					}
 				};
 
-				const fetchTextQueryHits = async (queryText, onPage: ((pageHits: any[]) => void | Promise<void>) | null = null) => {
-					const hits = [];
-					let emitted = 0;
-					const boundedOnPage = onPage ?
-						async (pageHits: any[]) => {
-							const remaining = Math.max(0, MAX_TEXT_SEARCH_HITS - emitted);
-							const page = pageHits.slice(0, remaining);
-							emitted += page.length;
-							if (page.length) await onPage(page);
-						}
-					:	null;
-					const results = await Promise.allSettled([
-						fetchFinraAll(false, queryText, boundedOnPage),
-						fetchFinraAll(true, queryText, boundedOnPage),
-						fetchSec(queryText, boundedOnPage),
-					]);
-					results.forEach((result, index) => {
-						if (result.status === 'fulfilled') {
-							hits.push(...result.value);
-						} else {
-							console.warn(`Database search request ${index} failed`, result.reason);
-						}
-					});
-					return hits;
-				};
-
-				// Respect header search type selector (all | people | firms)
+				// Respect header search type selector (all | people | firms) before issuing requests
+				// so a people-only search does not spend the hit budget on firm pages first.
 				let headerSearchType = 'all';
 				try {
 					const stEl = document.getElementById('fg-search-type') as HTMLSelectElement | null;
@@ -8202,43 +8362,128 @@ export function init(
 					return hits || [];
 				};
 
+				const fetchTextQueryHits = async (queryText, onPage: ((pageHits: any[]) => void | Promise<void>) | null = null) => {
+					const hits = [];
+					let emitted = 0;
+					const includePeople = headerSearchType === 'all' || headerSearchType === 'people';
+					const includeFirms = headerSearchType === 'all' || headerSearchType === 'firms';
+					const boundedOnPage = onPage ?
+						async (pageHits: any[]) => {
+							// Count only hits that will survive the active type filter against the shared budget.
+							const typed = filterHitsBySearchType(pageHits || []);
+							const remaining = Math.max(0, MAX_TEXT_SEARCH_HITS - emitted);
+							const page = typed.slice(0, remaining);
+							emitted += page.length;
+							if (page.length) await onPage(page);
+						}
+					:	null;
+					const requests: Promise<any[]>[] = [];
+					if (includePeople) requests.push(fetchFinraAll(false, queryText, boundedOnPage));
+					if (includeFirms) requests.push(fetchFinraAll(true, queryText, boundedOnPage));
+					// SEC index mixes people/firms; keep it for all/people/firms and let the type filter decide.
+					requests.push(fetchSec(queryText, boundedOnPage));
+					const results = await Promise.allSettled(requests);
+					results.forEach((result, index) => {
+						if (result.status === 'fulfilled') {
+							hits.push(...filterHitsBySearchType(result.value));
+						} else {
+							console.warn(`Database search request ${index} failed`, result.reason);
+						}
+					});
+					return hits.slice(0, MAX_TEXT_SEARCH_HITS);
+				};
+
 				// ── 2. Build nodes from search hits and flush onto canvas progressively ──
 				const batchAllNodes = [];
 				const batchAllLinks = [];
+				const batchNodeIds = new Set<string>();
+				const batchLinkKeys = new Set<string>();
 				const updatedExistingNodeIds = new Set<string>();
 				const textSearchHydrationCandidates: Array<{ nodeId?: string | null; group?: string | null; hasEmbeddedDetail?: boolean | null }> = [];
 				let allHits = [];
 				let progressiveAddedTotal = 0;
 				let progressiveExistingTotal = 0;
 				const seenProgressiveHitKeys = new Set<string>();
+				let searchFlushTimer: ReturnType<typeof setTimeout> | null = null;
+				let lastSearchFlushAt = 0;
+				let searchFlushBusy = false;
+				let pendingForcedFlush: { statusLabel?: string; persist?: boolean } | null = null;
 
 				const isDirectId = /^\d+$/.test(q) || isCrdList;
 
-				const flushSearchProgress = (statusLabel?: string) => {
+				const yieldToBrowser = () =>
+					new Promise<void>((resolve) => {
+						if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+							window.requestAnimationFrame(() => resolve());
+							return;
+						}
+						setTimeout(() => resolve(), 0);
+					});
+
+				const flushSearchProgressNow = (statusLabel?: string, { persist = false }: { persist?: boolean } = {}) => {
+					if (searchFlushBusy) {
+						pendingForcedFlush = { statusLabel, persist: Boolean(persist || pendingForcedFlush?.persist) };
+						return;
+					}
+					if (searchFlushTimer) {
+						clearTimeout(searchFlushTimer);
+						searchFlushTimer = null;
+					}
 					const nodesToFlush = batchAllNodes.splice(0, batchAllNodes.length);
 					const linksToFlush = batchAllLinks.splice(0, batchAllLinks.length);
+					batchNodeIds.clear();
+					batchLinkKeys.clear();
 					const existingIds = Array.from(updatedExistingNodeIds);
 					updatedExistingNodeIds.clear();
 					if (!nodesToFlush.length && !linksToFlush.length && !existingIds.length) return;
 
 					progressiveAddedTotal += nodesToFlush.length;
 					progressiveExistingTotal += existingIds.length;
+					lastSearchFlushAt = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+					searchFlushBusy = true;
+					try {
+						if (nodesToFlush.length || linksToFlush.length) {
+							globalState.appendFetched(nodesToFlush, linksToFlush, { skipPersist: !persist, skipFindRefresh: true });
+							mergeIntoGraphData(nodesToFlush, linksToFlush);
+						}
+						if (existingIds.length) {
+							rerenderGraphNodesByIds(existingIds);
+							refreshGraphColors();
+							refreshTraceState();
+						}
+						updateFetchStatus(
+							statusLabel ||
+								`Showing ${progressiveAddedTotal} node${progressiveAddedTotal !== 1 ? 's' : ''}` +
+									(progressiveExistingTotal ? `, ${progressiveExistingTotal} already on canvas` : '') +
+									'…',
+						);
+					} finally {
+						searchFlushBusy = false;
+						const queued = pendingForcedFlush;
+						pendingForcedFlush = null;
+						if (queued || batchAllNodes.length || batchAllLinks.length || updatedExistingNodeIds.size) {
+							flushSearchProgressNow(queued?.statusLabel, { persist: Boolean(queued?.persist) });
+						}
+					}
+				};
 
-					if (nodesToFlush.length || linksToFlush.length) {
-						globalState.appendFetched(nodesToFlush, linksToFlush);
-						mergeIntoGraphData(nodesToFlush, linksToFlush);
+				const flushSearchProgress = (statusLabel?: string, options: { force?: boolean; persist?: boolean } = {}) => {
+					const { force = false, persist = false } = options;
+					const pendingCount = batchAllNodes.length + batchAllLinks.length + updatedExistingNodeIds.size;
+					if (!pendingCount) return;
+
+					const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+					const dueByCount = batchAllNodes.length >= SEARCH_FLUSH_NODE_THRESHOLD;
+					const dueByTime = now - lastSearchFlushAt >= SEARCH_FLUSH_MIN_INTERVAL_MS;
+					if (force || persist || dueByCount || dueByTime) {
+						flushSearchProgressNow(statusLabel, { persist });
+						return;
 					}
-					if (existingIds.length) {
-						rerenderGraphNodesByIds(existingIds);
-						refreshGraphColors();
-						refreshTraceState();
-					}
-					updateFetchStatus(
-						statusLabel ||
-							`Showing ${progressiveAddedTotal} node${progressiveAddedTotal !== 1 ? 's' : ''}` +
-								(progressiveExistingTotal ? `, ${progressiveExistingTotal} already on canvas` : '') +
-								'…',
-					);
+					if (searchFlushTimer) return;
+					searchFlushTimer = setTimeout(() => {
+						searchFlushTimer = null;
+						flushSearchProgressNow(statusLabel);
+					}, SEARCH_FLUSH_MIN_INTERVAL_MS);
 				};
 
 				function addIndividualFromSource(src) {
@@ -8264,6 +8509,14 @@ export function init(
 						existingGraphNode.iaScope = src?.ind_ia_scope ?? parsed?.basicInformation?.iaScope ?? parsed?.iaScope ?? existingGraphNode.iaScope ?? null;
 						existingGraphNode.hasFinraData = resolved.hasFinraData;
 						existingGraphNode.hasSecData = resolved.hasSecData;
+						{
+							const bc = String(existingGraphNode.bcScope || '').toLowerCase();
+							const ia = String(existingGraphNode.iaScope || '').toLowerCase();
+							if (bc.includes('active') || ia.includes('active') || bc.includes('approved')) {
+								existingGraphNode._vizInactive = false;
+								existingGraphNode.stub = false;
+							}
+						}
 						existingGraphNode.registrationCount = {
 							...(existingGraphNode.registrationCount || {}),
 							approvedFinraRegistrationCount:
@@ -8291,10 +8544,11 @@ export function init(
 						existingGraphNode.currentIAEmployments = Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : (existingGraphNode.currentIAEmployments ?? []);
 						applyIndividualDetail(existingGraphNode, parsed, crd);
 						updatedExistingNodeIds.add(existingGraphNode.id);
-					} else if (!batchAllNodes.some((n) => n.id === personId)) {
+					} else if (!batchNodeIds.has(personId)) {
 						// Propagate disclosure flags if present
 						const disclosureFlag = parsed?.disclosureFlag ?? parsed?.basicInformation?.disclosureFlag ?? parsed?.ind_bc_disclosure_fl;
 						const iaDisclosureFlag = parsed?.iaDisclosureFlag ?? parsed?.basicInformation?.iaDisclosureFlag ?? parsed?.ind_bc_disclosure_fl;
+						batchNodeIds.add(personId);
 						batchAllNodes.push(
 							applyIndividualDetail(
 								{
@@ -8335,7 +8589,8 @@ export function init(
 						if (!fid) continue;
 						const existingFirmNode = findExistingFirmNode(fid);
 						const firmNodeId = existingFirmNode?.id || `firm:${fid}`;
-						if (!existingFirmNode && !batchAllNodes.some((n) => n.id === firmNodeId)) {
+						if (!existingFirmNode && !batchNodeIds.has(firmNodeId)) {
+							batchNodeIds.add(firmNodeId);
 							batchAllNodes.push({
 								id: firmNodeId,
 								label: e?.firm_name || e?.firmName || `Firm ${fid}`,
@@ -8345,17 +8600,16 @@ export function init(
 								iaSecNumber: e?.firm_ia_sec_number || e?.iaSecNumber,
 							});
 						}
-						if (
-							!batchAllLinks.some(
-								(l) => getLinkIdentityKey(l) === getLinkIdentityKey({ source: personId, target: firmNodeId, relationship: getEmploymentRelationship(e), isCurrent: e._isCurrent }),
-							)
-						) {
-							batchAllLinks.push({
-								source: personId,
-								target: firmNodeId,
-								relationship: getEmploymentRelationship(e),
-								isCurrent: e._isCurrent,
-							});
+						const employmentLink = {
+							source: personId,
+							target: firmNodeId,
+							relationship: getEmploymentRelationship(e),
+							isCurrent: e._isCurrent,
+						};
+						const employmentLinkKey = getLinkIdentityKey(employmentLink);
+						if (!batchLinkKeys.has(employmentLinkKey)) {
+							batchLinkKeys.add(employmentLinkKey);
+							batchAllLinks.push(employmentLink);
 						}
 					}
 				}
@@ -8365,10 +8619,11 @@ export function init(
 					if (!firmId) return;
 					const firmNodeId = `firm:${firmId}`;
 					const firmLabel = src?.firm_name || src?.firmName || src?.name || `Firm ${firmId}`;
-					if (!batchAllNodes.some((n) => n.id === firmNodeId)) {
+					if (!batchNodeIds.has(firmNodeId)) {
 						// Propagate disclosure flags if present
 						const disclosureFlag = src?.disclosureFlag ?? src?.firm_disclosure_flag;
 						const iaDisclosureFlag = src?.iaDisclosureFlag;
+						batchNodeIds.add(firmNodeId);
 						batchAllNodes.push({
 							id: firmNodeId,
 							label: firmLabel,
@@ -8436,8 +8691,10 @@ export function init(
 						}
 						const label = normalizePersonLabel(src?.name || [src?.ind_firstname, src?.ind_middlename, src?.ind_lastname].filter(Boolean).join(' ') || '');
 						if (label) {
+							const syntheticId = `database:${Date.now()}:${Math.random()}`;
+							batchNodeIds.add(syntheticId);
 							batchAllNodes.push({
-								id: `database:${Date.now()}:${Math.random()}`,
+								id: syntheticId,
 								label,
 								group: 'individual',
 							});
@@ -8457,6 +8714,7 @@ export function init(
 							if (detail?.found === false) return;
 							addIndividualFromSource(detail);
 							flushSearchProgress(`Loaded CRD ${crd}…`);
+							await yieldToBrowser();
 						} catch {
 							/* ignore synthetic direct-id miss */
 						}
@@ -8472,7 +8730,8 @@ export function init(
 							const firmNodeId = `firm:${firmId}`;
 							const bi = detail?.basicInformation || {};
 							const firmLabel = bi.firmName || detail?.firmName || detail?.name || `Firm ${firmId}`;
-							if (!findExistingFirmNode(firmId) && !batchAllNodes.some((n) => n.id === firmNodeId) && !globalState.layoutNodes.some((n) => n.id === firmNodeId)) {
+							if (!findExistingFirmNode(firmId) && !batchNodeIds.has(firmNodeId) && !globalState.layoutNodes.some((n) => n.id === firmNodeId)) {
+								batchNodeIds.add(firmNodeId);
 								batchAllNodes.push({
 									id: firmNodeId,
 									label: firmLabel,
@@ -8500,7 +8759,8 @@ export function init(
 								const pid = String(o?.crdNumber || o?.crd || o?.personId || '').trim();
 								if (!pid) continue;
 								const personNodeId = `person:${pid}`;
-								if (!findExistingPersonNode(pid) && !batchAllNodes.some((n) => n.id === personNodeId) && !globalState.layoutNodes.some((n) => n.id === personNodeId)) {
+								if (!findExistingPersonNode(pid) && !batchNodeIds.has(personNodeId) && !globalState.layoutNodes.some((n) => n.id === personNodeId)) {
+									batchNodeIds.add(personNodeId);
 									batchAllNodes.push({
 										id: personNodeId,
 										label: normalizePersonLabel(o?.legalName || o?.name || `Person ${pid}`),
@@ -8510,18 +8770,22 @@ export function init(
 										stub: true,
 									});
 								}
+								const controlLink = {
+									source: personNodeId,
+									target: firmNodeId,
+									relationship: 'controls',
+								};
+								const controlLinkKey = getLinkIdentityKey(controlLink);
 								if (
-									!batchAllLinks.some((l) => (l.source?.id ?? l.source) === personNodeId && (l.target?.id ?? l.target) === firmNodeId) &&
+									!batchLinkKeys.has(controlLinkKey) &&
 									!globalState.layoutLinks.some((l) => (l.source?.id ?? l.source) === personNodeId && (l.target?.id ?? l.target) === firmNodeId)
 								) {
-									batchAllLinks.push({
-										source: personNodeId,
-										target: firmNodeId,
-										relationship: 'controls',
-									});
+									batchLinkKeys.add(controlLinkKey);
+									batchAllLinks.push(controlLink);
 								}
 							}
 							flushSearchProgress(`Loaded firm ${firmId}…`);
+							await yieldToBrowser();
 						} catch {
 							/* ignore synthetic direct-id miss */
 						}
@@ -8540,6 +8804,7 @@ export function init(
 							});
 						} else {
 							ingestTextHits(hits);
+							await yieldToBrowser();
 						}
 					});
 				} else if (isNameList) {
@@ -8549,6 +8814,7 @@ export function init(
 						updateFetchStatus(`Searching ${nameSearchIndex} of ${nameListTokens.length}: ${term}…`);
 						await fetchTextQueryHits(term, async (pageHits) => {
 							ingestTextHits(pageHits);
+							await yieldToBrowser();
 						});
 					});
 				} else if (isDirectId) {
@@ -8568,10 +8834,11 @@ export function init(
 				} else {
 					await fetchTextQueryHits(q, async (pageHits) => {
 						ingestTextHits(pageHits);
+						await yieldToBrowser();
 					});
 				}
 
-				flushSearchProgress();
+				flushSearchProgress(undefined, { force: true, persist: isDirectId });
 
 				if (!progressiveAddedTotal && !progressiveExistingTotal) {
 					if (allHits.length > 0) {
@@ -8585,13 +8852,13 @@ export function init(
 				if (!isDirectId) {
 					const textSearchHydrationTargets = selectTextSearchHydrationTargets(textSearchHydrationCandidates, TEXT_SEARCH_DETAIL_HYDRATION_LIMIT);
 					if (textSearchHydrationTargets.length) {
+						const hydratedTargetIds: string[] = [];
 						await mapWithConcurrency(textSearchHydrationTargets, TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY, async (target) => {
 							const targetId = String(target.nodeId || '').trim();
 							if (!targetId) return null;
 							const rawId = targetId.split(':').pop() || '';
 							if (!rawId) return null;
 							try {
-								const onScreenFirmIds = Array.from(new Set((globalState.layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId))));
 								const batch = target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId, null, { includePreviousEmployerIds: [] });
 								const liveTargetNode = globalState.layoutNodes?.find((node) => node.id === targetId) || null;
 								const primaryNode = Array.isArray(batch?.nodes) ? batch.nodes.find((node) => node?.id === targetId) || null : null;
@@ -8600,18 +8867,22 @@ export function init(
 									normalizeNodeLabelInPlace(liveTargetNode);
 								}
 								if (batch?.nodes?.length || batch?.links?.length) {
-									globalState.appendFetched(batch.nodes || [], batch.links || []);
+									globalState.appendFetched(batch.nodes || [], batch.links || [], { skipPersist: true, skipFindRefresh: true });
 									mergeIntoGraphData(batch.nodes || [], batch.links || []);
 								}
-								rerenderGraphNodesByIds([targetId]);
-								refreshGraphColors();
-								refreshTraceState();
+								hydratedTargetIds.push(targetId);
 								updateFetchStatus(`Enriching ${targetId}…`);
+								await yieldToBrowser();
 							} catch {
 								/* non-critical enrichment miss */
 							}
 							return null;
 						});
+						if (hydratedTargetIds.length) {
+							rerenderGraphNodesByIds(hydratedTargetIds);
+							refreshGraphColors();
+							refreshTraceState();
+						}
 					}
 				}
 
@@ -8625,13 +8896,22 @@ export function init(
 						/* ignore */
 					}
 				}
+				if (activeFindQuery) {
+					refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
+				}
 				void fetchCacheStats();
 
 				const addedLabel =
 					isNameList ?
 						`Added ${progressiveAddedTotal} node${progressiveAddedTotal !== 1 ? 's' : ''} for ${nameListTokens.length} names`
 					:	`Added ${progressiveAddedTotal} node${progressiveAddedTotal !== 1 ? 's' : ''} for "${q}"`;
-				updateFetchStatus(progressiveExistingTotal > 0 ? `${addedLabel}, ${progressiveExistingTotal} already on canvas` : addedLabel);
+				const hitCapNote =
+					!isDirectId && MAX_TEXT_SEARCH_HITS < MAX_TEXT_SEARCH_HITS_BASE ?
+						` (capped at ${MAX_TEXT_SEARCH_HITS} hits while canvas is dense)`
+					:	'';
+				updateFetchStatus(
+					(progressiveExistingTotal > 0 ? `${addedLabel}, ${progressiveExistingTotal} already on canvas` : addedLabel) + hitCapNote,
+				);
 			} catch (err) {
 				console.error('database search failed', err);
 				updateFetchStatus(`Search error: ${err?.message || err}`);
@@ -9206,6 +9486,16 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 	if (incomingNode._trustedCurrentRelationshipData === true) targetNode._trustedCurrentRelationshipData = true;
 	if (incomingNode.bcScope != null) targetNode.bcScope = incomingNode.bcScope;
 	if (incomingNode.iaScope != null) targetNode.iaScope = incomingNode.iaScope;
+	// Drop stale queue "previous-at-firm ⇒ gray node" once real Active scope arrives.
+	{
+		const mergedBc = String(targetNode.bcScope || targetNode.basicInformation?.bcScope || '').toLowerCase();
+		const mergedIa = String(targetNode.iaScope || targetNode.basicInformation?.iaScope || '').toLowerCase();
+		if (mergedBc.includes('active') || mergedIa.includes('active') || mergedBc.includes('approved')) {
+			targetNode._vizInactive = false;
+		} else if (incomingNode._vizInactive === true || incomingNode._vizInactive === false) {
+			targetNode._vizInactive = incomingNode._vizInactive;
+		}
+	}
 	if (incomingNode.registrationCount) targetNode.registrationCount = { ...(targetNode.registrationCount || {}), ...incomingNode.registrationCount };
 	if (Array.isArray(incomingNode.currentEmployments)) targetNode.currentEmployments = incomingNode.currentEmployments;
 	if (Array.isArray(incomingNode.currentIAEmployments)) targetNode.currentIAEmployments = incomingNode.currentIAEmployments;
@@ -9411,18 +9701,131 @@ function ensureQueueGraphSeedLinks(nodes: any[] = []) {
 		const crd = String(person?.crd || '').trim();
 		const personId = `person:${crd}`;
 		if (!/^\d+$/.test(crd) || !nodeIds.has(personId)) continue;
+		const isCurrent = person?.isCurrent !== false;
 		const link = {
 			source: personId,
 			target: firmNodeId,
-			relationship: 'employed_by',
-			isCurrent: person?.isCurrent !== false,
-			...(person?.isCurrent === false ? { forceGray: true } : {}),
+			relationship: isCurrent ? 'employed_by' : 'previous_employed_by',
+			isCurrent,
+			...(isCurrent ? {} : { forceGray: true }),
 		};
 		const key = getLinkIdentityKey(link);
 		if (existingKeys.has(key)) continue;
 		existingKeys.add(key);
 		globalState.graphData.links.push(link);
 	}
+}
+
+/** Paint Queue-graph bridge stubs immediately so missing Redis detail cannot blank the canvas. */
+function buildQueueGraphSeedStubNodes(ids: string[] = []) {
+	const stubs: any[] = [];
+	const seen = new Set<string>();
+	const pushStub = (stub: Record<string, any>) => {
+		const id = String(stub?.id || '').trim();
+		if (!id || seen.has(id)) return;
+		seen.add(id);
+		stubs.push(stub);
+	};
+
+	const seed = pendingQueueGraphSeed;
+	const currentCrdSet = new Set(
+		(seed?.people || []).filter((person) => person?.isCurrent !== false).map((person) => String(person?.crd || '').trim()).filter((crd) => /^\d+$/.test(crd)),
+	);
+	const previousCrdSet = new Set(
+		(seed?.people || []).filter((person) => person?.isCurrent === false).map((person) => String(person?.crd || '').trim()).filter((crd) => /^\d+$/.test(crd)),
+	);
+	const firmId = String(seed?.anchorFirmId || '')
+		.trim()
+		.replace(/^firm:/i, '');
+	if (/^\d+$/.test(firmId)) {
+		pushStub({
+			id: `firm:${firmId}`,
+			label: String(seed?.anchorFirmName || '').trim() || `Firm ${firmId}`,
+			group: 'firm',
+			firmId,
+			stub: true,
+			_queueGraphStub: true,
+			_vizInactive: false,
+		});
+	}
+	for (const person of seed?.people || []) {
+		const crd = String(person?.crd || '').trim();
+		if (!/^\d+$/.test(crd)) continue;
+		const isCurrent = person?.isCurrent !== false;
+		const bcScope = String(person?.bcScope || '').trim();
+		const iaScope = String(person?.iaScope || '').trim();
+		// Previous-at-anchor-firm is a link style only. Do not force the person node
+		// inactive — Active brokers who left the firm (e.g. Stephano → Evercore) must stay blue.
+		const scopeLooksActive = /active|approved/i.test(bcScope) || /active|approved/i.test(iaScope);
+		const scopeLooksInactive = /inactive|terminated|withdrawn|cancelled|canceled/i.test(bcScope);
+		pushStub({
+			id: `person:${crd}`,
+			label: String(person?.name || '').trim() || `CRD ${crd}`,
+			group: 'individual',
+			crd,
+			stub: true,
+			_queueGraphStub: true,
+			_vizInactive: scopeLooksInactive && !scopeLooksActive ? true : false,
+			...(bcScope ? { bcScope }
+			: isCurrent ? { bcScope: 'Active' }
+			: {}),
+			...(iaScope ? { iaScope } : {}),
+		});
+	}
+
+	for (const rawId of ids) {
+		const id = normalizeNodeRouteId(rawId) || String(rawId || '').trim();
+		if (!id || seen.has(id)) continue;
+		const [prefix, raw] = id.split(':');
+		if (!raw || !/^\d+$/.test(raw)) continue;
+		if (prefix === 'firm') {
+			pushStub({
+				id,
+				label: `Firm ${raw}`,
+				group: 'firm',
+				firmId: raw,
+				stub: true,
+				_queueGraphStub: true,
+				_vizInactive: false,
+			});
+		} else if (prefix === 'person') {
+			const seedPerson = (seed?.people || []).find((person) => String(person?.crd || '').trim() === raw);
+			const isCurrent = currentCrdSet.has(raw) || !previousCrdSet.has(raw);
+			const bcScope = String(seedPerson?.bcScope || '').trim();
+			const iaScope = String(seedPerson?.iaScope || '').trim();
+			const scopeLooksActive = /active|approved/i.test(bcScope) || /active|approved/i.test(iaScope);
+			const scopeLooksInactive = /inactive|terminated|withdrawn|cancelled|canceled/i.test(bcScope);
+			pushStub({
+				id,
+				label: String(seedPerson?.name || '').trim() || `CRD ${raw}`,
+				group: 'individual',
+				crd: raw,
+				stub: true,
+				_queueGraphStub: true,
+				_vizInactive: scopeLooksInactive && !scopeLooksActive ? true : false,
+				...(bcScope ? { bcScope }
+				: isCurrent ? { bcScope: 'Active' }
+				: {}),
+				...(iaScope ? { iaScope } : {}),
+			});
+		}
+	}
+	return stubs;
+}
+
+function materializeQueueGraphSeedStubs(ids: string[] = []) {
+	if (!globalState.graphData) {
+		globalState.graphData = { nodes: [], links: [], meta: {} };
+	}
+	const stubs = buildQueueGraphSeedStubNodes(ids);
+	if (!stubs.length) return [];
+	mergeIntoGraphData(stubs, []);
+	ensureQueueGraphSeedLinks(globalState.graphData.nodes || stubs);
+	globalState.appendFetched?.(stubs, []);
+	showEmpty(false);
+	document.getElementById('fg-empty-default')?.classList.add('hidden');
+	document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
+	return stubs;
 }
 
 // Fire-and-forget persist of newly fetched nodes/links to the server graph file.
@@ -9733,9 +10136,18 @@ async function importPastedCrdList(rawText: string) {
 			persistToServer(allNodes, allLinks);
 		}
 
+		// One selection-log persist + one paint after the full import — per-CRD
+		// save/paint previously froze the main thread on large pastes.
+		const layoutById = new Map((globalState.layoutNodes || []).map((n) => [String(n.id), n]));
 		for (const nodeId of addedNodeIds) {
-			const node = globalState.layoutNodes.find((n) => n.id === nodeId);
-			if (node) addToSelectionLog(node, { skipBold: true });
+			const node = layoutById.get(String(nodeId));
+			if (node) addToSelectionLog(node, { skipBold: true, skipPersist: true, skipPaint: true });
+		}
+		if (addedNodeIds.length) {
+			saveClearedSelectionLogLabelsPreference();
+			saveSelectionLog();
+			scheduleSelectionLogUI();
+			syncSelectionLogAuxiliaryRenderers();
 		}
 
 		if (added || skipped) openSelectionLog();
@@ -10244,6 +10656,14 @@ async function hydratePendingNodeIds(
 		options.onProgress?.(Math.min(done, normalizedIds.length), normalizedIds.length);
 	};
 
+	// Queue graph bridge: paint firm + people stubs (and employment edges) immediately from
+	// dashboard seed metadata. Local Redis often lacks these CRDs while EXTERNAL_API_DISABLED
+	// blocks live BrokerCheck fills — without stubs the canvas stays empty and detail retries
+	// only spam "individual N not found".
+	if (!isLogList && (pendingQueueGraphSeed || normalizedIds.length)) {
+		materializeQueueGraphSeedStubs(normalizedIds);
+	}
+
 	// Split ids into "already in the graph" (cheap local inject) and "needs a detail fetch".
 	// Detail fetches are accumulated and appended to the canvas in ONE pass: appending per node
 	// re-ran the full-graph work (D3 data join, neighbor-map rebuild, link dedupe, session save
@@ -10254,14 +10674,17 @@ async function hydratePendingNodeIds(
 	let idsToFetch: Array<{ id: string; prefix: string; rawId: string }> = [];
 	for (const normalizedId of normalizedIds) {
 		const existing = findGraphNodeByRouteId(normalizedId);
-		// Log-list stubs are placeholders — still enrich them via bulk/detail fetch.
-		if (existing && !(isLogList && existing._logListStub)) {
+		// Placeholders still need a detail/bulk enrich pass.
+		const needsEnrich = Boolean((isLogList && existing?._logListStub) || existing?._queueGraphStub);
+		if (existing && !needsEnrich) {
 			idsToInject.push(normalizedId);
 			continue;
 		}
 		const [prefix, rawId] = normalizedId.split(':');
 		if (rawId && /^[0-9]+$/.test(rawId) && (prefix === 'person' || prefix === 'firm')) {
 			idsToFetch.push({ id: normalizedId, prefix, rawId });
+		} else if (existing) {
+			idsToInject.push(normalizedId);
 		}
 	}
 
@@ -10332,22 +10755,60 @@ async function hydratePendingNodeIds(
 							entry.prefix === 'person' ?
 								await fetchIndividualBatch(entry.rawId, null, isLogList ? {} : { includePreviousEmployerIds: onScreenFirmIds as string[] })
 							:	await fetchFirmBatch(entry.rawId);
-						if (batch?.nodes?.length) chunkNodes.push(...batch.nodes);
+						if (batch?.nodes?.length) {
+							for (const node of batch.nodes) {
+								if (node && typeof node === 'object') {
+									delete node._queueGraphStub;
+									delete node._logListStub;
+								}
+							}
+							chunkNodes.push(...batch.nodes);
+						}
 						if (batch?.links?.length) chunkLinks.push(...batch.links);
 					} catch (error) {
-						console.warn(`Failed to hydrate shared selection for ${entry.id}:`, error);
+						// Stubs from Queue graph seed already cover the canvas; missing Redis
+						// detail (common with EXTERNAL_API_DISABLED) is expected — keep quiet.
+						const message = String((error as any)?.message || error || '');
+						if (!/not found/i.test(message)) {
+							console.warn(`Failed to hydrate shared selection for ${entry.id}:`, error);
+						}
 					}
 				}),
 			);
 
 			if (chunkNodes.length || chunkLinks.length) {
 				mergeIntoGraphData(chunkNodes, chunkLinks);
-				globalState.appendFetched?.(chunkNodes, chunkLinks);
+				globalState.appendFetched?.(chunkNodes, chunkLinks, {
+					skipPersist: isLogList,
+					skipFindRefresh: true,
+					skipSimRestart: isLogList,
+				});
+				for (const entry of chunk) {
+					const live = findGraphNodeByRouteId(entry.id);
+					if (live) {
+						delete live._queueGraphStub;
+						delete live._logListStub;
+					}
+				}
 			}
 			completedDetail += chunk.length;
 			reportProgress(completedDetail);
 			if (yieldMs > 0) await new Promise((resolve) => setTimeout(resolve, yieldMs));
 			else await new Promise((resolve) => setTimeout(resolve, 0));
+		}
+	}
+
+	if (isLogList) {
+		try {
+			globalState.simulation?.alpha?.(0)?.alphaTarget?.(0)?.stop?.();
+		} catch {
+			/* ignore */
+		}
+		scheduleGraphTickPositions(null, null, null);
+		try {
+			saveSession();
+		} catch {
+			/* ignore */
 		}
 	}
 
@@ -10361,7 +10822,10 @@ async function hydratePendingNodeIds(
 				// Skipped for log-list restore — sequential retries dominate wall time on large logs.
 				liveNode = await ensureRouteNodeAvailable(normalizedId);
 			} catch (error) {
-				console.warn(`Failed to hydrate shared selection for ${normalizedId}:`, error);
+				const message = String((error as any)?.message || error || '');
+				if (!/not found/i.test(message)) {
+					console.warn(`Failed to hydrate shared selection for ${normalizedId}:`, error);
+				}
 			}
 		}
 		if (!liveNode) continue;
@@ -11337,10 +11801,20 @@ function getForceLinkDistance(link, nodeCount = globalState.layoutNodes?.length 
 		link?.relationship === 'controls' ? 32
 		: link?.relationship === 'previous_employed_by' ? 16
 		: 0;
-	const crowd = Math.max(getNodeCrowdFactor(sourceNode), getNodeCrowdFactor(targetNode));
-	const crowdDistanceBoost = 1 + Math.max(0, crowd - 1) * 0.4;
 
-	return baseDistance * densityMultiplier * crowdDistanceBoost + scatterBoost * 1.5 + relationshipBoost;
+	const isFirmChild = (sourceNode?.group === 'firm' && targetNode?.group === 'individual') || (targetNode?.group === 'firm' && sourceNode?.group === 'individual');
+
+	const crowd = Math.max(getNodeCrowdFactor(sourceNode), getNodeCrowdFactor(targetNode));
+	// Give firm children high elasticity to expand if space is needed (crowd is high)
+	const crowdDistanceBoost = 1 + Math.max(0, crowd - 1) * (isFirmChild ? 1.2 : 0.4);
+	
+	const minDeg = Math.min(sourceDeg, targetDeg);
+	// Firm children should stay close, non-firm low-degree nodes drift far to outer edges
+	const lowDegreePush = minDeg <= 3 ? (isFirmChild ? 1.1 : 1.75) : 1.0;
+	// Base pull for firm children to keep them tight to the firm node
+	const firmChildPull = isFirmChild ? 0.45 : 1.0;
+
+	return baseDistance * densityMultiplier * crowdDistanceBoost * lowDegreePush * firmChildPull + scatterBoost * 1.5 + relationshipBoost;
 }
 
 function getNodeCollisionRadius(node, nodeCount = globalState.layoutNodes?.length || 0) {
@@ -11785,23 +12259,9 @@ function isNodeInactive(node, visited = new Set()) {
 		const hasSecActiveStates = secSignalsEnabled && hasActiveRegisteredStates(node.registeredStates, ['ia']);
 		if (activityFlags.hasActive) return false;
 		if (node.stub) {
+			// Explicit inactive scope on the stub can gray it; previous-only employment
+			// links must not — Active brokers often enter via a prior-firm Queue seed.
 			if (activityFlags.hasInactive) return true;
-			const connectedLinks = (globalState.layoutLinks || []).filter((l) => {
-				const srcId = l.source?.id || l.source;
-				const tgtId = l.target?.id || l.target;
-				return srcId === node.id || tgtId === node.id;
-			});
-			if (connectedLinks.length > 0) {
-				const hasActiveLink = connectedLinks.some((l) => {
-					if (isPreviousEmploymentLink(l)) return false;
-					const otherId = (l.source?.id || l.source) === node.id ? (l.target?.id || l.target) : (l.source?.id || l.source);
-					const otherNode = globalState.layoutNodes?.find((n) => n.id === otherId);
-					if (!otherNode) return true;
-					if (otherNode.group === 'firm' && isNodeInactive(otherNode, visited)) return false;
-					return true;
-				});
-				if (!hasActiveLink) return true;
-			}
 			return false;
 		}
 		if (hasFinraApprovedCounts || hasSecApprovedCounts) return false;
@@ -12742,6 +13202,7 @@ function updateNodeVisuals(
 	selection.each(function (d) {
 		const g = d3.select(this);
 		const inactive = isNodeInactive(d);
+		// Keep canvas/SVG paint flags aligned with scope (Active clears prior queue gray).
 		d._vizInactive = inactive;
 		const deg = d._deg || { total: 0, controls: 0, employed: 0 };
 		const isControlNode = deg.controls > 0;
@@ -13112,7 +13573,12 @@ function scheduleSidecarIndividualLabelHydration(nodes) {
 	})();
 }
 
-function appendFetchedImpl(newNodes, newLinks) {
+function appendFetchedImpl(
+	newNodes,
+	newLinks,
+	options: { skipPersist?: boolean; skipFindRefresh?: boolean; skipSimRestart?: boolean } = {},
+) {
+	const { skipPersist = false, skipFindRefresh = false, skipSimRestart = false } = options;
 	if (!Array.isArray(newNodes)) newNodes = [];
 	if (!Array.isArray(newLinks)) newLinks = [];
 	if (!globalState.layoutNodes || !globalState.layoutLinks) {
@@ -13126,9 +13592,10 @@ function appendFetchedImpl(newNodes, newLinks) {
 	}
 	normalizeNodeLabelsInPlace(newNodes);
 
+	const priorLayoutNodeIds = new Set(globalState.layoutNodes.map((entry) => entry?.id).filter(Boolean));
 	const mergeResult = mergeIncomingNodesIntoExistingNodes(globalState.layoutNodes, newNodes);
 	const mergedNodes = mergeResult.nodes;
-	const uniqNodes = mergedNodes.filter((node) => !globalState.layoutNodes.some((entry) => entry?.id === node?.id));
+	const uniqNodes = mergedNodes.filter((node) => node?.id && !priorLayoutNodeIds.has(node.id));
 	const incomingNodeIdRewrites = mergeResult.idRewriteMap;
 	const allIncomingLinks = Array.isArray(newLinks) ? newLinks : [];
 	const rewrittenLinks = rewriteLinksForNodeIdMap(allIncomingLinks, incomingNodeIdRewrites);
@@ -13163,7 +13630,17 @@ function appendFetchedImpl(newNodes, newLinks) {
 	// Rebind any pre-existing links to the merged node objects so the visualization
 	// keeps them attached after a fetch updates the node list.
 	resolveLinkEndpoints(globalState.layoutLinks, globalState.layoutNodes);
-	const potentialLinks = [...rewrittenLinks, ...(globalState.graphData && Array.isArray(globalState.graphData.links) ? globalState.graphData.links : [])];
+	// Only consider incoming links plus graphData links that touch newly added nodes.
+	// Rescanning every graphData link on each progressive search flush OOM'd large canvases.
+	const newNodeIdSet = new Set(uniqNodes.map((node) => node.id).filter(Boolean));
+	const potentialLinks = [...rewrittenLinks];
+	if (newNodeIdSet.size && globalState.graphData && Array.isArray(globalState.graphData.links)) {
+		for (const link of globalState.graphData.links) {
+			const s = link?.source?.id ?? link?.source;
+			const t = link?.target?.id ?? link?.target;
+			if (newNodeIdSet.has(s) || newNodeIdSet.has(t)) potentialLinks.push(link);
+		}
+	}
 	const resolvedPotentialLinks = resolveLinkEndpoints(potentialLinks, globalState.layoutNodes);
 	const currentLayoutNodeIds = new Set(globalState.layoutNodes.map((n) => n.id));
 	ensureLayoutLinkIndexes();
@@ -13187,15 +13664,17 @@ function appendFetchedImpl(newNodes, newLinks) {
 	if (globalState.graphData) updateSubsetInfo(globalState.layoutNodes.length, globalState.graphData.nodes.length);
 	updateMeta();
 
-	// Persist session so reload restores these nodes
-	saveSession();
+	// Persist session so reload restores these nodes (callers can skip during progressive search).
+	if (!skipPersist) {
+		saveSession();
+	}
 
 	refreshLayeredLinkSelections({ enterDuration: 400 });
 
 	if (!globalState.simulation) {
 		if (globalState.graphData) updateSubsetInfo(globalState.layoutNodes.length, globalState.graphData.nodes.length);
 		refreshGraphColors();
-		if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
+		if (!skipFindRefresh && activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
 		refreshTraceState();
 		return;
 	}
@@ -13218,7 +13697,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 	}
 
 	refreshGraphColors();
-	if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
+	if (!skipFindRefresh && activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
 	refreshTraceState();
 
 	// If the current selection was impacted by newly appended nodes/links,
@@ -13233,20 +13712,38 @@ function appendFetchedImpl(newNodes, newLinks) {
 		/* ignore sidebar refresh errors */
 	}
 
+	// Keep forces/nodes in sync even when we skip a reheat (log-list bulk restore).
+	refreshSoftLocationGroupingForces(globalState.layoutNodes);
+	estimateLocalCrowdFactors(globalState.layoutNodes);
+	if (globalState.simulation) {
+		globalState.simulation.nodes(globalState.layoutNodes);
+		globalState.simulation.force('link')?.links?.(globalState.layoutLinks);
+		globalState.simulation.force('collision')?.radius?.((d) => getNodeCollisionRadius(d, globalState.layoutNodes.length));
+	}
+
+	if (skipSimRestart) {
+		// Bulk restore / progressive hydrate must not reheat the force sim on every
+		// batch — that painted every tick without throttle and climbed ~200MB/s RSS.
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
+		return;
+	}
+
 	// Replace tick handler so it covers the full updated selections.
+	// Throttle paints the same way as the main renderGraph tick path — an unthrottled
+	// scheduleGraphTickPositions on every d3 tick was a native-memory crash source.
 	let _appendTick = 0;
 	bindSimulationTickHandler(globalState.simulation, () => {
 		_appendTick += 1;
-		if (_appendTick === 1 || _appendTick % 20 === 0) estimateLocalCrowdFactors(globalState.layoutNodes);
+		const count = globalState.layoutNodes?.length || 0;
+		const alpha = globalState.simulation?.alpha?.() || 0;
+		if (_appendTick === 1 || _appendTick % (count > 1000 ? 60 : 20) === 0) {
+			estimateLocalCrowdFactors(globalState.layoutNodes);
+		}
+		if (count > 1000 && alpha > 0.05 && _appendTick % 10 !== 0) return;
+		if (count > 300 && alpha > 0.1 && _appendTick % 4 !== 0) return;
+		if (count <= 300 && alpha > 0.15 && _appendTick % 2 !== 0) return;
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	});
-
-	// Restart simulation with new nodes/links
-	refreshSoftLocationGroupingForces(globalState.layoutNodes);
-	estimateLocalCrowdFactors(globalState.layoutNodes);
-	globalState.simulation.nodes(globalState.layoutNodes);
-	globalState.simulation.force('link').links(globalState.layoutLinks);
-	globalState.simulation.force('collision').radius((d) => getNodeCollisionRadius(d, globalState.layoutNodes.length));
 
 	const allowedMoving = new Set(impactedIds || []);
 	if (typeof globalState.lastExpandOriginNode !== 'undefined' && globalState.lastExpandOriginNode?.id) {
@@ -13264,12 +13761,20 @@ function appendFetchedImpl(newNodes, newLinks) {
 		clearTimeout(globalState.spreadReleaseTimer);
 		globalState.spreadReleaseTimer = null;
 	}
+	const settleMs = globalState.layoutNodes.length > 800 ? 900 : globalState.layoutNodes.length > 300 ? 1400 : 2200;
 	globalState.spreadReleaseTimer = setTimeout(() => {
-		globalState.simulation?.alphaTarget?.(0);
+		try {
+			globalState.simulation?.alphaTarget?.(0);
+			globalState.simulation?.alpha?.(0);
+			globalState.simulation?.stop?.();
+		} catch {
+			/* ignore */
+		}
 		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
 		globalState.activeSpreadFrozenNodes = [];
 		globalState.spreadReleaseTimer = null;
-	}, 300);
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
+	}, settleMs);
 }
 
 function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?: boolean } = {}) {
@@ -13408,20 +13913,23 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			root.attr('transform', event.transform);
 			updateTraceStrokeScale(event.transform.k);
 			updateInactiveLinkScale(event.transform.k);
-			refreshRenderedLinkStrokeWidthsForZoom();
-			syncTraceLabelPresentation(event.transform.k);
-
-			if (globalState.canvasModeActive) {
+			// Canvas mode paints links/labels itself — skip SVG stroke/label DOM work on the zoom hot path.
+			if (globalState.canvasModeActive || globalState.pixiModeActive) {
 				scheduleGraphTickPositions(null, null, null);
+			} else {
+				refreshRenderedLinkStrokeWidthsForZoom();
+				syncTraceLabelPresentation(event.transform.k);
 			}
 			if (globalState.zoomSaveTimer) clearTimeout(globalState.zoomSaveTimer);
+			// Debounce longer during continuous pan/zoom so clone+JSON.stringify
+			// does not thrash the heap on every gesture.
 			globalState.zoomSaveTimer = setTimeout(() => {
 				try {
 					saveSession();
 				} catch {
 					// non-critical
 				}
-			}, 150);
+			}, 750);
 		});
 
 	// expose zoom and svg to module scope so saved transforms can be replayed
@@ -13506,11 +14014,11 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	globalState.simulation = d3
 		.forceSimulation<GraphSimulationNode>(nodes)
 		.alphaDecay(
-			isHuge ? 0.06
-			: isLarge ? 0.03
-			: 0.012,
+			isHuge ? 0.025
+			: isLarge ? 0.015
+			: 0.008,
 		)
-		.velocityDecay(isLarge ? 0.72 : 0.64)
+		.velocityDecay(isLarge ? 0.54 : 0.46)
 		.force(
 			'link',
 			d3
@@ -13708,12 +14216,22 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 		}
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	} else {
-		// Stop simulation after a short settle window to prevent endless movement
+		// Stop simulation after a short settle window to prevent endless movement.
+		// Dense graphs must cool faster — continuous tick paints climb ~300MB/s RSS.
 		const stopAfterMs =
-			isHuge ? 2500
-			: isLarge ? 3500
-			: 5000;
-		setTimeout(() => globalState.simulation.stop(), stopAfterMs);
+			isHuge ? 1200
+			: isLarge ? 2000
+			: 3500;
+		setTimeout(() => {
+			try {
+				globalState.simulation?.alphaTarget?.(0);
+				globalState.simulation?.alpha?.(0);
+				globalState.simulation?.stop?.();
+			} catch {
+				/* ignore */
+			}
+			scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
+		}, stopAfterMs);
 	}
 
 	const handleBlankGraphClick = (px: number, py: number) => {
@@ -14412,7 +14930,9 @@ async function ensureIndividualDetail(
 		(Array.isArray(personNode.previousEmployments) && personNode.previousEmployments.length > 0) ||
 		(Array.isArray(personNode.currentIAEmployments) && personNode.currentIAEmployments.length > 0) ||
 		(Array.isArray(personNode.previousIAEmployments) && personNode.previousIAEmployments.length > 0);
-	const previousHistoryKnown = Array.isArray(personNode.previousEmployments) && Array.isArray(personNode.previousIAEmployments);
+	// previousIAEmployments may be omitted on FINRA-only records; treat previousEmployments
+	// alone as enough history once detail has loaded so we do not refetch on every click.
+	const previousHistoryKnown = Array.isArray(personNode.previousEmployments) || Array.isArray(personNode.previousIAEmployments);
 
 	// Clicking a person should always materialize known firm links, even when the node
 	// was previously treated as owner-evidence-only or already hydrated without edges.
@@ -14618,7 +15138,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 			if (!layoutHasLinkIdentity(candidateLink)) newLinks.push(candidateLink);
 		}
 		if (!newNodes.length && !newLinks.length) return;
-		globalState.appendFetched(newNodes, newLinks);
+		globalState.appendFetched(newNodes, newLinks, { skipPersist: true, skipFindRefresh: true });
 		mergeIntoGraphData(newNodes, newLinks);
 		return;
 	}
@@ -14845,7 +15365,8 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 		}
 		return;
 	}
-	globalState.appendFetched(newNodes, newLinks);
+	// Skip mid-click session persist; expand finalizer / selectNode already save when needed.
+	globalState.appendFetched(newNodes, newLinks, { skipPersist: true, skipFindRefresh: true });
 	mergeIntoGraphData(newNodes, newLinks);
 }
 
@@ -15624,31 +16145,43 @@ function revealIncidentRenderedLinks(clickedNode, linkFilter: ((link: any) => bo
 function revealPersonEmploymentNeighbors(personNode) {
 	if (!personNode?.id || personNode.group !== 'individual' || !globalState.graphData || !globalState.layoutNodes) return;
 	const employmentFirmIds = new Set<string>();
+	// Include previous employers so inactive people (history-only) still open their gray firm links.
 	for (const employment of flattenEmploymentRecords(personNode)) {
-		if (employment._isCurrent === false) continue;
 		const firmNodeId = resolveEmploymentConnectionFirmNodeId(employment);
 		if (firmNodeId) employmentFirmIds.add(firmNodeId);
 	}
+	for (const link of globalState.layoutLinks || []) {
+		if (!isPersonClickEmploymentLink(link)) continue;
+		const sourceId = String(link.source?.id ?? link.source ?? '').trim();
+		const targetId = String(link.target?.id ?? link.target ?? '').trim();
+		if (sourceId === personNode.id && targetId) employmentFirmIds.add(targetId);
+		if (targetId === personNode.id && sourceId) employmentFirmIds.add(sourceId);
+	}
 	for (const link of globalState.graphData.links || []) {
-		if (!isAutoExpansionLink(link)) continue;
+		if (!isPersonClickEmploymentLink(link)) continue;
 		const sourceId = String(link.source?.id ?? link.source ?? '').trim();
 		const targetId = String(link.target?.id ?? link.target ?? '').trim();
 		if (sourceId === personNode.id && targetId) employmentFirmIds.add(targetId);
 		if (targetId === personNode.id && sourceId) employmentFirmIds.add(sourceId);
 	}
 	const renderedIds = new Set(globalState.layoutNodes.map((node) => node.id));
-	// Cap how many employer firms land on the canvas from one person click.
+	// Person employment history is usually small; allow the full direct employer set through.
+	const personEmploymentRevealLimit = Math.max(MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND, 64);
 	const hiddenIds = Array.from(employmentFirmIds)
 		.filter((id) => id && !renderedIds.has(id))
-		.slice(0, MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND);
+		.slice(0, personEmploymentRevealLimit);
+	const revealFilter = (link) => isPersonClickEmploymentLink(link);
 	if (hiddenIds.length) {
 		revealNeighbors(personNode, 'all', {
-			linkFilter: (link) => isAutoExpansionLink(link),
+			linkFilter: revealFilter,
 			restrictToIds: new Set(hiddenIds),
 			markSelected: true,
 		});
+		spreadNeighbors(personNode, new Set(hiddenIds), {
+			duration: getNodeExpansionRevealTiming(globalState.layoutNodes?.length || 0, { isUserInitiated: true }).animationMs,
+		});
 	}
-	revealIncidentRenderedLinks(personNode, (link) => isAutoExpansionLink(link));
+	revealIncidentRenderedLinks(personNode, revealFilter);
 }
 
 async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = getDefaultExpansionHops()) {
@@ -15661,7 +16194,16 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 	const revealTiming = getNodeExpansionRevealTiming(globalState.layoutNodes?.length || 0, { isUserInitiated: true });
 	// Firms only reveal Form BD "controls" connections on click — employment/registration
 	// history and other relationship types stay hidden (dashboard-only, see ensureFirmConnections).
-	const expansionLinkFilter = clickedNode.group === 'firm' ? isFirmControlOnlyExpansionLink : isAutoExpansionLink;
+	// Person clicks include previous (gray) employment links for the opened person only.
+	const expansionLinkFilter =
+		clickedNode.group === 'firm' ? isFirmControlOnlyExpansionLink
+		: clickedNode.group === 'individual' ? isPersonClickEmploymentLink
+		:	isAutoExpansionLink;
+	const waveLinkFilterFor = (fromNodeId: string) => {
+		if (clickedNode.group === 'individual' && String(fromNodeId) === String(clickedNode.id)) return isPersonClickEmploymentLink;
+		if (clickedNode.group === 'firm') return isFirmControlOnlyExpansionLink;
+		return isAutoExpansionLink;
+	};
 	let didRevealOrMerge = false;
 
 	if (clickedNode.group === 'individual') {
@@ -15673,6 +16215,26 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		const beforeCount = globalState.layoutNodes?.length || 0;
 		revealPersonEmploymentNeighbors(clickedNode);
 		didRevealOrMerge = didRevealOrMerge || (globalState.layoutNodes?.length || 0) > beforeCount;
+
+		// History-only people have no current/auto neighbors to walk. Skip empty server
+		// expand + frontier hydration waves that otherwise stall the click for seconds.
+		const hasCurrentAutoNeighbor = (globalState.layoutLinks || []).some((link) => {
+			if (!isAutoExpansionLink(link)) return false;
+			const sourceId = String(link.source?.id ?? link.source ?? '').trim();
+			const targetId = String(link.target?.id ?? link.target ?? '').trim();
+			return sourceId === clickedNode.id || targetId === clickedNode.id;
+		});
+		if (!hasCurrentAutoNeighbor) {
+			if (didRevealOrMerge) {
+				refreshTraceState({ deferMs: 120 });
+				try {
+					saveSession();
+				} catch {
+					/* ignore */
+				}
+			}
+			return;
+		}
 	} else if (clickedNode.group === 'firm') {
 		// Owners/officers come from Form BD detail, not the employment expand API.
 		await ensureFirmDetail(clickedNode);
@@ -15722,8 +16284,9 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 				return;
 			}
 
+			const fromFilter = waveLinkFilterFor(fId);
 			(fullAdj.get(fId) || []).forEach(({ nodeId, link }) => {
-				if (!expansionLinkFilter(link)) return;
+				if (!fromFilter(link)) return;
 				if (visitedIds.has(nodeId)) return;
 				visitedIds.add(nodeId);
 				waveFoundIds.push(nodeId);
@@ -15783,8 +16346,9 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 				return;
 			}
 
+			const fromFilter = waveLinkFilterFor(fId);
 			(postFetchAdj.get(fId) || []).forEach(({ nodeId, link }) => {
-				if (!expansionLinkFilter(link)) return;
+				if (!fromFilter(link)) return;
 				if (visitedIds.has(nodeId)) return;
 				visitedIds.add(nodeId);
 				newlyFoundIds.push(nodeId);
@@ -16293,7 +16857,10 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 
 	try {
 		if (node.group === 'individual') {
-			await ensureIndividualDetail(node, { allowOwnerEvidenceFirmFetch: true });
+			await ensureIndividualDetail(node, {
+				allowOwnerEvidenceFirmFetch: true,
+				injectEmploymentGraph: true,
+			});
 		} else if (node.group === 'firm') {
 			await ensureFirmDetail(node);
 		}
@@ -16301,19 +16868,27 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 		console.warn('Failed to hydrate route-selected node neighborhood:', error);
 	}
 
-	try {
-		// Cap graph-expand Redis work so deep links remain responsive on a shared Redis instance.
-		await Promise.race([ensureExpansionDataForNode(node.id, normalizedHops, { injectEmploymentGraph: false }), new Promise<void>((resolve) => setTimeout(() => resolve(), 4000))]);
-	} catch (error) {
-		console.warn('Failed to fetch route-selected neighborhood from server:', error);
-	}
+	if (node.group === 'individual') {
+		// Match click path: inject previous (gray) employers and skip empty expand waves.
+		revealPersonEmploymentNeighbors(node);
+	} else {
+		try {
+			// Cap graph-expand Redis work so deep links remain responsive on a shared Redis instance.
+			await Promise.race([
+				ensureExpansionDataForNode(node.id, normalizedHops, { injectEmploymentGraph: false }),
+				new Promise<void>((resolve) => setTimeout(() => resolve(), 4000)),
+			]);
+		} catch (error) {
+			console.warn('Failed to fetch route-selected neighborhood from server:', error);
+		}
 
-	// Firms only auto-reveal Form BD "controls" connections (see isFirmControlOnlyExpansionLink);
-	// employment/registration history is dashboard-only now for performance.
-	revealNeighbors(node, normalizedHops, {
-		linkFilter: node.group === 'firm' ? isFirmControlOnlyExpansionLink : isAutoExpansionLink,
-		markSelected: true,
-	});
+		// Firms only auto-reveal Form BD "controls" connections (see isFirmControlOnlyExpansionLink);
+		// employment/registration history is dashboard-only now for performance.
+		revealNeighbors(node, normalizedHops, {
+			linkFilter: isFirmControlOnlyExpansionLink,
+			markSelected: true,
+		});
+	}
 
 	if (globalState.selectedId === node.id && shouldRevealSidebarPanel()) {
 		renderSidebar(node, { reveal: true });
@@ -16432,7 +17007,9 @@ const nodeExpansionQueue: Array<{
 }> = [];
 // moved isProcessingNodeExpansion to globalState
 const NODE_EXPANSION_COOLDOWN_MS = 80; // Keep the interaction loop responsive on low-powered machines.
-const NODE_EXPANSION_DEFER_MS = 24;
+/** Wait for selection chrome to paint before kicking network/layout expand work. */
+const NODE_EXPANSION_DEFER_MS = 48;
+const NODE_EXPANSION_DEFER_LARGE_MS = 120;
 const pendingNodeExpansionIds = new Set<string>();
 
 export function scheduleNodeExpansion(
@@ -16455,7 +17032,11 @@ export function scheduleNodeExpansion(
 		});
 	};
 
-	const delayMs = (globalState.layoutNodes?.length || 0) > 250 ? NODE_EXPANSION_DEFER_MS : 0;
+	const layoutCount = globalState.layoutNodes?.length || 0;
+	const delayMs =
+		layoutCount > 600 ? NODE_EXPANSION_DEFER_LARGE_MS
+		: layoutCount > 200 ? NODE_EXPANSION_DEFER_MS
+		: 0;
 	if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
 		window.setTimeout(runTask, delayMs);
 	} else {
@@ -16525,8 +17106,10 @@ async function openNodeWithExpansionTask(
 	markUserInitiatedGraphExpansion();
 	anchorNode(d);
 	globalState.lastExpandOriginNode = d;
-	const shouldReapplySelection = !globalState.selectedId || String(globalState.selectedId) === String(d?.id || '');
-	if (shouldReapplySelection) {
+	// Selection chrome already ran in openNodeWithExpansion. Re-select only if the
+	// queued task lost the selection (another click cleared it) — never duplicate the
+	// full selectNode/log/route pass for the same node (that doubled main-thread cost).
+	if (String(globalState.selectedId || '') !== String(d?.id || '')) {
 		selectNode(d, {
 			skipAutoExpand: true,
 			focus,
@@ -16546,7 +17129,10 @@ async function openNodeWithExpansionTask(
 			const fetched = await ensureExpansionDataForNode(d.id, clickExpansionHops);
 			if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
 				revealNeighbors(d, clickExpansionHops, {
-					linkFilter: d.group === 'firm' ? isFirmControlOnlyExpansionLink : isAutoExpansionLink,
+					linkFilter:
+						d.group === 'firm' ? isFirmControlOnlyExpansionLink
+						: d.group === 'individual' ? isPersonClickEmploymentLink
+						:	isAutoExpansionLink,
 					markSelected: true,
 				});
 			}
@@ -16681,7 +17267,10 @@ function selectNode(
 					const fetched = await ensureExpansionDataForNode(d.id, clickExpansionHops);
 					if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
 						revealNeighbors(d, clickExpansionHops, {
-							linkFilter: d.group === 'firm' ? isFirmControlOnlyExpansionLink : isAutoExpansionLink,
+							linkFilter:
+								d.group === 'firm' ? isFirmControlOnlyExpansionLink
+								: d.group === 'individual' ? isPersonClickEmploymentLink
+								:	isAutoExpansionLink,
 							markSelected: true,
 						});
 					}

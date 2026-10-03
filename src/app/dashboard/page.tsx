@@ -6191,6 +6191,9 @@ function DashboardPageInner() {
 																	crd: String(item.crd),
 																	name: item.title,
 																	isCurrent: currentCrdSet.has(String(item.crd)),
+																	// Person scope (Active at Evercore) ≠ previous-at-anchor-firm link.
+																	...(item.bcScope ? { bcScope: String(item.bcScope) } : {}),
+																	...(item.iaScope ? { iaScope: String(item.iaScope) } : {}),
 																}));
 															const nodeIds = selected.map((item) => (item.entity === 'firm' ? `firm:${item.crd}` : `person:${item.crd}`)).filter(Boolean);
 															const firmId = currentRecordEntity === 'firm' && currentRecordId ? String(currentRecordId) : undefined;

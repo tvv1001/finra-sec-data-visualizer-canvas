@@ -295,6 +295,9 @@ function applySafeGpuMode() {
 		}
 		if (resolved.hybrid) {
 			window.localStorage.setItem(HYBRID_GPU_STORAGE_KEY, '1');
+		} else {
+			// Drop a stale hybrid sticky left from earlier ?dgpu=1 mis-detects on NVIDIA-only probes.
+			window.localStorage.removeItem(HYBRID_GPU_STORAGE_KEY);
 		}
 	} catch {
 		/* ignore quota / private mode */
@@ -354,7 +357,6 @@ export default function FinraGraph() {
 	useEffect(() => {
 		applySafeGpuMode();
 
-
 		const stored = localStorage.getItem('finra_sidebar_tools_open');
 		if (stored !== null) {
 			setIsSidebarToolsOpen(stored === 'true');
@@ -365,6 +367,43 @@ export default function FinraGraph() {
 			const st = localStorage.getItem('finra_search_type');
 			if (st === 'people' || st === 'firms' || st === 'all') setSearchType(st);
 		} catch {}
+
+		// Lightweight heap beacon for navigation crash diagnosis (Chrome only).
+		let lastPostedMb = 0;
+		const tick = () => {
+			try {
+				const perf = performance as Performance & {
+					memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number };
+				};
+				const mem = perf.memory;
+				if (!mem) return;
+				const usedMb = Math.round(mem.usedJSHeapSize / (1024 * 1024));
+				const totalMb = Math.round(mem.totalJSHeapSize / (1024 * 1024));
+				const limitMb = Math.round(mem.jsHeapSizeLimit / (1024 * 1024));
+				// Post on first sample, on +250MB climbs, or when already high.
+				if (lastPostedMb === 0 || usedMb - lastPostedMb >= 250 || usedMb >= 1500) {
+					lastPostedMb = usedMb;
+					void fetch('/api/finra/gpu-log', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({
+							kind: 'js-heap',
+							jsHeapUsedMb: usedMb,
+							jsHeapTotalMb: totalMb,
+							jsHeapLimitMb: limitMb,
+							path: window.location.pathname + window.location.search,
+							nodes: (window as any).__FINRA_GRAPH_NODES?.length ?? null,
+						}),
+						keepalive: true,
+					}).catch(() => undefined);
+				}
+			} catch {
+				/* ignore */
+			}
+		};
+		tick();
+		const id = window.setInterval(tick, 4000);
+		return () => window.clearInterval(id);
 	}, []);
 
 	const toggleSidebarTools = useCallback(() => {

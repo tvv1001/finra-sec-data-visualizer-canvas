@@ -55,12 +55,17 @@ mkdir -p "$PROFILE_DIR"
 
 # Wayland sessions: Ozone/X11 is the reliable path for PRIME offload today.
 # (Pure Wayland Chrome often keeps WebGL on the AMD iGPU regardless of env.)
+#
+# Use GPU rasterization on the NVIDIA path. --disable-gpu-rasterization was a
+# Mesa/iGPU SIGILL workaround; on RTX it forces huge software bitmaps and was
+# correlated with renderer RSS climbing ~150–200MB/s during graph pan/zoom until
+# the tab died around 10–11GB.
 EXTRA_FLAGS=(
 	--user-data-dir="$PROFILE_DIR"
 	--ozone-platform=x11
 	--enable-features=VaapiVideoDecoder
 	--ignore-gpu-blocklist
-	--disable-gpu-rasterization
+	--enable-gpu-rasterization
 	--new-window
 )
 
