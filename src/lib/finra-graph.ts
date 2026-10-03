@@ -8511,10 +8511,13 @@ export function init(
 						existingGraphNode.hasFinraData = resolved.hasFinraData;
 						existingGraphNode.hasSecData = resolved.hasSecData;
 						{
-							const bc = String(existingGraphNode.bcScope || '').toLowerCase();
-							const ia = String(existingGraphNode.iaScope || '').toLowerCase();
-							if (bc.includes('active') || ia.includes('active') || bc.includes('approved')) {
+							const bcAct = classifyActivityText(existingGraphNode.bcScope);
+							const iaAct = classifyActivityText(existingGraphNode.iaScope);
+							if (bcAct === 'active' || iaAct === 'active') {
 								existingGraphNode._vizInactive = false;
+								existingGraphNode.stub = false;
+							} else if (bcAct === 'inactive') {
+								existingGraphNode._vizInactive = true;
 								existingGraphNode.stub = false;
 							}
 						}
@@ -9487,12 +9490,15 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 	if (incomingNode._trustedCurrentRelationshipData === true) targetNode._trustedCurrentRelationshipData = true;
 	if (incomingNode.bcScope != null) targetNode.bcScope = incomingNode.bcScope;
 	if (incomingNode.iaScope != null) targetNode.iaScope = incomingNode.iaScope;
-	// Drop stale queue "previous-at-firm ⇒ gray node" once real Active scope arrives.
+	// Align viz flag with real scope. "InActive" must not be treated as Active
+	// (substring "active" matches otherwise).
 	{
-		const mergedBc = String(targetNode.bcScope || targetNode.basicInformation?.bcScope || '').toLowerCase();
-		const mergedIa = String(targetNode.iaScope || targetNode.basicInformation?.iaScope || '').toLowerCase();
-		if (mergedBc.includes('active') || mergedIa.includes('active') || mergedBc.includes('approved')) {
+		const mergedBc = classifyActivityText(targetNode.bcScope || targetNode.basicInformation?.bcScope);
+		const mergedIa = classifyActivityText(targetNode.iaScope || targetNode.basicInformation?.iaScope);
+		if (mergedBc === 'active' || mergedIa === 'active') {
 			targetNode._vizInactive = false;
+		} else if (mergedBc === 'inactive') {
+			targetNode._vizInactive = true;
 		} else if (incomingNode._vizInactive === true || incomingNode._vizInactive === false) {
 			targetNode._vizInactive = incomingNode._vizInactive;
 		}
@@ -9757,8 +9763,8 @@ function buildQueueGraphSeedStubNodes(ids: string[] = []) {
 		const iaScope = String(person?.iaScope || '').trim();
 		// Previous-at-anchor-firm is a link style only. Do not force the person node
 		// inactive — Active brokers who left the firm (e.g. Stephano → Evercore) must stay blue.
-		const scopeLooksActive = /active|approved/i.test(bcScope) || /active|approved/i.test(iaScope);
-		const scopeLooksInactive = /inactive|terminated|withdrawn|cancelled|canceled/i.test(bcScope);
+		const scopeLooksActive = classifyActivityText(bcScope) === 'active' || classifyActivityText(iaScope) === 'active';
+		const scopeLooksInactive = classifyActivityText(bcScope) === 'inactive';
 		pushStub({
 			id: `person:${crd}`,
 			label: String(person?.name || '').trim() || `CRD ${crd}`,
@@ -9794,8 +9800,8 @@ function buildQueueGraphSeedStubNodes(ids: string[] = []) {
 			const isCurrent = currentCrdSet.has(raw) || !previousCrdSet.has(raw);
 			const bcScope = String(seedPerson?.bcScope || '').trim();
 			const iaScope = String(seedPerson?.iaScope || '').trim();
-			const scopeLooksActive = /active|approved/i.test(bcScope) || /active|approved/i.test(iaScope);
-			const scopeLooksInactive = /inactive|terminated|withdrawn|cancelled|canceled/i.test(bcScope);
+			const scopeLooksActive = classifyActivityText(bcScope) === 'active' || classifyActivityText(iaScope) === 'active';
+			const scopeLooksInactive = classifyActivityText(bcScope) === 'inactive';
 			pushStub({
 				id,
 				label: String(seedPerson?.name || '').trim() || `CRD ${raw}`,
@@ -12448,20 +12454,25 @@ export function renderNodeContents(selection) {
 		g.selectAll<SVGGElement, unknown>('*').remove();
 
 		const r = NODE_R[d.group] || 10;
+		if (d.stub && (d.hasFinraData || d.hasSecData || d.basicInformation)) {
+			d.stub = false;
+			if (d._queueGraphStub) d._queueGraphStub = false;
+		}
 		const inactive = isNodeInactive(d);
 		const deg = d._deg || { total: 0, controls: 0, employed: 0 };
 		const isControlNode = Boolean(deg.controls > 0);
 		const compactMode = globalState.nodeLabelRenderMode === 'compact';
+		const isStubPaint = Boolean(d.stub) && !d.hasFinraData && !d.hasSecData;
 		g.classed('fg-node--inactive', inactive)
 			.classed('fg-node--individual', d.group === 'individual')
 			.classed('fg-node--firm', d.group === 'firm')
 			.classed('fg-node--entity', d.group === 'entity')
-			.classed('fg-node--stub', d.group === 'individual' && Boolean(d.stub))
+			.classed('fg-node--stub', d.group === 'individual' && isStubPaint)
 			.classed('fg-node--control-position', isControlNode);
 		// Use lighter blue for stub individuals to match the legend
 		let color = inactive ? GRAPH_COLORS.nodeInactive : NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
 		let nodeOpacity: number | string = inactive ? 0.82 : 1;
-		if (d.group === 'individual' && d.stub) {
+		if (d.group === 'individual' && isStubPaint) {
 			color = inactive ? GRAPH_COLORS.nodeInactive : GRAPH_COLORS.nodeStub;
 			nodeOpacity = inactive ? 0.72 : NODE_OPACITY_STUB;
 		}
@@ -13202,6 +13213,10 @@ function updateNodeVisuals(
 
 	selection.each(function (d) {
 		const g = d3.select(this);
+		if (d.stub && (d.hasFinraData || d.hasSecData || d.basicInformation)) {
+			d.stub = false;
+			if (d._queueGraphStub) d._queueGraphStub = false;
+		}
 		const inactive = isNodeInactive(d);
 		// Keep canvas/SVG paint flags aligned with scope (Active clears prior queue gray).
 		d._vizInactive = inactive;
@@ -15750,6 +15765,10 @@ async function ensureFirmDetail(firmNode) {
 			}
 
 			const bi = detail?.basicInformation || {};
+			// Live firm detail replaces Queue/Form BD stub chrome on child employer nodes.
+			firmNode.stub = false;
+			if (firmNode._queueGraphStub) firmNode._queueGraphStub = false;
+			if (firmNode.orphan) delete firmNode.orphan;
 			const preferredFirmName = String(bi.firmName || detail?.firmName || detail?.name || '').trim();
 			if (preferredFirmName && (isGenericOrPlaceholderLabel(firmNode.label, 'firm') || preferredFirmName.length > String(firmNode.label || '').length)) {
 				firmNode.label = preferredFirmName;

@@ -1,12 +1,48 @@
 {
   "firms": [
     {
-      "id": 40451,
-      "name": "CAMBRIDGE INTERNATIONAL PARTNERS LLC"
+      "id": 124180,
+      "name": "BERKSHIRE CAPITAL SECURITIES LLC"
     },
     {
-      "id": 124180,
-      "name": "BERKSHIRE GLOBAL ADVISORS LP"
+      "id": 7059,
+      "name": "CITIGROUP GLOBAL MARKETS INC."
+    },
+    {
+      "id": 27967,
+      "name": "THE BRIDGEFORD GROUP"
+    },
+    {
+      "id": 35349,
+      "name": "THE BEACON GROUP CAPITAL SERVICES, L.L.C."
+    },
+    {
+      "id": 38557,
+      "name": "THE BRIDGEFORD GROUP, INC."
+    },
+    {
+      "id": 18718,
+      "name": "J.P. MORGAN SECURITIES INC."
+    },
+    {
+      "id": 42045,
+      "name": "LINCOLN INTERNATIONAL LLC"
+    },
+    {
+      "id": 816,
+      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
+    },
+    {
+      "id": 8209,
+      "name": "MORGAN STANLEY & CO. LLC"
+    },
+    {
+      "id": 361,
+      "name": "GOLDMAN SACHS & CO. LLC"
+    },
+    {
+      "id": 40451,
+      "name": "CAMBRIDGE INTERNATIONAL PARTNERS LLC"
     },
     {
       "id": 42405,
@@ -341,10 +377,6 @@
       "name": "CSFBDIRECT, INC."
     },
     {
-      "id": 7059,
-      "name": "SALOMON SMITH BARNEY INC."
-    },
-    {
       "id": 17930,
       "name": "SLOAN SECURITIES CORP."
     },
@@ -479,10 +511,6 @@
     {
       "id": 7556,
       "name": "MORGAN STANLEY DW INC."
-    },
-    {
-      "id": 8209,
-      "name": "MORGAN STANLEY & CO. INCORPORATED"
     },
     {
       "id": 149777,
@@ -1109,10 +1137,6 @@
       "name": "SPEAR, LEEDS & KELLOGG, L.P."
     },
     {
-      "id": 361,
-      "name": "GOLDMAN, SACHS & CO."
-    },
-    {
       "id": 136453,
       "name": "PRAGMA SECURITIES LLC"
     },
@@ -1397,10 +1421,6 @@
       "name": "J.P. MORGAN SECURITIES INC."
     },
     {
-      "id": 18718,
-      "name": "J.P. MORGAN SECURITIES INC."
-    },
-    {
       "id": 293066,
       "name": "TIGERBRIDGE CAPITAL"
     },
@@ -1511,10 +1531,6 @@
     {
       "id": 2881,
       "name": "NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC"
-    },
-    {
-      "id": 816,
-      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
     },
     {
       "id": 40638,
@@ -2563,10 +2579,6 @@
     {
       "id": 129772,
       "name": "TUDOR, PICKERING, HOLT & CO. SECURITIES, LLC"
-    },
-    {
-      "id": 42045,
-      "name": "LINCOLN INTERNATIONAL LLC"
     },
     {
       "id": 5214,
@@ -13031,16 +13043,48 @@
   ],
   "individuals": [
     {
+      "id": 6370880,
+      "name": "SHANNEE CARRIE BRAUN"
+    },
+    {
+      "id": 7264458,
+      "name": "Troy James Reed"
+    },
+    {
+      "id": 244179,
+      "name": "JOHN A HERRMANN"
+    },
+    {
+      "id": 8167388,
+      "name": "Elan Nigel Guzman"
+    },
+    {
+      "id": 5954578,
+      "name": "Jordan E Mann"
+    },
+    {
+      "id": 7998234,
+      "name": "Ethan James Cohen"
+    },
+    {
+      "id": 4607481,
+      "name": "JONATHAN NMN STERN"
+    },
+    {
+      "id": 7156300,
+      "name": "Cameron Adam Danesh-Pajou"
+    },
+    {
+      "id": 7557390,
+      "name": "Dylan T Walsh"
+    },
+    {
       "id": 6365888,
       "name": "Stephen Stephano"
     },
     {
       "id": 1432179,
       "name": "RALPH LAWRENCE ROTH"
-    },
-    {
-      "id": 4607481,
-      "name": "JONATHAN NMN STERN"
     },
     {
       "id": 1704577,

@@ -694,8 +694,14 @@ function computeConnectionStatusTag(
   const iaScope = String(
     firstNonEmpty(node?.iaScope, node?.basicInformation?.iaScope) || "",
   ).toLowerCase();
+  const normalizedBc = bcScope.replace(/[^a-z0-9]+/g, "");
+  const normalizedIa = iaScope.replace(/[^a-z0-9]+/g, "");
+  const isInactiveScope =
+    /(inactive|terminated|revoked|suspended|notinscope|withdrawn)/.test(normalizedBc) ||
+    /(inactive|terminated|revoked|suspended|notinscope|withdrawn)/.test(normalizedIa);
   const hasActiveScope =
-    bcScope.includes("active") || iaScope.includes("active");
+    !isInactiveScope &&
+    (/(active|approved|current)/.test(normalizedBc) || /(active|approved|current)/.test(normalizedIa));
   if (hasActiveScope && isCurrent) return "Broker";
   if (isCurrent && currentEmployments.length > 0) return "BD Stub Only";
   return "Inactive";

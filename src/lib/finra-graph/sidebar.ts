@@ -241,7 +241,9 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 	const links: any[] = (graphData?.links || []).filter((l: any) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
 	const controlLinks = links.filter((l: any) => l.relationship === 'controls');
 
-	const stubBadge = d.stub ? `<span class='fg-badge stub'>Form BD stub</span>` : '';
+	// Queue seeds set stub=true until hydrate; never show Form BD chrome once live FINRA/SEC detail exists.
+	const showFormBdStub = Boolean(d.stub) && !hasFinraPage && !hasSecPage && !d.hasFinraData && !d.hasSecData;
+	const stubBadge = showFormBdStub ? `<span class='fg-badge stub'>Form BD stub</span>` : '';
 
 	if (d.orphan && typeof d.orphan === 'object') {
 		const orphan = d.orphan;

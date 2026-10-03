@@ -26,7 +26,12 @@ function isNotInScope(value: unknown): boolean {
 function isActiveScope(value: unknown): boolean {
 	const text = String(value || '').trim();
 	if (!text || isNotInScope(text)) return false;
-	return /active|approved/i.test(text);
+	const normalized = text.toLowerCase().replace(/[^a-z0-9]+/g, '');
+	// "InActive" contains substring "active" — reject inactive tokens first.
+	if (/(inactive|terminated|revoked|suspended|withdrawn|barred|expelled|denied|ceased|closed|cancelled|canceled)/.test(normalized)) {
+		return false;
+	}
+	return /(active|approved|current)/.test(normalized);
 }
 
 /** IA registration number only — never a BD `bdSECNumber`, which is not an AdvisorInfo firm id. */

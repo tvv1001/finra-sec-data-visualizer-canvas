@@ -159,6 +159,11 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 	const bi = detail?.basicInformation || {};
 	targetNode.basicInformation = bi;
 
+	// Live BrokerCheck/IAPD detail replaces Queue/Form BD stub chrome.
+	targetNode.stub = false;
+	if (targetNode._queueGraphStub) targetNode._queueGraphStub = false;
+	if (targetNode.orphan) delete targetNode.orphan;
+
 	if (bi.individualId || fallbackCrd) {
 		targetNode.crd = String(bi.individualId || fallbackCrd);
 	}

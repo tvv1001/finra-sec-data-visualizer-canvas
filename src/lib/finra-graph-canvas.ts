@@ -465,21 +465,32 @@ function isPreviousLink(link: Link) {
 	);
 }
 
+function classifyScopeActivity(value: unknown): 'active' | 'inactive' | null {
+	const normalized = String(value || '')
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '');
+	if (!normalized) return null;
+	// Check inactive tokens before "active" — "InActive" contains the substring "active".
+	if (/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|cancelled|canceled|expanded)/.test(normalized)) {
+		return 'inactive';
+	}
+	if (/(active|approved|current)/.test(normalized)) return 'active';
+	return null;
+}
+
 function isInactiveNode(node: Node) {
 	if (!node) return false;
 	if (node.inactive === true || node.isInactive === true) return true;
-	const bc = String(node.bcScope || node.basicInformation?.bcScope || '').toLowerCase();
-	const ia = String(node.iaScope || node.basicInformation?.iaScope || '').toLowerCase();
-	const firm = String(node.status || node.firmStatus || node.basicInformation?.firmStatus || '').toLowerCase();
-	const status = firm || bc || ia;
+	const bc = classifyScopeActivity(node.bcScope || node.basicInformation?.bcScope);
+	const ia = classifyScopeActivity(node.iaScope || node.basicInformation?.iaScope);
+	const firm = classifyScopeActivity(node.status || node.firmStatus || node.basicInformation?.firmStatus);
 	// Real Active scope always wins over a stale queue stub `_vizInactive: true`
 	// (previous-at-firm used to force that flag even for Active brokers).
-	if (bc.includes('active') || ia.includes('active') || firm.includes('active') || status.includes('approved')) {
-		return false;
-	}
+	if (bc === 'active' || ia === 'active' || firm === 'active') return false;
+	if (bc === 'inactive' || firm === 'inactive') return true;
 	if (node._vizInactive === true) return true;
 	if (node._vizInactive === false) return false;
-	if (status && ['inactive', 'terminated', 'withdrawn', 'not active', 'cancelled', 'canceled', 'expanded'].includes(status)) return true;
 	// Missing scope/detail alone must not mark people inactive — Queue graph stubs
 	// often lack those fields until enrich runs, and treating them inactive painted
 	// current employment as invisible gray ghosts under the firm.
@@ -760,6 +771,12 @@ export function drawCanvasFrame(
 
 	for (const n of visibleNodes) {
 		const inactive = isInactiveNode(n);
+		// Queue seeds leave stub=true; once live FINRA/SEC detail exists, paint as a real node.
+		if (n.stub && (n.hasFinraData || n.hasSecData || n.basicInformation)) {
+			n.stub = false;
+			if (n._queueGraphStub) n._queueGraphStub = false;
+		}
+		const isStubPaint = Boolean(n.stub) && !n.hasFinraData && !n.hasSecData;
 		const isSelected = opts.selectedId && String(opts.selectedId) === String(n.id);
 		const isPersistentlySelected = selectedNodeIds.has(String(n.id));
 		const isNodeSelected = Boolean(isSelected || isPersistentlySelected);
@@ -776,7 +793,7 @@ export function drawCanvasFrame(
 				: n.group === 'firm' && hasCurrentFirmConnections ? colors.selectedActiveFirm
 				: isControlPosition ? '#b91c1c'
 				: n.group === 'individual' ?
-					n.stub ?
+					isStubPaint ?
 						colors.selectedStub
 					:	colors.selectedIndividual
 				: n.group === 'firm' ? colors.selectedFirm
@@ -784,7 +801,7 @@ export function drawCanvasFrame(
 			: inactive ? colors.inactive
 			: n.group === 'firm' && hasCurrentFirmConnections ? '#14c2bb'
 			: isControlPosition ? colors.control
-			: n.group === 'individual' && n.stub ? colors.stub
+			: n.group === 'individual' && isStubPaint ? colors.stub
 			: getColorForGroup(n.group);
 		const nodeStroke =
 			inactive ? colors.inactiveStroke
