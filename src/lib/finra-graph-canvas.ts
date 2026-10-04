@@ -174,7 +174,21 @@ function getCanvasNodeSize(node: Node) {
 }
 
 function isControlPositionNode(node: Node) {
-	return Boolean(node?._deg?.controls > 0 || node?.isControlPosition || node?.controlPosition);
+	if (node?._deg?.controls > 0 || node?.isControlPosition || node?.controlPosition) return true;
+	if (Array.isArray(node?.controlPositions) && node.controlPositions.length > 0) return true;
+	const orphanPosition = String(node?.orphanPosition || node?.orphan?.position || '').trim();
+	if (orphanPosition && /officer|chief|director|principal|control\s*person|owner|partner|proprietor/i.test(orphanPosition)) {
+		return true;
+	}
+	return false;
+}
+
+/** Form BD / orphan stubs that inherited Active from the parent firm should paint as active, not stub blue. */
+function hasActiveInheritedScope(node: Node) {
+	if (!node) return false;
+	const bc = classifyScopeActivity(node.bcScope || node.basicInformation?.bcScope);
+	const firm = classifyScopeActivity(node.firmStatus || node.status || node.orphan?.firmStatus || node.orphan?.status);
+	return bc === 'active' || firm === 'active';
 }
 
 function getHitNode(clientX: number, clientY: number) {
@@ -748,6 +762,7 @@ export function drawCanvasFrame(
 	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
 	const priorityLabelIds = new Set((opts.priorityLabelNodeIds || []).map((id) => String(id)));
 	const focusedNodeId = opts.focusedNodeId != null ? String(opts.focusedNodeId).trim() : '';
+	const selectedNodeId = opts.selectedId != null ? String(opts.selectedId).trim() : '';
 	const labelBudget =
 		visibleNodes.length > 1000 ? 160
 		: visibleNodes.length > 600 ? 240
@@ -756,7 +771,13 @@ export function drawCanvasFrame(
 	const labelCandidates = visibleNodes
 		.filter((node) => {
 			const id = String(node.id);
-			return forcedLabelIds.has(id) || priorityLabelIds.has(id) || hoverNodeId === id || (focusedNodeId && id === focusedNodeId);
+			return (
+				forcedLabelIds.has(id) ||
+				priorityLabelIds.has(id) ||
+				hoverNodeId === id ||
+				(focusedNodeId && id === focusedNodeId) ||
+				(selectedNodeId && id === selectedNodeId)
+			);
 		})
 		.map((node) => node.id);
 	const labelCandidateIds = new Set(labelCandidates);
@@ -780,7 +801,8 @@ export function drawCanvasFrame(
 			n.stub = false;
 			if (n._queueGraphStub) n._queueGraphStub = false;
 		}
-		const isStubPaint = Boolean(n.stub) && !n.hasFinraData && !n.hasSecData;
+		// Stub chrome is for unresolved placeholders. Active parent-firm Form BD people paint active.
+		const isStubPaint = Boolean(n.stub) && !n.hasFinraData && !n.hasSecData && !hasActiveInheritedScope(n);
 		const isSelected = opts.selectedId && String(opts.selectedId) === String(n.id);
 		const isPersistentlySelected = selectedNodeIds.has(String(n.id));
 		const isNodeSelected = Boolean(isSelected || isPersistentlySelected);
@@ -855,7 +877,8 @@ export function drawCanvasFrame(
 			ctx.stroke();
 		}
 
-		if (shouldShowLabel && (isForcedLabel || isPriorityForcedLabel || scale >= selectedCanvasLabelZoomThreshold)) {
+		// Zoomed-out: only Log Bold / priority / hover / focus (selected). Neighbors need zoom-in.
+		if (shouldShowLabel && (isForcedLabel || isPriorityForcedLabel || isPriorityLabel || scale >= selectedCanvasLabelZoomThreshold)) {
 			renderedLabelCount += 1;
 			canvasLabelVisibleIds.add(String(n.id));
 			const pending = { n, isBoldLabel, inactive, size };

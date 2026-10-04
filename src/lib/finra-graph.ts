@@ -3351,37 +3351,9 @@ function getCanvasLinkFocusNodeIds() {
 	);
 }
 
-/** Firm ids linked by employment to the selected person — forced canvas labels even when zoomed out. */
-function getSelectedPersonEmploymentNeighborLabelIds() {
-	const selectedId = String(globalState.selectedId || '').trim();
-	if (!selectedId || !selectedId.startsWith('person:')) return [] as string[];
-	const personNode =
-		(globalState.layoutNodes || []).find((node) => String(node?.id || '') === selectedId) ||
-		(globalState.graphData?.nodes || []).find((node) => String(node?.id || '') === selectedId) ||
-		null;
-	if (!personNode || personNode.group !== 'individual') return [] as string[];
-
-	const firmIds = new Set<string>();
-	for (const employment of flattenEmploymentRecords(personNode)) {
-		const firmNodeId = resolveEmploymentConnectionFirmNodeId(employment);
-		if (firmNodeId) firmIds.add(firmNodeId);
-	}
-	const considerLink = (link) => {
-		if (!isPersonClickEmploymentLink(link)) return;
-		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
-		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
-		if (sourceId === selectedId && targetId) firmIds.add(targetId);
-		if (targetId === selectedId && sourceId) firmIds.add(sourceId);
-	};
-	for (const link of globalState.layoutLinks || []) considerLink(link);
-	for (const link of globalState.graphData?.links || []) considerLink(link);
-
-	const visibleIds = new Set((globalState.layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
-	return Array.from(firmIds).filter((id) => visibleIds.has(id));
-}
-
+/** Selection no longer forces neighbor/child labels when zoomed out — only Log Bold / hover / focus. */
 function getCanvasPriorityLabelNodeIds() {
-	return getSelectedPersonEmploymentNeighborLabelIds();
+	return [] as string[];
 }
 
 let selectionLogAuxRenderFrame: number | null = null;
@@ -12622,9 +12594,18 @@ export function renderNodeContents(selection) {
 		}
 		const inactive = isNodeInactive(d);
 		const deg = d._deg || { total: 0, controls: 0, employed: 0 };
-		const isControlNode = Boolean(deg.controls > 0);
+		const orphanControlPosition = String(d.orphanPosition || d.orphan?.position || '').trim();
+		const isControlNode = Boolean(
+			deg.controls > 0 ||
+				(Array.isArray(d.controlPositions) && d.controlPositions.length > 0) ||
+				(orphanControlPosition && /officer|chief|director|principal|control\s*person|owner|partner|proprietor/i.test(orphanControlPosition)),
+		);
 		const compactMode = globalState.nodeLabelRenderMode === 'compact';
-		const isStubPaint = Boolean(d.stub) && !d.hasFinraData && !d.hasSecData;
+		const hasActiveInheritedScope =
+			/^(active|approved|current)$/i.test(String(d.bcScope || d.basicInformation?.bcScope || '').trim()) ||
+			/^(active|approved|current)$/i.test(String(d.firmStatus || d.status || d.orphan?.firmStatus || d.orphan?.status || '').trim());
+		// Stub paint only for unresolved placeholders — Active parent-firm Form BD people use active colors.
+		const isStubPaint = Boolean(d.stub) && !d.hasFinraData && !d.hasSecData && !hasActiveInheritedScope;
 		g.classed('fg-node--inactive', inactive)
 			.classed('fg-node--individual', d.group === 'individual')
 			.classed('fg-node--firm', d.group === 'firm')
@@ -13397,23 +13378,34 @@ function updateNodeVisuals(
 		const isBolded = isLogged || isFirmBold;
 		const isEmphasized = isSelectedNode || isHoveredNode || isBolded || isFindMatchNode || isHighlightRootNode || isHighlightHopNode || isActiveParentConnectedNode;
 
+		const orphanControlPosition = String(d.orphanPosition || d.orphan?.position || '').trim();
+		const isControlNodeResolved = Boolean(
+			isControlNode ||
+				(Array.isArray(d.controlPositions) && d.controlPositions.length > 0) ||
+				(orphanControlPosition && /officer|chief|director|principal|control\s*person|owner|partner|proprietor/i.test(orphanControlPosition)),
+		);
+		const hasActiveInheritedScope =
+			/^(active|approved|current)$/i.test(String(d.bcScope || d.basicInformation?.bcScope || '').trim()) ||
+			/^(active|approved|current)$/i.test(String(d.firmStatus || d.status || d.orphan?.firmStatus || d.orphan?.status || '').trim());
+		const isStubPaint = Boolean(d.stub) && !d.hasFinraData && !d.hasSecData && !hasActiveInheritedScope;
+
 		g.classed('fg-node--inactive', inactive)
 			.classed('fg-node--individual', d.group === 'individual')
 			.classed('fg-node--firm', d.group === 'firm')
 			.classed('fg-node--entity', d.group === 'entity')
-			.classed('fg-node--stub', d.group === 'individual' && Boolean(d.stub))
-			.classed('fg-node--control-position', isControlNode);
+			.classed('fg-node--stub', d.group === 'individual' && isStubPaint)
+			.classed('fg-node--control-position', isControlNodeResolved);
 
 		let color = inactive ? GRAPH_COLORS.nodeInactive : NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
 
-		if (isControlNode && !inactive) {
+		if (isControlNodeResolved && !inactive) {
 			color = GRAPH_COLORS.nodeControls;
 		}
 		let nodeOpacity: number | string = inactive ? 0.82 : 1;
 		let nodeStroke = inactive ? GRAPH_COLORS.nodeInactiveStroke : GRAPH_COLORS.nodeBorder;
 		let nodeLabelColor = inactive ? GRAPH_COLORS.nodeInactiveLabel : GRAPH_COLORS.nodeLabel;
 
-		if (d.group === 'individual' && d.stub && !(isControlNode && !inactive)) {
+		if (d.group === 'individual' && isStubPaint && !(isControlNodeResolved && !inactive)) {
 			color = inactive ? GRAPH_COLORS.nodeInactive : GRAPH_COLORS.nodeStub;
 			nodeOpacity = inactive ? 0.72 : NODE_OPACITY_STUB;
 		}
@@ -19021,7 +19013,8 @@ function renderPersonDetail(d: any) {
 	const links = (globalState.graphData?.links || []).filter((l: any) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
 	const controlLinks = links.filter((l) => l.relationship === 'controls');
 
-	const stubBadge = d.stub ? `<span class="fg-badge stub">Form BD stub</span>` : '';
+	const showFormBdStub = Boolean(d.stub) && !hasFinraPage && !hasSecPage && !d.hasFinraData && !d.hasSecData;
+	const stubBadge = showFormBdStub ? `<span class="fg-badge stub">Form BD stub</span>` : '';
 
 	// ── Scope badges ──────────────────────────────────────────────────────────
 	function formatDomainScopeBadge(text, domain, sourceTitle) {
@@ -19034,10 +19027,17 @@ function renderPersonDetail(d: any) {
 		return `<span class="fg-badge ${isActive ? 'active' : 'inactive'}" title="${esc(sourceTitle)}">${esc(label)}</span>`;
 	}
 
-	const finraScopeText = d.bcScope || bi.bcScope || (hasFinraPage ? 'Active' : '');
+	const finraScopeText =
+		d.bcScope ||
+		bi.bcScope ||
+		(isNonLiveOrphanPerson ? d.firmStatus || d.orphan?.firmStatus || d.orphan?.status || '' : '') ||
+		(hasFinraPage ? 'Active' : '');
 	const secScopeText = hasSecPage ? d.iaScope || bi.iaScope || 'Active' : '';
 	const scopeBadgesHtml = [
-		showFinra ? formatDomainScopeBadge(finraScopeText, 'finra', 'FINRA') : null,
+		showFinra ? formatDomainScopeBadge(finraScopeText, 'finra', 'FINRA')
+		: isNonLiveOrphanPerson && finraScopeText ?
+			formatDomainScopeBadge(finraScopeText, 'finra', 'Parent firm registration status')
+		:	null,
 		showSec ? formatDomainScopeBadge(secScopeText, 'sec', 'SEC AdvisorInfo') : null,
 	]
 		.filter(Boolean)
