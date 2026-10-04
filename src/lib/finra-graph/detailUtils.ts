@@ -152,6 +152,8 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 					firmStatus: parentStatus || 'ACTIVE',
 				},
 			];
+			// Orphan Form BD people have no BrokerCheck employment history payload.
+			targetNode._employmentHistoryResolved = true;
 		}
 		return targetNode;
 	}
@@ -282,6 +284,9 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 	}
 
 	targetNode._detailLoaded = true;
+	// Mark employment arrays as authoritative so ensureIndividualDetail does not treat
+	// stub/empty previousEmployments: [] as "history known" and skip the live refetch.
+	targetNode._employmentHistoryResolved = true;
 	return targetNode;
 }
 

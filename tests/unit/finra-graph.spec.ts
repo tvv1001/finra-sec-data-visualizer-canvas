@@ -34,6 +34,9 @@ import {
 	rewriteLinksForNodeIdMap,
 	resolveNodeByIdOrIdentity,
 	selectNodesToInjectById,
+	findLargestHopConnectedComponentIds,
+	placeFetchedNodesOnOuterEdges,
+	centerLargestHopComponentInViewport,
 	releasePinnedSelectedNodeAnchor,
 	normalizeNodeLabelInPlace,
 	getNodeTooltipTitle,
@@ -702,6 +705,77 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(result.nodes[0].fx).toBe(10);
 		expect(result.nodes[0].fy).toBe(20);
 		expect(result.added).toEqual(['person:99']);
+	});
+
+	it('findLargestHopConnectedComponentIds returns the biggest hop-connected cluster', () => {
+		const ids = ['a', 'b', 'c', 'd', 'e', 'f'];
+		const links = [
+			{ source: 'a', target: 'b' },
+			{ source: 'b', target: 'c' },
+			{ source: 'c', target: 'a' },
+			{ source: 'd', target: 'e' },
+		];
+		const largest = findLargestHopConnectedComponentIds(ids, links);
+		expect(largest.sort()).toEqual(['a', 'b', 'c']);
+	});
+
+	it('placeFetchedNodesOnOuterEdges parks isolates outside and attached nodes inward', () => {
+		const existing = [
+			{ id: 'firm:1', x: 400, y: 300 },
+			{ id: 'person:2', x: 430, y: 310 },
+			{ id: 'person:3', x: 370, y: 290 },
+			{ id: 'person:lonely', x: 700, y: 500 },
+		];
+		const existingLinks = [
+			{ source: 'firm:1', target: 'person:2' },
+			{ source: 'firm:1', target: 'person:3' },
+		];
+		const newNodes = [{ id: 'person:new-attached' }, { id: 'person:new-isolate' }, { id: 'firm:new-isolate' }];
+		const newLinks = [{ source: 'person:new-attached', target: 'firm:1', relationship: 'employed_by' }];
+
+		const result = placeFetchedNodesOnOuterEdges({
+			existingNodes: existing,
+			newNodes,
+			newLinks,
+			existingLinks,
+			width: 800,
+			height: 600,
+			forceReplaceCoords: true,
+		});
+
+		expect(result.centerComponentIds.sort()).toEqual(['firm:1', 'person:2', 'person:3']);
+		expect(result.placements.get('person:new-isolate')?.kind).toBe('outer');
+		expect(result.placements.get('firm:new-isolate')?.kind).toBe('outer');
+		expect(result.placements.get('person:new-attached')?.kind).toBe('inward');
+
+		const dist = (id: string) => {
+			const p = result.placements.get(id)!;
+			return Math.hypot(p.x - result.center.x, p.y - result.center.y);
+		};
+		expect(result.outerRadius).toBeGreaterThan(result.inwardRadius);
+		expect(dist('person:new-isolate')).toBeGreaterThan(result.inwardRadius - 1);
+		expect(dist('person:new-attached')).toBeLessThan(dist('person:new-isolate') + 1);
+		expect(dist('person:new-attached')).toBeGreaterThan(40);
+		// Isolates sit outside the existing main-cluster bulk.
+		const existingBulk = Math.max(
+			...existing.filter((n) => n.id !== 'person:lonely').map((n) => Math.hypot(n.x - result.center.x, n.y - result.center.y)),
+		);
+		expect(dist('person:new-isolate')).toBeGreaterThan(existingBulk);
+		expect(newNodes[0].x).toBeDefined();
+		expect(newNodes[1].x).toBeDefined();
+	});
+
+	it('centerLargestHopComponentInViewport shifts the cluster toward the viewport middle', () => {
+		const nodes = [
+			{ id: 'a', x: 100, y: 100 },
+			{ id: 'b', x: 140, y: 120 },
+			{ id: 'c', x: 900, y: 800 },
+		];
+		const moved = centerLargestHopComponentInViewport(nodes, ['a', 'b'], 800, 600, { strength: 1 });
+		expect(moved.center.x).toBeCloseTo(400, 0);
+		expect(moved.center.y).toBeCloseTo(300, 0);
+		expect(nodes[0].x).toBeGreaterThan(100);
+		expect(nodes[2].x).toBe(900);
 	});
 
 	it('mergeGraphNodesForAppend keeps the canonical person id when an alternate id arrives', () => {

@@ -333,6 +333,10 @@ type GraphSimulationNode = {
 	_locationBiasX?: number;
 	_locationBiasY?: number;
 	_locationBiasStrength?: number;
+	_fetchLayoutBiasX?: number;
+	_fetchLayoutBiasY?: number;
+	_fetchLayoutBiasStrength?: number;
+	_fetchPlacementKind?: 'outer' | 'inward';
 	[key: string]: any;
 };
 
@@ -1038,8 +1042,15 @@ function getVisibleRevealableNeighborIds(nodeId) {
 	const visibleNeighborIds = new Set<string>();
 	if (!nodeId) return visibleNeighborIds;
 	ensureLayoutLinkIndexes();
-	for (const link of globalState.layoutLinksByNodeId.get(String(nodeId)) || []) {
-		if (!isNonGrayExpansionLink(link)) continue;
+	const normalizedId = String(nodeId);
+	const node =
+		(Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.find((entry) => String(entry?.id) === normalizedId)) ||
+		(Array.isArray(globalState.graphData?.nodes) && globalState.graphData.nodes.find((entry) => String(entry?.id) === normalizedId)) ||
+		null;
+	// Person clicks reveal previous (gray) employers; count those as visible for exhaustion checks.
+	const linkIsVisible = node?.group === 'individual' ? isPersonClickEmploymentLink : isNonGrayExpansionLink;
+	for (const link of globalState.layoutLinksByNodeId.get(normalizedId) || []) {
+		if (!linkIsVisible(link)) continue;
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
 		if (sourceId === nodeId && targetId) visibleNeighborIds.add(targetId);
@@ -2105,6 +2116,7 @@ function resetTransientDetailState(node) {
 	delete node._ownerEvidenceLoaded;
 	delete node._detailLoaded;
 	delete node._detailValidated;
+	delete node._employmentHistoryResolved;
 }
 
 function clearSession() {
@@ -2316,6 +2328,20 @@ async function applyPendingRouteNodeSelection() {
 		// re-dispatches this route request. Skipping the duplicate selectNode keeps
 		// large-graph clicks off a second full selection/session/redraw pass.
 		if (targetAlreadySelected && !shouldExpand && !shouldFocusRouteSelection) {
+			// Session restore often re-selects the same person with only a partial set of
+			// previous-employer links (batch fetch used on-screen firm ids). Still inject
+			// the full employment history so gray previous firms appear without a re-click.
+			if (liveNode.group === 'individual') {
+				try {
+					await ensureIndividualDetail(liveNode, {
+						allowOwnerEvidenceFirmFetch: true,
+						injectEmploymentGraph: true,
+					});
+					revealPersonEmploymentNeighbors(liveNode);
+				} catch (error) {
+					console.warn('Failed to inject employment graph for already-selected route person:', error);
+				}
+			}
 			return true;
 		}
 
@@ -2330,6 +2356,16 @@ async function applyPendingRouteNodeSelection() {
 		});
 		if (shouldExpand) {
 			await materializeRouteSelectionNeighborhood(liveNode, getDefaultExpansionHops());
+		} else if (liveNode.group === 'individual') {
+			try {
+				await ensureIndividualDetail(liveNode, {
+					allowOwnerEvidenceFirmFetch: true,
+					injectEmploymentGraph: true,
+				});
+				revealPersonEmploymentNeighbors(liveNode);
+			} catch (error) {
+				console.warn('Failed to inject employment graph for route-selected person:', error);
+			}
 		}
 		return true;
 	})();
@@ -3853,6 +3889,9 @@ function getConnectedRenderedGraphSnapshot() {
 						firmId: (node as any)?.firmId || null,
 						crd: (node as any)?.crd || null,
 						degree: degreeById.get(nodeId) || 0,
+						x: Number.isFinite((node as any)?.x) ? Number((node as any).x) : null,
+						y: Number.isFinite((node as any)?.y) ? Number((node as any).y) : null,
+						fetchPlacementKind: (node as any)?._fetchPlacementKind || null,
 						connectedTo: Array.from(adjacency.get(nodeId) || []).sort(sortByDegreeThenLabel),
 					};
 				}),
@@ -4493,7 +4532,8 @@ async function ensureNodeFetchedAndOnScreen(entry: SelectionLogEntry) {
 	if (isOnScreen) {
 		const liveNode = globalState.layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
 		if (liveNode) {
-			selectNode(liveNode, { focus: true, pulse: true });
+			// Use the same expand path as a canvas click so previous employers inject.
+			openNodeWithExpansion(liveNode, { focus: true, pulse: true, syncRoute: true });
 		}
 		return;
 	}
@@ -4504,7 +4544,7 @@ async function ensureNodeFetchedAndOnScreen(entry: SelectionLogEntry) {
 			injectNodesById([entryId]);
 			const liveNode = globalState.layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
 			if (liveNode) {
-				selectNode(liveNode, { focus: true, pulse: true });
+				openNodeWithExpansion(liveNode, { focus: true, pulse: true, syncRoute: true });
 			}
 			return;
 		}
@@ -4522,7 +4562,7 @@ async function ensureNodeFetchedAndOnScreen(entry: SelectionLogEntry) {
 				injectNodesById([entryId]);
 				const liveNode = globalState.layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
 				if (liveNode) {
-					selectNode(liveNode, { focus: true, pulse: true });
+					openNodeWithExpansion(liveNode, { focus: true, pulse: true, syncRoute: true });
 					updateFetchStatus(`Loaded CRD ${crd}`);
 					return;
 				}
@@ -7435,11 +7475,35 @@ function getLayoutReflowCooling(nodeCount = globalState.layoutNodes?.length || 0
 }
 
 /** Unpin the whole graph and reheat like the Refresh button so new nodes flow in. */
-function reheatLayoutLikeRefresh(options: { newNodes?: any[]; alpha?: number; eventName?: string } = {}) {
+function reheatLayoutLikeRefresh(
+	options: {
+		newNodes?: any[];
+		alpha?: number;
+		eventName?: string;
+		priorNodeIds?: Iterable<string> | Set<string>;
+		centerComponentIds?: string[];
+		placementCenter?: { x: number; y: number };
+		outerRadius?: number;
+	} = {},
+) {
 	if (!globalState.simulation || !Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length) return;
 	const newNodes = Array.isArray(options.newNodes) ? options.newNodes : [];
 	const cooling = getLayoutReflowCooling(globalState.layoutNodes.length);
 	const eventName = options.eventName || 'fetch-reflow';
+	const main = document.getElementById('fg-main');
+	const width = main?.clientWidth || 800;
+	const height = main?.clientHeight || 600;
+	const priorIdSet = new Set(
+		Array.from(options.priorNodeIds || [])
+			.map((id) => String(id || '').trim())
+			.filter(Boolean),
+	);
+	const centerComponentIds =
+		Array.isArray(options.centerComponentIds) && options.centerComponentIds.length ?
+			options.centerComponentIds.map((id) => String(id))
+		:	priorIdSet.size ?
+			findLargestHopConnectedComponentIds(priorIdSet, globalState.layoutLinks || [])
+		:	[];
 
 	if (globalState.activeSpreadFrozenNodes?.length) {
 		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
@@ -7449,6 +7513,42 @@ function reheatLayoutLikeRefresh(options: { newNodes?: any[]; alpha?: number; ev
 		node.fx = null;
 		node.fy = null;
 	}
+
+	// Keep the largest already-on-canvas hop cluster near the viewport center.
+	if (centerComponentIds.length && priorIdSet.size) {
+		centerLargestHopComponentInViewport(globalState.layoutNodes, centerComponentIds, width, height, { strength: 0.9 });
+	}
+
+	const placementCenter = options.placementCenter || { x: width / 2, y: height / 2 };
+	const outerRadius = Number.isFinite(options.outerRadius) ? Number(options.outerRadius) : Math.min(width, height) * 0.42;
+	const centerIdSet = new Set(centerComponentIds);
+	const newIdSet = new Set(newNodes.map((n) => String(n?.id || '')).filter(Boolean));
+
+	// Soft fetch biases: center cluster → viewport center; unattached new nodes → outer ring.
+	for (const node of globalState.layoutNodes) {
+		const id = String(node?.id || '');
+		delete node._fetchLayoutBiasX;
+		delete node._fetchLayoutBiasY;
+		delete node._fetchLayoutBiasStrength;
+		if (centerIdSet.has(id)) {
+			node._fetchLayoutBiasX = width / 2;
+			node._fetchLayoutBiasY = height / 2;
+			node._fetchLayoutBiasStrength = cooling.isHuge ? 0.045 : cooling.isLarge ? 0.055 : 0.07;
+		} else if (newIdSet.has(id) && (node as any)._fetchPlacementKind === 'outer') {
+			const dx = Number.isFinite(node.x) ? Number(node.x) - placementCenter.x : 1;
+			const dy = Number.isFinite(node.y) ? Number(node.y) - placementCenter.y : 0;
+			const ang = Math.atan2(dy, dx);
+			node._fetchLayoutBiasX = placementCenter.x + Math.cos(ang) * outerRadius;
+			node._fetchLayoutBiasY = placementCenter.y + Math.sin(ang) * outerRadius;
+			node._fetchLayoutBiasStrength = cooling.isHuge ? 0.03 : 0.04;
+		} else if (newIdSet.has(id) && (node as any)._fetchPlacementKind === 'inward') {
+			// Mild pull toward center so attached newcomers settle into the main cluster.
+			node._fetchLayoutBiasX = width / 2;
+			node._fetchLayoutBiasY = height / 2;
+			node._fetchLayoutBiasStrength = cooling.isHuge ? 0.02 : 0.028;
+		}
+	}
+
 	newNodes.forEach((node, idx) => {
 		if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return;
 		const angle = (idx / Math.max(1, newNodes.length)) * Math.PI * 2;
@@ -7480,8 +7580,47 @@ function reheatLayoutLikeRefresh(options: { newNodes?: any[]; alpha?: number; ev
 		/* ignore */
 	}
 
+	const applyFetchBiasForces = () => {
+		try {
+			globalState.simulation
+				?.force('location-x')
+				?.x((node: any) => {
+					if (Number.isFinite(node?._fetchLayoutBiasX)) return node._fetchLayoutBiasX;
+					if (Number.isFinite(node?._locationBiasX)) return node._locationBiasX;
+					return width / 2;
+				})
+				.strength((node: any) => {
+					const fetchStrength = Number(node?._fetchLayoutBiasStrength) || 0;
+					const locStrength = Number(node?._locationBiasStrength) || 0;
+					return Math.max(fetchStrength, locStrength);
+				});
+			globalState.simulation
+				?.force('location-y')
+				?.y((node: any) => {
+					if (Number.isFinite(node?._fetchLayoutBiasY)) return node._fetchLayoutBiasY;
+					if (Number.isFinite(node?._locationBiasY)) return node._locationBiasY;
+					return height / 2;
+				})
+				.strength((node: any) => {
+					const fetchStrength = Number(node?._fetchLayoutBiasStrength) || 0;
+					const locStrength = Number(node?._locationBiasStrength) || 0;
+					return Math.max(fetchStrength, locStrength) * 0.85;
+				});
+		} catch {
+			/* ignore */
+		}
+	};
+	applyFetchBiasForces();
+
 	const finalize = () => {
 		try {
+			for (const node of globalState.layoutNodes || []) {
+				delete node._fetchLayoutBiasX;
+				delete node._fetchLayoutBiasY;
+				delete node._fetchLayoutBiasStrength;
+				delete node._fetchPlacementKind;
+			}
+			refreshSoftLocationGroupingForces(globalState.layoutNodes);
 			globalState.simulation?.alphaDecay?.(prevAlphaDecay);
 			globalState.simulation?.velocityDecay?.(prevVelocityDecay);
 			globalState.simulation?.alphaTarget?.(0);
@@ -9640,6 +9779,18 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 	if (incomingNode.registrationCount) targetNode.registrationCount = { ...(targetNode.registrationCount || {}), ...incomingNode.registrationCount };
 	if (Array.isArray(incomingNode.currentEmployments)) targetNode.currentEmployments = incomingNode.currentEmployments;
 	if (Array.isArray(incomingNode.currentIAEmployments)) targetNode.currentIAEmployments = incomingNode.currentIAEmployments;
+	// Prefer richer previous employment history when merging stubs/batch nodes onto a live person.
+	if (Array.isArray(incomingNode.previousEmployments)) {
+		const incomingLen = incomingNode.previousEmployments.length;
+		const currentLen = Array.isArray(targetNode.previousEmployments) ? targetNode.previousEmployments.length : -1;
+		if (incomingLen >= currentLen) targetNode.previousEmployments = incomingNode.previousEmployments;
+	}
+	if (Array.isArray(incomingNode.previousIAEmployments)) {
+		const incomingLen = incomingNode.previousIAEmployments.length;
+		const currentLen = Array.isArray(targetNode.previousIAEmployments) ? targetNode.previousIAEmployments.length : -1;
+		if (incomingLen >= currentLen) targetNode.previousIAEmployments = incomingNode.previousIAEmployments;
+	}
+	if (incomingNode._employmentHistoryResolved === true) targetNode._employmentHistoryResolved = true;
 	if (incomingNode.basicInformation) {
 		targetNode.basicInformation = {
 			...(targetNode.basicInformation || {}),
@@ -12004,6 +12155,282 @@ function getIncrementalRestartAlpha(nodeCount = globalState.layoutNodes?.length 
 	return changeRatio > 0.25 ? 0.24 : 0.14;
 }
 
+function linkEndpointId(end: any): string {
+	if (end == null) return '';
+	if (typeof end === 'object') return String(end.id ?? '').trim();
+	return String(end).trim();
+}
+
+/**
+ * Largest hop-connected component among `nodeIds` using undirected `links`.
+ * Tie-break: more internal edges, then lexicographic min id for stability.
+ */
+export function findLargestHopConnectedComponentIds(
+	nodeIds: Iterable<string | number | null | undefined>,
+	links: Array<{ source?: any; target?: any } | null | undefined> = [],
+): string[] {
+	const idSet = new Set<string>();
+	for (const raw of nodeIds || []) {
+		const id = String(raw ?? '').trim();
+		if (id) idSet.add(id);
+	}
+	if (!idSet.size) return [];
+
+	const adj = new Map<string, Set<string>>();
+	for (const id of idSet) adj.set(id, new Set());
+	let edgeCountByPair = 0;
+	for (const link of links || []) {
+		const s = linkEndpointId(link?.source);
+		const t = linkEndpointId(link?.target);
+		if (!s || !t || s === t) continue;
+		if (!idSet.has(s) || !idSet.has(t)) continue;
+		adj.get(s)!.add(t);
+		adj.get(t)!.add(s);
+		edgeCountByPair += 1;
+	}
+
+	const seen = new Set<string>();
+	let best: string[] = [];
+	let bestEdges = -1;
+
+	for (const start of idSet) {
+		if (seen.has(start)) continue;
+		const component: string[] = [];
+		const queue = [start];
+		seen.add(start);
+		let internalEdges = 0;
+		while (queue.length) {
+			const cur = queue.pop()!;
+			component.push(cur);
+			for (const nxt of adj.get(cur) || []) {
+				internalEdges += 1; // each undirected edge counted twice; compare consistently
+				if (seen.has(nxt)) continue;
+				seen.add(nxt);
+				queue.push(nxt);
+			}
+		}
+		internalEdges = Math.floor(internalEdges / 2);
+		const betterSize = component.length > best.length;
+		const betterEdges = component.length === best.length && internalEdges > bestEdges;
+		const betterStable =
+			component.length === best.length &&
+			internalEdges === bestEdges &&
+			(best.length === 0 || component.slice().sort()[0] < best.slice().sort()[0]);
+		if (betterSize || betterEdges || betterStable) {
+			best = component;
+			bestEdges = internalEdges;
+		}
+	}
+
+	void edgeCountByPair;
+	return best;
+}
+
+export type FetchedNodePlacementKind = 'outer' | 'inward';
+
+export type FetchedNodePlacementResult = {
+	centerComponentIds: string[];
+	center: { x: number; y: number };
+	outerRadius: number;
+	inwardRadius: number;
+	placements: Map<string, { x: number; y: number; kind: FetchedNodePlacementKind }>;
+};
+
+/**
+ * Place newly fetched nodes on the outer edge of the current layout.
+ * Nodes that already link to on-screen nodes sit on a slightly inner ring toward
+ * their attachments so the force sim can pull them into the largest existing
+ * hop-connected cluster (kept as the layout center).
+ */
+export function placeFetchedNodesOnOuterEdges(options: {
+	existingNodes?: Array<{ id?: any; x?: number; y?: number } | null | undefined>;
+	newNodes?: Array<{ id?: any; x?: number; y?: number } | null | undefined>;
+	newLinks?: Array<{ source?: any; target?: any } | null | undefined>;
+	existingLinks?: Array<{ source?: any; target?: any } | null | undefined>;
+	width?: number;
+	height?: number;
+	forceReplaceCoords?: boolean;
+} = {}): FetchedNodePlacementResult {
+	const width = Math.max(1, Number(options.width) || 800);
+	const height = Math.max(1, Number(options.height) || 600);
+	const viewportCenter = { x: width / 2, y: height / 2 };
+	const existingNodes = (options.existingNodes || []).filter((n) => n && String(n.id ?? '').trim());
+	const newNodes = (options.newNodes || []).filter((n) => n && String(n.id ?? '').trim());
+	const existingLinks = options.existingLinks || [];
+	const newLinks = options.newLinks || [];
+	const forceReplace = Boolean(options.forceReplaceCoords);
+
+	const existingIds = existingNodes.map((n) => String(n.id));
+	const existingIdSet = new Set(existingIds);
+	const centerComponentIds =
+		existingIds.length > 0 ?
+			findLargestHopConnectedComponentIds(existingIds, existingLinks)
+		:	findLargestHopConnectedComponentIds(
+				newNodes.map((n) => String(n.id)),
+				newLinks,
+			);
+
+	const centerNodes =
+		centerComponentIds.length ?
+			(existingNodes.length ? existingNodes : newNodes).filter((n) => centerComponentIds.includes(String(n.id)))
+		:	existingNodes;
+
+	const positionedCenter = centerNodes.filter((n) => Number.isFinite(n.x) && Number.isFinite(n.y));
+	const positionedExisting = existingNodes.filter((n) => Number.isFinite(n.x) && Number.isFinite(n.y));
+	const anchorPool = positionedCenter.length ? positionedCenter : positionedExisting;
+
+	let center = { ...viewportCenter };
+	if (anchorPool.length) {
+		let sx = 0;
+		let sy = 0;
+		for (const n of anchorPool) {
+			sx += Number(n.x);
+			sy += Number(n.y);
+		}
+		center = { x: sx / anchorPool.length, y: sy / anchorPool.length };
+	}
+
+	// Radius from the largest hop cluster only — distant on-screen isolates must not
+	// push brand-new fetch nodes into deep outer space. Use a high percentile so a
+	// few far spokes in a firm star do not define the ring, while the bulk still
+	// sits inside the new outer edge.
+	const radiusPool = positionedCenter.length ? positionedCenter : positionedExisting;
+	const distances = radiusPool
+		.map((n) => Math.hypot(Number(n.x) - center.x, Number(n.y) - center.y))
+		.filter((d) => Number.isFinite(d))
+		.sort((a, b) => a - b);
+	let bulkRadius = 0;
+	if (distances.length) {
+		const idx = Math.min(distances.length - 1, Math.max(0, Math.floor((distances.length - 1) * 0.9)));
+		bulkRadius = distances[idx];
+	}
+	if (!Number.isFinite(bulkRadius) || bulkRadius < 80) {
+		bulkRadius = Math.min(width, height) * 0.22;
+	}
+
+	const outerPad = Math.max(160, Math.min(360, 110 + Math.min(40, newNodes.length) * 4));
+	const outerRadius = bulkRadius + outerPad;
+	const inwardRadius = bulkRadius + Math.max(56, outerPad * 0.4);
+
+	const existingById = new Map(existingNodes.map((n) => [String(n.id), n]));
+	const attachments = new Map<string, string[]>();
+	for (const link of newLinks) {
+		const s = linkEndpointId(link?.source);
+		const t = linkEndpointId(link?.target);
+		if (!s || !t || s === t) continue;
+		const sExisting = existingIdSet.has(s);
+		const tExisting = existingIdSet.has(t);
+		if (sExisting && !tExisting) {
+			const list = attachments.get(t) || [];
+			list.push(s);
+			attachments.set(t, list);
+		} else if (tExisting && !sExisting) {
+			const list = attachments.get(s) || [];
+			list.push(t);
+			attachments.set(s, list);
+		}
+	}
+
+	const placements = new Map<string, { x: number; y: number; kind: FetchedNodePlacementKind }>();
+	const outerNodes: typeof newNodes = [];
+	const inwardNodes: typeof newNodes = [];
+	for (const node of newNodes) {
+		const id = String(node.id);
+		if ((attachments.get(id) || []).length) inwardNodes.push(node);
+		else outerNodes.push(node);
+	}
+
+	const placeOnRing = (nodes: typeof newNodes, radius: number, kind: FetchedNodePlacementKind, angleOffset = 0) => {
+		const count = Math.max(1, nodes.length);
+		nodes.forEach((node, idx) => {
+			const id = String(node.id);
+			const attached = attachments.get(id) || [];
+			let angle = angleOffset + (idx / count) * Math.PI * 2;
+			if (attached.length) {
+				let ax = 0;
+				let ay = 0;
+				let used = 0;
+				for (const aid of attached) {
+					const anchor = existingById.get(aid);
+					if (!anchor || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) continue;
+					ax += Number(anchor.x);
+					ay += Number(anchor.y);
+					used += 1;
+				}
+				if (used) {
+					ax /= used;
+					ay /= used;
+					angle = Math.atan2(ay - center.y, ax - center.x);
+					// Fan siblings that share the same attachment angle.
+					angle += ((idx % 7) - 3) * 0.08;
+				}
+			}
+			const jitter = (Math.random() - 0.5) * Math.min(36, radius * 0.04);
+			const x = center.x + Math.cos(angle) * (radius + jitter);
+			const y = center.y + Math.sin(angle) * (radius + jitter);
+			placements.set(id, { x, y, kind });
+			if (forceReplace || !Number.isFinite(node.x) || !Number.isFinite(node.y)) {
+				node.x = x;
+				node.y = y;
+			}
+			(node as any)._fetchPlacementKind = kind;
+			(node as any).vx = 0;
+			(node as any).vy = 0;
+		});
+	};
+
+	placeOnRing(outerNodes, outerRadius, 'outer', 0.15);
+	placeOnRing(inwardNodes, inwardRadius, 'inward', 0.55);
+	// Ensure every new node got coordinates even if somehow skipped.
+	for (const node of newNodes) {
+		const id = String(node.id);
+		if (!placements.has(id)) {
+			const angle = Math.random() * Math.PI * 2;
+			const x = center.x + Math.cos(angle) * outerRadius;
+			const y = center.y + Math.sin(angle) * outerRadius;
+			placements.set(id, { x, y, kind: 'outer' });
+			node.x = x;
+			node.y = y;
+			(node as any)._fetchPlacementKind = 'outer';
+		} else if (forceReplace || !Number.isFinite(node.x) || !Number.isFinite(node.y)) {
+			const p = placements.get(id)!;
+			node.x = p.x;
+			node.y = p.y;
+		}
+	}
+
+	return { centerComponentIds, center, outerRadius, inwardRadius, placements };
+}
+
+/** Translate the largest existing hop cluster toward the viewport center before fetch reflow. */
+export function centerLargestHopComponentInViewport(
+	nodes: Array<{ id?: any; x?: number; y?: number } | null | undefined> = [],
+	componentIds: Iterable<string> = [],
+	width = 800,
+	height = 600,
+	options: { strength?: number } = {},
+): { center: { x: number; y: number }; delta: { x: number; y: number } } {
+	const viewport = { x: Math.max(1, width) / 2, y: Math.max(1, height) / 2 };
+	const idSet = new Set(Array.from(componentIds || []).map((id) => String(id).trim()).filter(Boolean));
+	const members = (nodes || []).filter((n) => n && idSet.has(String(n.id)) && Number.isFinite(n.x) && Number.isFinite(n.y));
+	if (!members.length) return { center: viewport, delta: { x: 0, y: 0 } };
+	let sx = 0;
+	let sy = 0;
+	for (const n of members) {
+		sx += Number(n.x);
+		sy += Number(n.y);
+	}
+	const center = { x: sx / members.length, y: sy / members.length };
+	const strength = Number.isFinite(options.strength) ? Math.max(0, Math.min(1, Number(options.strength))) : 0.85;
+	const delta = { x: (viewport.x - center.x) * strength, y: (viewport.y - center.y) * strength };
+	if (Math.hypot(delta.x, delta.y) < 1) return { center, delta: { x: 0, y: 0 } };
+	for (const n of members) {
+		n.x = Number(n.x) + delta.x;
+		n.y = Number(n.y) + delta.y;
+	}
+	return { center: { x: center.x + delta.x, y: center.y + delta.y }, delta };
+}
+
 export function getLargeNodeRevealBatchPlan(hiddenNodeCount = 0, currentNodeCount = globalState.layoutNodes?.length || 0) {
 	const hiddenCount = Math.max(0, Number(hiddenNodeCount) || 0);
 	const nodeCount = Math.max(0, Number(currentNodeCount) || 0);
@@ -13762,10 +14189,14 @@ function appendFetchedImpl(
 	}
 	normalizeNodeLabelsInPlace(newNodes);
 
-	const priorLayoutNodeIds = new Set(globalState.layoutNodes.map((entry) => entry?.id).filter(Boolean));
+	const priorLayoutNodeIds = new Set<string>(
+		globalState.layoutNodes
+			.map((entry) => String(entry?.id ?? '').trim())
+			.filter((id): id is string => Boolean(id)),
+	);
 	const mergeResult = mergeIncomingNodesIntoExistingNodes(globalState.layoutNodes, newNodes);
 	const mergedNodes = mergeResult.nodes;
-	const uniqNodes = mergedNodes.filter((node) => node?.id && !priorLayoutNodeIds.has(node.id));
+	const uniqNodes = mergedNodes.filter((node) => node?.id && !priorLayoutNodeIds.has(String(node.id)));
 	const incomingNodeIdRewrites = mergeResult.idRewriteMap;
 	const allIncomingLinks = Array.isArray(newLinks) ? newLinks : [];
 	const rewrittenLinks = rewriteLinksForNodeIdMap(allIncomingLinks, incomingNodeIdRewrites);
@@ -13774,21 +14205,23 @@ function appendFetchedImpl(
 		resetClearNonLogStageAfterNodesAdded();
 	}
 
-	// Place newly-added nodes near the expand origin (parent node) if known,
-	// otherwise fall back to the viewport center so they're visible immediately.
+	// Park newly fetched nodes on the outer edge of the current layout. Nodes that
+	// already link to on-screen nodes start slightly inward so the reflow can pull
+	// them into the largest existing hop-connected cluster (kept centered).
+	let fetchPlacement: FetchedNodePlacementResult | null = null;
 	if (uniqNodes.length > 0) {
 		const main = document.getElementById('fg-main');
 		const W = main?.clientWidth || 800;
 		const H = main?.clientHeight || 600;
-		const originX = globalState.lastExpandOriginNode && Number.isFinite(globalState.lastExpandOriginNode.x) ? globalState.lastExpandOriginNode.x : W / 2;
-		const originY = globalState.lastExpandOriginNode && Number.isFinite(globalState.lastExpandOriginNode.y) ? globalState.lastExpandOriginNode.y : H / 2;
-		uniqNodes.forEach((n, idx) => {
-			if (n.x == null && n.y == null) {
-				const ringRadius = Math.max(34, 42 + idx * 12);
-				const angle = (idx / uniqNodes.length) * Math.PI * 2;
-				n.x = originX + Math.cos(angle) * ringRadius;
-				n.y = originY + Math.sin(angle) * ringRadius;
-			}
+		const priorNodes = globalState.layoutNodes.filter((node) => priorLayoutNodeIds.has(String(node?.id ?? '')));
+		fetchPlacement = placeFetchedNodesOnOuterEdges({
+			existingNodes: priorNodes,
+			newNodes: uniqNodes,
+			newLinks: rewrittenLinks,
+			existingLinks: globalState.layoutLinks || [],
+			width: W,
+			height: H,
+			forceReplaceCoords: true,
 		});
 	}
 
@@ -13920,6 +14353,10 @@ function appendFetchedImpl(
 		alpha:
 			uniqNodes.length > 0 ? undefined : Math.max(0.12, getIncrementalRestartAlpha(globalState.layoutNodes.length, Math.max(1, impactedIds?.length || 0))),
 		eventName: 'fetch-reflow',
+		priorNodeIds: priorLayoutNodeIds,
+		centerComponentIds: fetchPlacement?.centerComponentIds,
+		placementCenter: fetchPlacement?.center,
+		outerRadius: fetchPlacement?.outerRadius,
 	});
 }
 
@@ -15055,9 +15492,13 @@ async function ensureIndividualDetail(
 		(Array.isArray(personNode.previousEmployments) && personNode.previousEmployments.length > 0) ||
 		(Array.isArray(personNode.currentIAEmployments) && personNode.currentIAEmployments.length > 0) ||
 		(Array.isArray(personNode.previousIAEmployments) && personNode.previousIAEmployments.length > 0);
-	// previousIAEmployments may be omitted on FINRA-only records; treat previousEmployments
-	// alone as enough history once detail has loaded so we do not refetch on every click.
-	const previousHistoryKnown = Array.isArray(personNode.previousEmployments) || Array.isArray(personNode.previousIAEmployments);
+	// Empty previousEmployments: [] from stubs/batch seeds must NOT count as "known" —
+	// that blocked refetch of full BD previous history (e.g. CRD 1085996 stuck at 2 IA firms).
+	// applyIndividualDetail sets _employmentHistoryResolved after an authoritative payload.
+	const previousHistoryKnown =
+		personNode._employmentHistoryResolved === true ||
+		(Array.isArray(personNode.previousEmployments) && personNode.previousEmployments.length > 0) ||
+		(Array.isArray(personNode.previousIAEmployments) && personNode.previousIAEmployments.length > 0);
 
 	// Clicking a person should always materialize known firm links, even when the node
 	// was previously treated as owner-evidence-only or already hydrated without edges.
@@ -15065,7 +15506,8 @@ async function ensureIndividualDetail(
 		syncIndividualConnectionsFromDetail(personNode, personNode, { includePrevious: true });
 	}
 
-	if (personNode._detailLoaded && hasRichIndividualDetail(personNode) && (!injectEmploymentGraph || previousHistoryKnown)) {
+	const employmentGraphComplete = !injectEmploymentGraph || isPersonEmploymentGraphComplete(personNode);
+	if (personNode._detailLoaded && hasRichIndividualDetail(personNode) && (!injectEmploymentGraph || previousHistoryKnown) && employmentGraphComplete) {
 		return;
 	}
 
@@ -15077,6 +15519,10 @@ async function ensureIndividualDetail(
 	const existingRequest = individualDetailRequestCache.get(requestCacheKey);
 	if (existingRequest) {
 		await existingRequest;
+		// Cached request may have applied richer employment arrays after our earlier sync.
+		if (injectEmploymentGraph) {
+			syncIndividualConnectionsFromDetail(personNode, personNode, { includePrevious: true });
+		}
 		return;
 	}
 
@@ -16269,6 +16715,45 @@ function revealIncidentRenderedLinks(clickedNode, linkFilter: ((link: any) => bo
 	reapplySelectionState();
 	refreshGraphColors();
 	return nextLinks.length;
+}
+
+/** Unique firm node ids expected from the person's stored employment arrays. */
+function getExpectedPersonEmploymentFirmIds(personNode) {
+	const firmIds = new Set<string>();
+	if (!personNode || personNode.group !== 'individual') return firmIds;
+	for (const employment of flattenEmploymentRecords(personNode)) {
+		const firmNodeId = resolveEmploymentConnectionFirmNodeId(employment);
+		if (firmNodeId) firmIds.add(firmNodeId);
+	}
+	return firmIds;
+}
+
+/** Firm neighbors already linked in layout or full graphData via person-click employment links. */
+function getPresentPersonEmploymentFirmIds(personNode) {
+	const firmIds = new Set<string>();
+	if (!personNode?.id) return firmIds;
+	const personId = String(personNode.id);
+	const consider = (link) => {
+		if (!isPersonClickEmploymentLink(link)) return;
+		const sourceId = String(link.source?.id ?? link.source ?? '').trim();
+		const targetId = String(link.target?.id ?? link.target ?? '').trim();
+		if (sourceId === personId && targetId) firmIds.add(targetId);
+		if (targetId === personId && sourceId) firmIds.add(sourceId);
+	};
+	for (const link of globalState.layoutLinks || []) consider(link);
+	for (const link of globalState.graphData?.links || []) consider(link);
+	return firmIds;
+}
+
+/** True when every employment firm from detail is already linked in the graph. */
+function isPersonEmploymentGraphComplete(personNode) {
+	const expected = getExpectedPersonEmploymentFirmIds(personNode);
+	if (!expected.size) return true;
+	const present = getPresentPersonEmploymentFirmIds(personNode);
+	for (const firmId of expected) {
+		if (!present.has(firmId)) return false;
+	}
+	return true;
 }
 
 function revealPersonEmploymentNeighbors(personNode) {

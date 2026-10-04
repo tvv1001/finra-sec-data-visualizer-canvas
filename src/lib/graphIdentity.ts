@@ -100,6 +100,17 @@ export function mergeGraphNodePayload(targetNode: any, incomingNode: any) {
 	if (incomingNode.registrationCount) targetNode.registrationCount = { ...(targetNode.registrationCount || {}), ...incomingNode.registrationCount };
 	if (Array.isArray(incomingNode.currentEmployments)) targetNode.currentEmployments = incomingNode.currentEmployments;
 	if (Array.isArray(incomingNode.currentIAEmployments)) targetNode.currentIAEmployments = incomingNode.currentIAEmployments;
+	if (Array.isArray(incomingNode.previousEmployments)) {
+		const incomingLen = incomingNode.previousEmployments.length;
+		const currentLen = Array.isArray(targetNode.previousEmployments) ? targetNode.previousEmployments.length : -1;
+		if (incomingLen >= currentLen) targetNode.previousEmployments = incomingNode.previousEmployments;
+	}
+	if (Array.isArray(incomingNode.previousIAEmployments)) {
+		const incomingLen = incomingNode.previousIAEmployments.length;
+		const currentLen = Array.isArray(targetNode.previousIAEmployments) ? targetNode.previousIAEmployments.length : -1;
+		if (incomingLen >= currentLen) targetNode.previousIAEmployments = incomingNode.previousIAEmployments;
+	}
+	if (incomingNode._employmentHistoryResolved === true) targetNode._employmentHistoryResolved = true;
 	if (incomingNode.basicInformation) {
 		targetNode.basicInformation = {
 			...(targetNode.basicInformation || {}),
