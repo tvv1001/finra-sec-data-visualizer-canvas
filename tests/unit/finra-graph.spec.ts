@@ -719,7 +719,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(largest.sort()).toEqual(['a', 'b', 'c']);
 	});
 
-	it('placeFetchedNodesOnOuterEdges parks isolates outside and attached nodes inward', () => {
+	it('placeFetchedNodesOnOuterEdges parks isolates outside and ≤2 attached kids on the edge', () => {
 		const existing = [
 			{ id: 'firm:1', x: 400, y: 300 },
 			{ id: 'person:2', x: 430, y: 310 },
@@ -763,6 +763,74 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(dist('person:new-isolate')).toBeGreaterThan(existingBulk);
 		expect(newNodes[0].x).toBeDefined();
 		expect(newNodes[1].x).toBeDefined();
+	});
+
+	it('placeFetchedNodesOnOuterEdges clusters 3+ children near the parent', () => {
+		const existing = [
+			{ id: 'firm:1', x: 400, y: 300 },
+			{ id: 'person:2', x: 430, y: 310 },
+		];
+		const existingLinks = [{ source: 'firm:1', target: 'person:2' }];
+		const newNodes = [
+			{ id: 'person:a' },
+			{ id: 'person:b' },
+			{ id: 'person:c' },
+			{ id: 'person:d' },
+		];
+		const newLinks = newNodes.map((n) => ({ source: n.id, target: 'firm:1', relationship: 'employed_by' }));
+
+		const result = placeFetchedNodesOnOuterEdges({
+			existingNodes: existing,
+			newNodes,
+			newLinks,
+			existingLinks,
+			width: 800,
+			height: 600,
+			forceReplaceCoords: true,
+		});
+
+		for (const id of ['person:a', 'person:b', 'person:c', 'person:d']) {
+			expect(result.placements.get(id)?.kind).toBe('near-parent');
+			const p = result.placements.get(id)!;
+			const distToParent = Math.hypot(p.x - 400, p.y - 300);
+			expect(distToParent).toBeLessThan(200);
+			expect(distToParent).toBeGreaterThan(60);
+			// Must not be parked on the global outer ring.
+			const distToCenter = Math.hypot(p.x - result.center.x, p.y - result.center.y);
+			expect(distToCenter).toBeLessThan(result.inwardRadius - 10);
+		}
+	});
+
+	it('placeFetchedNodesOnOuterEdges keeps cold firm+many-people batches near the firm', () => {
+		const newNodes = [
+			{ id: 'firm:9', group: 'firm' },
+			{ id: 'person:a', group: 'individual' },
+			{ id: 'person:b', group: 'individual' },
+			{ id: 'person:c', group: 'individual' },
+			{ id: 'person:d', group: 'individual' },
+		];
+		const newLinks = ['person:a', 'person:b', 'person:c', 'person:d'].map((id) => ({
+			source: id,
+			target: 'firm:9',
+			relationship: 'employed_by',
+		}));
+		const result = placeFetchedNodesOnOuterEdges({
+			existingNodes: [],
+			newNodes,
+			newLinks,
+			existingLinks: [],
+			width: 800,
+			height: 600,
+			forceReplaceCoords: true,
+		});
+		expect(result.placements.get('firm:9')?.kind).toBe('near-parent');
+		for (const id of ['person:a', 'person:b', 'person:c', 'person:d']) {
+			expect(result.placements.get(id)?.kind).toBe('near-parent');
+			const firm = result.placements.get('firm:9')!;
+			const p = result.placements.get(id)!;
+			expect(Math.hypot(p.x - firm.x, p.y - firm.y)).toBeLessThan(200);
+			expect(Math.hypot(p.x - firm.x, p.y - firm.y)).toBeGreaterThan(60);
+		}
 	});
 
 	it('centerLargestHopComponentInViewport shifts the cluster toward the viewport middle', () => {

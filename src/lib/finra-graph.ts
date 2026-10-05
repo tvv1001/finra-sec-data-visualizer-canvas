@@ -336,7 +336,7 @@ type GraphSimulationNode = {
 	_fetchLayoutBiasX?: number;
 	_fetchLayoutBiasY?: number;
 	_fetchLayoutBiasStrength?: number;
-	_fetchPlacementKind?: 'outer' | 'inward';
+	_fetchPlacementKind?: 'outer' | 'inward' | 'near-parent';
 	[key: string]: any;
 };
 
@@ -7632,24 +7632,38 @@ function reheatLayoutLikeRefresh(
 	const centerIdSet = new Set(centerComponentIds);
 	const newIdSet = new Set(newNodes.map((n) => String(n?.id || '')).filter(Boolean));
 
-	// Soft fetch biases: center cluster → viewport center; unattached new nodes → outer ring.
+	// Soft fetch biases: center cluster → viewport center; unattached new nodes → outer ring;
+	// near-parent children → hold near their placed coords so they do not stretch out.
+	// Re-apply near-parent hold to *all* still-tagged nodes (not only this batch): a later
+	// firm-expand append would otherwise unpin the first fan and stretch it to the ring.
+	const nearParentPinned: any[] = [];
 	for (const node of globalState.layoutNodes) {
 		const id = String(node?.id || '');
 		delete node._fetchLayoutBiasX;
 		delete node._fetchLayoutBiasY;
 		delete node._fetchLayoutBiasStrength;
-		if (centerIdSet.has(id)) {
+		const placementKind = (node as any)._fetchPlacementKind;
+		if (placementKind === 'near-parent' && Number.isFinite(node.x) && Number.isFinite(node.y)) {
+			node._fetchLayoutBiasX = Number(node.x);
+			node._fetchLayoutBiasY = Number(node.y);
+			// Strong bias for the whole reflow so kids stay near the parent after pin release.
+			node._fetchLayoutBiasStrength = cooling.isHuge ? 0.14 : cooling.isLarge ? 0.18 : 0.22;
+			// Soft-pin so link/charge/collision cannot immediately stretch the fan.
+			node.fx = Number(node.x);
+			node.fy = Number(node.y);
+			nearParentPinned.push(node);
+		} else if (centerIdSet.has(id) && placementKind !== 'near-parent') {
 			node._fetchLayoutBiasX = width / 2;
 			node._fetchLayoutBiasY = height / 2;
 			node._fetchLayoutBiasStrength = cooling.isHuge ? 0.045 : cooling.isLarge ? 0.055 : 0.07;
-		} else if (newIdSet.has(id) && (node as any)._fetchPlacementKind === 'outer') {
+		} else if (newIdSet.has(id) && placementKind === 'outer') {
 			const dx = Number.isFinite(node.x) ? Number(node.x) - placementCenter.x : 1;
 			const dy = Number.isFinite(node.y) ? Number(node.y) - placementCenter.y : 0;
 			const ang = Math.atan2(dy, dx);
 			node._fetchLayoutBiasX = placementCenter.x + Math.cos(ang) * outerRadius;
 			node._fetchLayoutBiasY = placementCenter.y + Math.sin(ang) * outerRadius;
 			node._fetchLayoutBiasStrength = cooling.isHuge ? 0.03 : 0.04;
-		} else if (newIdSet.has(id) && (node as any)._fetchPlacementKind === 'inward') {
+		} else if (newIdSet.has(id) && placementKind === 'inward') {
 			// Mild pull toward center so attached newcomers settle into the main cluster.
 			node._fetchLayoutBiasX = width / 2;
 			node._fetchLayoutBiasY = height / 2;
@@ -7659,6 +7673,11 @@ function reheatLayoutLikeRefresh(
 
 	newNodes.forEach((node, idx) => {
 		if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return;
+		if ((node as any)._fetchPlacementKind === 'near-parent') {
+			node.vx = 0;
+			node.vy = 0;
+			return;
+		}
 		const angle = (idx / Math.max(1, newNodes.length)) * Math.PI * 2;
 		const jitter =
 			cooling.isHuge ? 10
@@ -7669,6 +7688,23 @@ function reheatLayoutLikeRefresh(
 		node.vx = 0;
 		node.vy = 0;
 	});
+
+	if (nearParentPinned.length) {
+		// Hold long enough for alpha to drop so charge/collision do not fling the fan
+		// to the outer ring the moment pins lift.
+		const releaseMs = cooling.isHuge ? 2800 : cooling.isLarge ? 3600 : 4800;
+		window.setTimeout(() => {
+			for (const node of nearParentPinned) {
+				if (!node) continue;
+				node.fx = null;
+				node.fy = null;
+				// Keep a firm local bias after unpin until finalize clears it.
+				if ((node as any)._fetchPlacementKind === 'near-parent' && Number.isFinite(node._fetchLayoutBiasX)) {
+					node._fetchLayoutBiasStrength = Math.max(Number(node._fetchLayoutBiasStrength) || 0, cooling.isHuge ? 0.1 : 0.14);
+				}
+			}
+		}, releaseMs);
+	}
 
 	if (globalState.spreadReleaseTimer) {
 		clearTimeout(globalState.spreadReleaseTimer);
@@ -10247,9 +10283,31 @@ function materializeQueueGraphSeedStubs(ids: string[] = []) {
 	}
 	const stubs = buildQueueGraphSeedStubNodes(ids);
 	if (!stubs.length) return [];
-	mergeIntoGraphData(stubs, []);
+	const firmId = String(pendingQueueGraphSeed?.anchorFirmId || '')
+		.trim()
+		.replace(/^firm:/i, '');
+	const firmNodeId = /^\d+$/.test(firmId) ? `firm:${firmId}` : '';
+	const seedLinks = firmNodeId ?
+			(pendingQueueGraphSeed?.people || [])
+				.map((person) => {
+					const crd = String(person?.crd || '').trim();
+					if (!/^\d+$/.test(crd)) return null;
+					const isCurrent = person?.isCurrent !== false;
+					return {
+						source: `person:${crd}`,
+						target: firmNodeId,
+						relationship: isCurrent ? 'employed_by' : 'previous_employed_by',
+						isCurrent,
+						...(isCurrent ? {} : { forceGray: true }),
+					};
+				})
+				.filter(Boolean)
+		:	[];
+	mergeIntoGraphData(stubs, seedLinks);
 	ensureQueueGraphSeedLinks(globalState.graphData.nodes || stubs);
-	globalState.appendFetched?.(stubs, []);
+	// Pass seed links into append so placement sees parent attachments (3+ kids near
+	// parent; ≤2 on the edge). Empty newLinks previously parked everyone on the outer ring.
+	globalState.appendFetched?.(stubs, seedLinks);
 	showEmpty(false);
 	document.getElementById('fg-empty-default')?.classList.add('hidden');
 	document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
@@ -12250,21 +12308,38 @@ function getForceLinkDistance(link, nodeCount = globalState.layoutNodes?.length 
 		: 0;
 
 	const isFirmChild = (sourceNode?.group === 'firm' && targetNode?.group === 'individual') || (targetNode?.group === 'firm' && sourceNode?.group === 'individual');
+	const nearParentHold =
+		(sourceNode as any)?._fetchPlacementKind === 'near-parent' || (targetNode as any)?._fetchPlacementKind === 'near-parent';
 
 	const crowd = Math.max(getNodeCrowdFactor(sourceNode), getNodeCrowdFactor(targetNode));
-	// Give firm children high elasticity to expand if space is needed (crowd is high)
-	const crowdDistanceBoost = 1 + Math.max(0, crowd - 1) * (isFirmChild ? 1.2 : 0.4);
-	
-	const minDeg = Math.min(sourceDeg, targetDeg);
-	// Firm children should stay close, non-firm low-degree nodes drift far to outer edges
-	const lowDegreePush = minDeg <= 3 ? (isFirmChild ? 1.1 : 1.75) : 1.0;
-	// Base pull for firm children to keep them tight to the firm node
-	const firmChildPull = isFirmChild ? 0.45 : 1.0;
+	// Firm children stay tight; near-parent fans must not stretch with crowd elasticity.
+	const crowdDistanceBoost = nearParentHold ? 1 : 1 + Math.max(0, crowd - 1) * (isFirmChild ? 1.2 : 0.4);
 
-	return baseDistance * densityMultiplier * crowdDistanceBoost * lowDegreePush * firmChildPull + scatterBoost * 1.5 + relationshipBoost;
+	const minDeg = Math.min(sourceDeg, targetDeg);
+	// Firm children stay tight; non-firm low-degree nodes may drift farther.
+	const lowDegreePush = minDeg <= 3 ? (isFirmChild ? 1.0 : 1.75) : 1.0;
+	// Stronger pull for firm↔person edges so multi-child fetches do not stretch out.
+	// Near-parent fans (3+ kids) keep a moderate spoke — looser than a pile, still
+	// well inside the outer ring so collision/charge cannot walk them off-cluster.
+	const firmChildPull = nearParentHold ? 0.34 : isFirmChild ? 0.28 : 1.0;
+	const densityForLink = nearParentHold ? Math.min(densityMultiplier, 1.08) : densityMultiplier;
+	const distance =
+		baseDistance * densityForLink * crowdDistanceBoost * lowDegreePush * firmChildPull +
+		(nearParentHold ? 0 : scatterBoost * 1.5) +
+		(nearParentHold ? Math.min(relationshipBoost, 12) : relationshipBoost);
+	// Cap near-parent spokes to the local cluster (~70–180px).
+	if (nearParentHold) return Math.max(70, Math.min(180, distance));
+	return distance;
 }
 
 function getNodeCollisionRadius(node, nodeCount = globalState.layoutNodes?.length || 0) {
+	const nearParentHold = (node as any)?._fetchPlacementKind === 'near-parent';
+	// Near-parent fetch fans are seeded ~40–96px from the firm. Full collision padding
+	// (~80–100px on small graphs) immediately explodes that fan onto the outer ring.
+	if (nearParentHold) {
+		const half = node?._vizHalf != null ? node._vizHalf : NODE_R[(node as any)?.group] || 10;
+		return half + (nodeCount > 300 ? 20 : 26);
+	}
 	const padding =
 		nodeCount > 1000 ? 24
 		: nodeCount > 600 ? 30
@@ -12381,7 +12456,7 @@ export function findLargestHopConnectedComponentIds(
 	return best;
 }
 
-export type FetchedNodePlacementKind = 'outer' | 'inward';
+export type FetchedNodePlacementKind = 'outer' | 'inward' | 'near-parent';
 
 export type FetchedNodePlacementResult = {
 	centerComponentIds: string[];
@@ -12391,11 +12466,28 @@ export type FetchedNodePlacementResult = {
 	placements: Map<string, { x: number; y: number; kind: FetchedNodePlacementKind }>;
 };
 
+/** Primary existing parent for a new child, preferring the parent with the most new kids in this batch. */
+function pickPrimaryAttachmentParent(childId: string, attachments: Map<string, string[]>, newKidsByParent: Map<string, string[]>): string {
+	const parents = attachments.get(childId) || [];
+	if (!parents.length) return '';
+	let best = parents[0];
+	let bestCount = -1;
+	for (const parentId of parents) {
+		const count = (newKidsByParent.get(parentId) || []).length;
+		if (count > bestCount) {
+			best = parentId;
+			bestCount = count;
+		}
+	}
+	return best;
+}
+
 /**
- * Place newly fetched nodes on the outer edge of the current layout.
- * Nodes that already link to on-screen nodes sit on a slightly inner ring toward
- * their attachments so the force sim can pull them into the largest existing
- * hop-connected cluster (kept as the layout center).
+ * Place newly fetched nodes for append/reflow.
+ * - Unattached isolates → outer edge of the largest hop cluster.
+ * - Parents gaining ≤2 new children → outer/inward edge park (small fan-outs).
+ * - Parents gaining 3+ new children → cluster those children close to the parent
+ *   (do not stretch them onto the global outer ring).
  */
 export function placeFetchedNodesOnOuterEdges(options: {
 	existingNodes?: Array<{ id?: any; x?: number; y?: number } | null | undefined>;
@@ -12468,7 +12560,14 @@ export function placeFetchedNodesOnOuterEdges(options: {
 	const inwardRadius = bulkRadius + Math.max(56, outerPad * 0.4);
 
 	const existingById = new Map(existingNodes.map((n) => [String(n.id), n]));
+	const newById = new Map(newNodes.map((n) => [String(n.id), n]));
 	const attachments = new Map<string, string[]>();
+	const rememberAttachment = (childId: string, parentId: string) => {
+		if (!childId || !parentId || childId === parentId) return;
+		const list = attachments.get(childId) || [];
+		if (!list.includes(parentId)) list.push(parentId);
+		attachments.set(childId, list);
+	};
 	for (const link of newLinks) {
 		const s = linkEndpointId(link?.source);
 		const t = linkEndpointId(link?.target);
@@ -12476,24 +12575,61 @@ export function placeFetchedNodesOnOuterEdges(options: {
 		const sExisting = existingIdSet.has(s);
 		const tExisting = existingIdSet.has(t);
 		if (sExisting && !tExisting) {
-			const list = attachments.get(t) || [];
-			list.push(s);
-			attachments.set(t, list);
+			rememberAttachment(t, s);
 		} else if (tExisting && !sExisting) {
-			const list = attachments.get(s) || [];
-			list.push(t);
-			attachments.set(s, list);
+			rememberAttachment(s, t);
+		} else if (!sExisting && !tExisting) {
+			// Cold Queue / first paint: firm + people arrive together. Treat the firm
+			// end as the parent so children are not all parked as outer isolates.
+			const sNode = newById.get(s) as any;
+			const tNode = newById.get(t) as any;
+			const sIsFirm = sNode?.group === 'firm' || String(s).startsWith('firm:');
+			const tIsFirm = tNode?.group === 'firm' || String(t).startsWith('firm:');
+			if (sIsFirm && !tIsFirm) rememberAttachment(t, s);
+			else if (tIsFirm && !sIsFirm) rememberAttachment(s, t);
+		}
+	}
+
+	const newKidsByParent = new Map<string, string[]>();
+	for (const node of newNodes) {
+		const childId = String(node.id);
+		for (const parentId of attachments.get(childId) || []) {
+			const list = newKidsByParent.get(parentId) || [];
+			list.push(childId);
+			newKidsByParent.set(parentId, list);
 		}
 	}
 
 	const placements = new Map<string, { x: number; y: number; kind: FetchedNodePlacementKind }>();
 	const outerNodes: typeof newNodes = [];
-	const inwardNodes: typeof newNodes = [];
+	const edgeAttachedNodes: typeof newNodes = [];
+	const nearParentNodes: typeof newNodes = [];
 	for (const node of newNodes) {
 		const id = String(node.id);
-		if ((attachments.get(id) || []).length) inwardNodes.push(node);
-		else outerNodes.push(node);
+		const parents = attachments.get(id) || [];
+		if (!parents.length) {
+			outerNodes.push(node);
+			continue;
+		}
+		const primaryParent = pickPrimaryAttachmentParent(id, attachments, newKidsByParent);
+		const siblingCount = (newKidsByParent.get(primaryParent) || []).length;
+		// ≤2 new children for that parent → keep on the outer/inward edge.
+		// 3+ → park close to the parent instead of stretching to the ring.
+		if (siblingCount <= 2) edgeAttachedNodes.push(node);
+		else nearParentNodes.push(node);
 	}
+
+	const applyPlacement = (node: (typeof newNodes)[number], x: number, y: number, kind: FetchedNodePlacementKind) => {
+		const id = String(node.id);
+		placements.set(id, { x, y, kind });
+		if (forceReplace || !Number.isFinite(node.x) || !Number.isFinite(node.y)) {
+			node.x = x;
+			node.y = y;
+		}
+		(node as any)._fetchPlacementKind = kind;
+		(node as any).vx = 0;
+		(node as any).vy = 0;
+	};
 
 	const placeOnRing = (nodes: typeof newNodes, radius: number, kind: FetchedNodePlacementKind, angleOffset = 0) => {
 		const count = Math.max(1, nodes.length);
@@ -12516,37 +12652,70 @@ export function placeFetchedNodesOnOuterEdges(options: {
 					ax /= used;
 					ay /= used;
 					angle = Math.atan2(ay - center.y, ax - center.x);
-					// Fan siblings that share the same attachment angle.
 					angle += ((idx % 7) - 3) * 0.08;
 				}
 			}
 			const jitter = (Math.random() - 0.5) * Math.min(36, radius * 0.04);
-			const x = center.x + Math.cos(angle) * (radius + jitter);
-			const y = center.y + Math.sin(angle) * (radius + jitter);
-			placements.set(id, { x, y, kind });
-			if (forceReplace || !Number.isFinite(node.x) || !Number.isFinite(node.y)) {
-				node.x = x;
-				node.y = y;
-			}
-			(node as any)._fetchPlacementKind = kind;
-			(node as any).vx = 0;
-			(node as any).vy = 0;
+			applyPlacement(node, center.x + Math.cos(angle) * (radius + jitter), center.y + Math.sin(angle) * (radius + jitter), kind);
 		});
 	};
 
-	placeOnRing(outerNodes, outerRadius, 'outer', 0.15);
-	placeOnRing(inwardNodes, inwardRadius, 'inward', 0.55);
+	const placeNearParents = (nodes: typeof newNodes) => {
+		const byParent = new Map<string, typeof newNodes>();
+		for (const node of nodes) {
+			const id = String(node.id);
+			const parentId = pickPrimaryAttachmentParent(id, attachments, newKidsByParent);
+			const list = byParent.get(parentId) || [];
+			list.push(node);
+			byParent.set(parentId, list);
+		}
+		for (const [parentId, kids] of byParent) {
+			let parent = existingById.get(parentId) || newById.get(parentId);
+			// Cold batch: park the new parent firm near the layout center first.
+			if (parent && newById.has(parentId) && !placements.has(parentId)) {
+				applyPlacement(parent as any, center.x, center.y, 'near-parent');
+			} else if (parent && (!Number.isFinite(parent.x) || !Number.isFinite(parent.y))) {
+				applyPlacement(parent as any, center.x, center.y, 'near-parent');
+			}
+			parent = existingById.get(parentId) || newById.get(parentId);
+			if (!parent || !Number.isFinite(parent.x) || !Number.isFinite(parent.y)) {
+				placeOnRing(kids, inwardRadius, 'inward', 0.55);
+				continue;
+			}
+			const px = Number(parent.x);
+			const py = Number(parent.y);
+			const outward = Math.atan2(py - center.y, px - center.x) || 0;
+			// Seed radius leaves room for the reduced near-parent collision pad so the
+			// sim does not have to inflate the fan toward the outer ring. Keep spokes
+			// looser than a tight pile (~90–190px) while still parent-local.
+			const perKidArc = 36;
+			const packedRadius = Math.max(90, (kids.length * perKidArc) / Math.PI);
+			const localRadius = Math.max(90, Math.min(190, packedRadius));
+			const fanSpan = Math.min(Math.PI * 1.45, Math.max(0.7, (kids.length - 1) * 0.32));
+			kids.forEach((node, idx) => {
+				const t = kids.length === 1 ? 0 : idx / (kids.length - 1) - 0.5;
+				const angle = outward + t * fanSpan;
+				const jitter = (Math.random() - 0.5) * 10;
+				applyPlacement(node, px + Math.cos(angle) * (localRadius + jitter), py + Math.sin(angle) * (localRadius + jitter), 'near-parent');
+			});
+		}
+	};
+
+	// Parents that only appear as attachment hubs among newNodes should not sit on the
+	// outer isolate ring when they have 3+ children — place them with the near-parent pass.
+	const nearParentHubIds = new Set(
+		nearParentNodes.map((node) => pickPrimaryAttachmentParent(String(node.id), attachments, newKidsByParent)).filter(Boolean),
+	);
+	const outerWithoutNearHubs = outerNodes.filter((node) => !nearParentHubIds.has(String(node.id)));
+	placeOnRing(outerWithoutNearHubs, outerRadius, 'outer', 0.15);
+	placeOnRing(edgeAttachedNodes, inwardRadius, 'inward', 0.55);
+	placeNearParents(nearParentNodes);
 	// Ensure every new node got coordinates even if somehow skipped.
 	for (const node of newNodes) {
 		const id = String(node.id);
 		if (!placements.has(id)) {
 			const angle = Math.random() * Math.PI * 2;
-			const x = center.x + Math.cos(angle) * outerRadius;
-			const y = center.y + Math.sin(angle) * outerRadius;
-			placements.set(id, { x, y, kind: 'outer' });
-			node.x = x;
-			node.y = y;
-			(node as any)._fetchPlacementKind = 'outer';
+			applyPlacement(node, center.x + Math.cos(angle) * outerRadius, center.y + Math.sin(angle) * outerRadius, 'outer');
 		} else if (forceReplace || !Number.isFinite(node.x) || !Number.isFinite(node.y)) {
 			const p = placements.get(id)!;
 			node.x = p.x;
@@ -14360,19 +14529,40 @@ function appendFetchedImpl(
 		resetClearNonLogStageAfterNodesAdded();
 	}
 
-	// Park newly fetched nodes on the outer edge of the current layout. Nodes that
-	// already link to on-screen nodes start slightly inward so the reflow can pull
-	// them into the largest existing hop-connected cluster (kept centered).
+	// Place newly fetched nodes: isolates and ≤2-child fan-outs on the outer/inward
+	// edge; 3+ children for one parent cluster close to that parent.
 	let fetchPlacement: FetchedNodePlacementResult | null = null;
 	if (uniqNodes.length > 0) {
 		const main = document.getElementById('fg-main');
 		const W = main?.clientWidth || 800;
 		const H = main?.clientHeight || 600;
 		const priorNodes = globalState.layoutNodes.filter((node) => priorLayoutNodeIds.has(String(node?.id ?? '')));
+		let placementLinks = [...rewrittenLinks];
+		// Queue stub appends may omit links; synthesize parent edges from the seed so
+		// children are not all treated as outer-ring isolates.
+		const seedFirmId = String(pendingQueueGraphSeed?.anchorFirmId || '')
+			.trim()
+			.replace(/^firm:/i, '');
+		if (/^\d+$/.test(seedFirmId) && Array.isArray(pendingQueueGraphSeed?.people) && pendingQueueGraphSeed.people.length) {
+			const firmNodeId = `firm:${seedFirmId}`;
+			const uniqIdSet = new Set(uniqNodes.map((n) => String(n?.id || '')));
+			for (const person of pendingQueueGraphSeed.people) {
+				const crd = String(person?.crd || '').trim();
+				const personId = `person:${crd}`;
+				if (!/^\d+$/.test(crd) || !uniqIdSet.has(personId)) continue;
+				const isCurrent = person?.isCurrent !== false;
+				placementLinks.push({
+					source: personId,
+					target: firmNodeId,
+					relationship: isCurrent ? 'employed_by' : 'previous_employed_by',
+					isCurrent,
+				});
+			}
+		}
 		fetchPlacement = placeFetchedNodesOnOuterEdges({
 			existingNodes: priorNodes,
 			newNodes: uniqNodes,
-			newLinks: rewrittenLinks,
+			newLinks: placementLinks,
 			existingLinks: globalState.layoutLinks || [],
 			width: W,
 			height: H,
@@ -14785,11 +14975,15 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 					const sourceDeg = (link.source as any)?._deg?.total || 0;
 					const targetDeg = (link.target as any)?._deg?.total || 0;
 					const maxDeg = Math.max(sourceDeg, targetDeg);
+					const nearParentHold =
+						(link.source as any)?._fetchPlacementKind === 'near-parent' ||
+						(link.target as any)?._fetchPlacementKind === 'near-parent';
 					const baseStrength =
-						isHuge ? 0.35
+						nearParentHold ? (isHuge ? 0.7 : isLarge ? 0.78 : 0.85)
+						: isHuge ? 0.35
 						: isLarge ? 0.45
 						: 0.55;
-					return maxDeg > 20 ? baseStrength * 0.9 : baseStrength;
+					return maxDeg > 20 && !nearParentHold ? baseStrength * 0.9 : baseStrength;
 				}),
 		)
 		.force(
@@ -14803,6 +14997,10 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 						: -600;
 					const deg = d._deg?.total || 0;
 					const crowd = getNodeCrowdFactor(d);
+					// Near-parent fetch fans must not push each other to the outer ring.
+					if (d?._fetchPlacementKind === 'near-parent') {
+						return (isHuge ? -180 : isLarge ? -220 : -260) * (deg > 20 ? 1.15 : 1);
+					}
 					// Boost repulsion for high-degree nodes and locally crowded neighborhoods.
 					const degreeBoost = deg > 20 ? 1.65 : 1;
 					const crowdBoost = 1 + Math.max(0, crowd - 1) * 0.6;
