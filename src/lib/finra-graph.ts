@@ -949,6 +949,28 @@ if (typeof window !== 'undefined') {
 			prevIA: Array.isArray(node.previousIAEmployments) ? node.previousIAEmployments.length : null,
 		};
 	};
+	(window as any).__fgPersonEmploymentStatus = (crdOrId: string) => {
+		const raw = String(crdOrId || '').trim();
+		const id = raw.startsWith('person:') ? raw : `person:${raw.replace(/^\D+/, '')}`;
+		const node =
+			(globalState.layoutNodes || []).find((entry) => String(entry?.id) === id) ||
+			(globalState.graphData?.nodes || []).find((entry) => String(entry?.id) === id) ||
+			null;
+		if (!node) return { ok: false, reason: 'node-missing', id };
+		return {
+			ok: true,
+			id,
+			resolved: node._employmentHistoryResolved === true,
+			expected: getExpectedPersonEmploymentFirmIds(node).size,
+			present: getPresentPersonEmploymentFirmIds(node).size,
+			complete: isPersonEmploymentGraphComplete(node),
+			needsReinject: personNeedsEmploymentHistoryReinject(node),
+			prev: Array.isArray(node.previousEmployments) ? node.previousEmployments.length : null,
+			prevIA: Array.isArray(node.previousIAEmployments) ? node.previousIAEmployments.length : null,
+			firmCount: node.firmCount ?? null,
+			layoutDegree: node._deg?.total ?? null,
+		};
+	};
 	/** Test helper: simulate IA-only partial seed that used to leave CRD 1085996 at 2 firms. */
 	(window as any).__fgSimulatePartialPreviousEmployment = (crdOrId: string, keepFirmIds: string[] = ['6363', '119241']) => {
 		const raw = String(crdOrId || '').trim();
@@ -2280,7 +2302,13 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	const [nodePrefix, rawNodeId] = normalizedNodeId.split(':');
 	if (rawNodeId && /^[0-9]+$/.test(rawNodeId) && (nodePrefix === 'person' || nodePrefix === 'firm')) {
 		try {
-			const fetchedBatch = nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId, null, { includePreviousEmployments: false }) : await fetchFirmBatch(rawNodeId);
+			// History-only / inactive people (e.g. CRD 1085996) have no current employers.
+			// Omitting previous employments left the deep-link person node linkless until a
+			// later inject race won — prod then intermittently showed 0–2 previous firms.
+			const fetchedBatch =
+				nodePrefix === 'person' ?
+					await fetchIndividualBatch(rawNodeId, null, { includePreviousEmployments: true })
+				:	await fetchFirmBatch(rawNodeId);
 			if (fetchedBatch.nodes.length || fetchedBatch.links.length) {
 				mergeIntoGraphData(fetchedBatch.nodes, fetchedBatch.links);
 				globalState.appendFetched?.(fetchedBatch.nodes, fetchedBatch.links);
@@ -2401,6 +2429,14 @@ async function applyPendingRouteNodeSelection() {
 						allowOwnerEvidenceFirmFetch: true,
 						injectEmploymentGraph: true,
 					});
+					if (personNeedsEmploymentHistoryReinject(liveNode)) {
+						delete liveNode._employmentHistoryResolved;
+						delete liveNode._detailLoaded;
+						await ensureIndividualDetail(liveNode, {
+							allowOwnerEvidenceFirmFetch: true,
+							injectEmploymentGraph: true,
+						});
+					}
 					revealPersonEmploymentNeighbors(liveNode);
 				} catch (error) {
 					console.warn('Failed to inject employment graph for already-selected route person:', error);
@@ -2426,6 +2462,14 @@ async function applyPendingRouteNodeSelection() {
 					allowOwnerEvidenceFirmFetch: true,
 					injectEmploymentGraph: true,
 				});
+				if (personNeedsEmploymentHistoryReinject(liveNode)) {
+					delete liveNode._employmentHistoryResolved;
+					delete liveNode._detailLoaded;
+					await ensureIndividualDetail(liveNode, {
+						allowOwnerEvidenceFirmFetch: true,
+						injectEmploymentGraph: true,
+					});
+				}
 				revealPersonEmploymentNeighbors(liveNode);
 			} catch (error) {
 				console.warn('Failed to inject employment graph for route-selected person:', error);
@@ -15573,7 +15617,10 @@ async function ensureIndividualDetail(
 	// Only trust employment history after applyIndividualDetail (or an explicit resolved flag).
 	// Non-empty previousIAEmployments alone used to mark history "known" and skip refetch —
 	// CRD 1085996 then stayed stuck at 2 IA firms while BD previousEmployments never loaded.
-	const previousHistoryKnown = personNode._employmentHistoryResolved === true;
+	const bcScopeNeedsBdHistory = personBrokerCheckScopeNeedsBdHistory(personNode);
+	const bdPreviousHistoryMissing =
+		injectEmploymentGraph && bcScopeNeedsBdHistory && !Array.isArray(personNode.previousEmployments);
+	const previousHistoryKnown = personNode._employmentHistoryResolved === true && !bdPreviousHistoryMissing;
 	const expectedEmploymentFirmCount = getExpectedPersonEmploymentFirmIds(personNode).size;
 	const knownFirmFloor = Math.max(
 		Math.floor(Number(personNode.firmCount) || 0),
@@ -15581,11 +15628,9 @@ async function ensureIndividualDetail(
 		Math.floor(Number(personNode.ind_connection_count) || 0),
 	);
 	// Sidecar/firmCount can be ahead of partial arrays (IA-only seed). Force live detail.
+	// Include expected===0 with floor>0 (empty seed that still advertises many firms).
 	const employmentHistoryLooksPartial =
-		injectEmploymentGraph &&
-		knownFirmFloor > 0 &&
-		expectedEmploymentFirmCount > 0 &&
-		expectedEmploymentFirmCount < knownFirmFloor;
+		injectEmploymentGraph && knownFirmFloor > 0 && expectedEmploymentFirmCount < knownFirmFloor;
 
 	// Clicking a person should always materialize known firm links, even when the node
 	// was previously treated as owner-evidence-only or already hydrated without edges.
@@ -15599,7 +15644,8 @@ async function ensureIndividualDetail(
 		hasRichIndividualDetail(personNode) &&
 		(!injectEmploymentGraph || previousHistoryKnown) &&
 		employmentGraphComplete &&
-		!employmentHistoryLooksPartial
+		!employmentHistoryLooksPartial &&
+		!bdPreviousHistoryMissing
 	) {
 		return;
 	}
@@ -15656,6 +15702,11 @@ async function ensureIndividualDetail(
 							localDetail = normalized;
 							if (hasRichIndividualDetail(normalized)) {
 								detail = normalized;
+								// Partial IA-only / short employment seeds are "rich" but incomplete.
+								// Drop them so the live individual route can refill BD history.
+								if (injectEmploymentGraph && individualDetailEmploymentLooksPartial(normalized, personNode)) {
+									detail = null;
+								}
 							}
 						}
 					}
@@ -16815,6 +16866,56 @@ function revealIncidentRenderedLinks(clickedNode, linkFilter: ((link: any) => bo
 	return nextLinks.length;
 }
 
+/** True when BrokerCheck scope implies BD previousEmployments should exist as an array. */
+function personBrokerCheckScopeNeedsBdHistory(personNode) {
+	const scope = String(personNode?.bcScope || personNode?.basicInformation?.bcScope || '')
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '');
+	if (!scope || scope === 'notinscope') return false;
+	return true;
+}
+
+/** Detail payload (or node) employment arrays shorter than known firmCount floor / missing BD history. */
+function individualDetailEmploymentLooksPartial(detail, personNode = null) {
+	if (!detail || typeof detail !== 'object') return false;
+	const scopeSource = detail.basicInformation || detail;
+	const bcScope = String(scopeSource?.bcScope || personNode?.bcScope || personNode?.basicInformation?.bcScope || '')
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '');
+	const needsBd = Boolean(bcScope && bcScope !== 'notinscope');
+	if (needsBd && !Array.isArray(detail.previousEmployments)) return true;
+	const firmIds = new Set();
+	for (const employment of flattenEmploymentRecords(detail)) {
+		const firmNodeId = resolveEmploymentConnectionFirmNodeId(employment);
+		if (firmNodeId) firmIds.add(firmNodeId);
+	}
+	const knownFirmFloor = Math.max(
+		Math.floor(Number(detail.firmCount) || 0),
+		Math.floor(Number(detail.knownConnectionCount) || 0),
+		Math.floor(Number(personNode?.firmCount) || 0),
+		Math.floor(Number(personNode?.knownConnectionCount) || 0),
+		Math.floor(Number(personNode?.ind_connection_count) || 0),
+	);
+	return knownFirmFloor > 0 && firmIds.size < knownFirmFloor;
+}
+
+/** Re-fetch/reinject when history flags, BD arrays, or graph edges are still short. */
+function personNeedsEmploymentHistoryReinject(personNode) {
+	if (!personNode || personNode.group !== 'individual') return false;
+	if (personNode._employmentHistoryResolved !== true) return true;
+	if (personBrokerCheckScopeNeedsBdHistory(personNode) && !Array.isArray(personNode.previousEmployments)) return true;
+	if (!isPersonEmploymentGraphComplete(personNode)) return true;
+	const expected = getExpectedPersonEmploymentFirmIds(personNode).size;
+	const knownFirmFloor = Math.max(
+		Math.floor(Number(personNode.firmCount) || 0),
+		Math.floor(Number(personNode.knownConnectionCount) || 0),
+		Math.floor(Number(personNode.ind_connection_count) || 0),
+	);
+	return knownFirmFloor > 0 && expected < knownFirmFloor;
+}
+
 /** Unique firm node ids expected from the person's stored employment arrays. */
 function getExpectedPersonEmploymentFirmIds(personNode) {
 	const firmIds = new Set<string>();
@@ -16926,7 +17027,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		if (runId !== globalState.nonGrayExpandRunId) return;
 		// Second pass: if click still lacks expected previous employers, force a fresh
 		// detail hydrate (clears stale IA-only / unresolved history) then re-sync.
-		if (!isPersonEmploymentGraphComplete(clickedNode) || clickedNode._employmentHistoryResolved !== true) {
+		if (personNeedsEmploymentHistoryReinject(clickedNode)) {
 			delete clickedNode._employmentHistoryResolved;
 			delete clickedNode._detailLoaded;
 			await ensureIndividualDetail(clickedNode, {
@@ -17584,7 +17685,7 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 				allowOwnerEvidenceFirmFetch: true,
 				injectEmploymentGraph: true,
 			});
-			if (!isPersonEmploymentGraphComplete(node) || node._employmentHistoryResolved !== true) {
+			if (personNeedsEmploymentHistoryReinject(node)) {
 				delete node._employmentHistoryResolved;
 				delete node._detailLoaded;
 				await ensureIndividualDetail(node, {
