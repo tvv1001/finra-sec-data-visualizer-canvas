@@ -10091,12 +10091,17 @@ function mergeIntoGraphData(newNodes, newLinks) {
 
 function ensureQueueGraphSeedLinks(nodes: any[] = []) {
 	const seed = pendingQueueGraphSeed;
-	const firmId = String(seed?.anchorFirmId || '').trim().replace(/^firm:/i, '');
+	const firmId = String(seed?.anchorFirmId || '')
+		.trim()
+		.replace(/^firm:/i, '');
 	if (!seed || !/^\d+$/.test(firmId) || !globalState.graphData || !Array.isArray(globalState.graphData.links)) return;
 	const firmNodeId = `firm:${firmId}`;
-	const nodeIds = new Set(nodes.map((node) => String(node?.id || '')));
+	const nodeIds = new Set(
+		(Array.isArray(nodes) && nodes.length ? nodes : globalState.graphData.nodes || []).map((node) => String(node?.id || '')),
+	);
 	if (!nodeIds.has(firmNodeId)) return;
 	const existingKeys = new Set(globalState.graphData.links.map((link) => getLinkIdentityKey(link)));
+	const pendingLayoutLinks = [];
 	for (const person of seed.people || []) {
 		const crd = String(person?.crd || '').trim();
 		const personId = `person:${crd}`;
@@ -10110,9 +10115,32 @@ function ensureQueueGraphSeedLinks(nodes: any[] = []) {
 			...(isCurrent ? {} : { forceGray: true }),
 		};
 		const key = getLinkIdentityKey(link);
-		if (existingKeys.has(key)) continue;
-		existingKeys.add(key);
-		globalState.graphData.links.push(link);
+		if (!existingKeys.has(key)) {
+			existingKeys.add(key);
+			globalState.graphData.links.push(link);
+		}
+		// Seed edges must also appear on the rendered layout. appendFetched only pulls
+		// graphData links that touch *newly* added nodes, so a later enrich pass can leave
+		// person↔parent-firm edges stuck in graphData while the canvas shows disconnected nodes.
+		pendingLayoutLinks.push(link);
+	}
+	if (!pendingLayoutLinks.length || !Array.isArray(globalState.layoutNodes) || !Array.isArray(globalState.layoutLinks)) return;
+	const layoutNodeIds = new Set(globalState.layoutNodes.map((node) => String(node?.id || '')));
+	if (!layoutNodeIds.has(firmNodeId)) return;
+	const layoutCandidates = pendingLayoutLinks.filter((link) => layoutNodeIds.has(String(link.source)) && layoutNodeIds.has(String(link.target)));
+	if (!layoutCandidates.length) return;
+	const resolved = resolveLinkEndpoints(layoutCandidates, globalState.layoutNodes);
+	const toAdd = resolved.filter((link) => !layoutHasLinkIdentity(link));
+	if (!toAdd.length) return;
+	globalState.layoutLinks.push(...toAdd);
+	globalState.layoutLinks = deduplicateLayoutLinks(globalState.layoutLinks);
+	rebuildLayoutLinkIndexes(globalState.layoutLinks);
+	applyGraphDerivedNodeMetrics(globalState.layoutNodes, globalState.layoutLinks);
+	globalState.neighborMap = buildNeighborMap(globalState.layoutNodes, globalState.layoutLinks);
+	try {
+		globalState.simulation?.force?.('link')?.links?.(globalState.layoutLinks);
+	} catch {
+		/* ignore */
 	}
 }
 
@@ -10497,10 +10525,10 @@ async function importPastedCrdList(rawText: string) {
 			if (globalState.layoutNodes.some((n) => n.id === firmId)) return { entry, existed: true, nodeId: firmId, nodes: [], links: [] };
 
 			const fetchAsFirm = () => fetchFirmBatch(entry.crd, entry.name || null).then((batch) => ({ entry, existed: false, nodeId: firmId, nodes: batch.nodes, links: batch.links }));
-			// Paste import is an explicit user open — include previous employers so history-only
-			// people (e.g. CRD 1085996) are not left with zero/partial gray firm links.
+			// Match search / Queue enrich: only auto-expand current employers. Previous
+			// (gray) firms appear when the user clicks/opens the person.
 			const fetchAsIndividual = () =>
-				fetchIndividualBatch(entry.crd, entry.name || null, { includePreviousEmployments: true }).then((batch) => ({
+				fetchIndividualBatch(entry.crd, entry.name || null, { includePreviousEmployments: false }).then((batch) => ({
 					entry,
 					existed: false,
 					nodeId: personId,
@@ -11138,18 +11166,13 @@ async function hydratePendingNodeIds(
 	}
 
 	if (idsToFetch.length) {
-		// Log-list restore only needs the logged CRDs (+ current employers from detail).
-		// Wiring previous employers to every on-screen firm multiplies work and payload size.
-		const onScreenFirmIds =
-			isLogList ?
-				[]
-			:	Array.from(
-					new Set([
-						...normalizedIds.filter((id) => id.startsWith('firm:')).map((id) => id.split(':')[1]),
-						...(globalState.layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)),
-					]),
-				);
-
+		// Paste / search / Queue enrich: current employers only for auto-expand.
+		// Queue also keeps the dashboard parent firm edge (selected current *or*
+		// previous-at-that-firm) without fanning out the person's full history.
+		const queueAnchorFirmId = String(pendingQueueGraphSeed?.anchorFirmId || '')
+			.trim()
+			.replace(/^firm:/i, '');
+		const queueParentFirmIds = /^\d+$/.test(queueAnchorFirmId) ? [queueAnchorFirmId] : [];
 		let completedDetail = normalizedIds.length - idsToFetch.length;
 		for (let i = 0; i < idsToFetch.length; i += detailBatchSize) {
 			const chunk = idsToFetch.slice(i, i + detailBatchSize);
@@ -11161,13 +11184,10 @@ async function hydratePendingNodeIds(
 					try {
 						const batch =
 							entry.prefix === 'person' ?
-								await fetchIndividualBatch(
-									entry.rawId,
-									null,
-									isLogList ?
-										{ includePreviousEmployments: true }
-									:	{ includePreviousEmployerIds: onScreenFirmIds as string[] },
-								)
+								await fetchIndividualBatch(entry.rawId, null, {
+									includePreviousEmployments: false,
+									includePreviousEmployerIds: queueParentFirmIds,
+								})
 							:	await fetchFirmBatch(entry.rawId);
 						if (batch?.nodes?.length) {
 							for (const node of batch.nodes) {
@@ -11253,6 +11273,19 @@ async function hydratePendingNodeIds(
 
 	reportProgress(normalizedIds.length);
 
+	// Always re-assert Queue person↔parent-firm edges after enrich so canvas lines stay.
+	if (!isLogList && pendingQueueGraphSeed?.anchorFirmId) {
+		ensureQueueGraphSeedLinks(globalState.layoutNodes || globalState.graphData?.nodes || []);
+		try {
+			refreshLayeredLinkSelections({ enterDuration: 220 });
+			globalState.linkSel = selectRenderedLinkLines();
+			refreshGraphColors();
+			refreshTraceState({ deferMs: 80 });
+		} catch {
+			/* ignore */
+		}
+	}
+
 	if (!resolvedEntries.length) return;
 	if (addToLog) {
 		let nextLog = selectedNodesLog;
@@ -11267,7 +11300,7 @@ async function hydratePendingNodeIds(
 		saveSelectionLog();
 		updateSelectionLogUI();
 		syncSelectionLogAuxiliaryRenderers();
-			scheduleGraphTickPositions(null, null, null);
+		scheduleGraphTickPositions(null, null, null);
 	}
 }
 
@@ -14348,7 +14381,6 @@ function appendFetchedImpl(
 	}
 
 	globalState.layoutNodes = mergedNodes;
-	ensureQueueGraphSeedLinks(globalState.layoutNodes);
 	scheduleSidecarFirmLabelHydration(mergedNodes);
 	scheduleSidecarIndividualLabelHydration(mergedNodes);
 	scheduleFirmConnectionCountHydration(mergedNodes);
@@ -14366,6 +14398,22 @@ function appendFetchedImpl(
 			if (newNodeIdSet.has(s) || newNodeIdSet.has(t)) potentialLinks.push(link);
 		}
 	}
+	// Queue parent-firm edges must stay visible even when enrich only updates existing
+	// stubs (uniqNodes empty) — always re-queue seed links into the layout merge set.
+	if (pendingQueueGraphSeed?.anchorFirmId && globalState.graphData && Array.isArray(globalState.graphData.links)) {
+		const firmNodeId = `firm:${String(pendingQueueGraphSeed.anchorFirmId).replace(/^firm:/i, '')}`;
+		const seedPersonIds = new Set(
+			(pendingQueueGraphSeed.people || [])
+				.map((person) => `person:${String(person?.crd || '').trim()}`)
+				.filter((id) => id !== 'person:'),
+		);
+		seedPersonIds.add(firmNodeId);
+		for (const link of globalState.graphData.links) {
+			const s = String(link?.source?.id ?? link?.source ?? '');
+			const t = String(link?.target?.id ?? link?.target ?? '');
+			if (seedPersonIds.has(s) || seedPersonIds.has(t)) potentialLinks.push(link);
+		}
+	}
 	const resolvedPotentialLinks = resolveLinkEndpoints(potentialLinks, globalState.layoutNodes);
 	const currentLayoutNodeIds = new Set(globalState.layoutNodes.map((n) => n.id));
 	ensureLayoutLinkIndexes();
@@ -14380,6 +14428,8 @@ function appendFetchedImpl(
 	);
 	globalState.layoutLinks = deduplicateLayoutLinks(globalState.layoutLinks);
 	rebuildLayoutLinkIndexes(globalState.layoutLinks);
+	// After layout merge, promote Queue person↔parent-firm seed edges onto layoutLinks.
+	ensureQueueGraphSeedLinks(globalState.layoutNodes);
 	applyGraphDerivedNodeMetrics(globalState.layoutNodes, globalState.layoutLinks);
 	setGraphLabelRenderMode(globalState.layoutNodes.length);
 
