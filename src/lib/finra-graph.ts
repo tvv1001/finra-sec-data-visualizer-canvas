@@ -3229,7 +3229,7 @@ function applySelectionLogLabelState({
 				.map((id) => String(id || '').trim())
 				.filter(Boolean),
 		);
-		saveClearedSelectionLogLabelsPreference();
+		saveClearedSelectionLogLabelsPreference(); invalidateSelectionLogLabelNodeIdCache();
 	} else if (!clearedSelectionLogLabelNodeIds.size) {
 		clearedSelectionLogLabelNodeIds = loadClearedSelectionLogLabelsPreference();
 	}
@@ -3967,7 +3967,7 @@ function clearSelectionLogLabels(scope: SelectionLogClearLabelsScope = 'all') {
 		clearedSelectionLogLabelNodeIds.add(id);
 		forgetSelectionLogBoldId(id);
 	});
-	saveClearedSelectionLogLabelsPreference();
+	saveClearedSelectionLogLabelsPreference(); invalidateSelectionLogLabelNodeIdCache();
 	saveSession();
 	isSelectionLogClearLabelsMenuOpen = false;
 	updateSelectionLogUI();
@@ -4585,7 +4585,7 @@ function addToSelectionLog(
 			wasRememberedBold !== rememberedSelectionLogBoldNodeIds.has(clickedLogId));
 
 	if (!options.skipPersist) {
-		saveClearedSelectionLogLabelsPreference();
+		saveClearedSelectionLogLabelsPreference(); invalidateSelectionLogLabelNodeIdCache();
 		saveSelectionLog();
 	}
 	if (!options.skipPaint) {
@@ -5760,7 +5760,7 @@ function updateSelectionLogUI() {
 							forgetSelectionLogBoldId(id);
 							flashSelectionLogActionButton(labelToggleBtn, 'Bold');
 						}
-						saveClearedSelectionLogLabelsPreference();
+						saveClearedSelectionLogLabelsPreference(); invalidateSelectionLogLabelNodeIdCache();
 						saveSession();
 						updateSelectionLogUI();
 						reapplySelectionState();
@@ -5899,7 +5899,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 				if (rememberedSelectionLogBoldNodeIds.has(id)) clearedSelectionLogLabelNodeIds.delete(id);
 				else clearedSelectionLogLabelNodeIds.add(id);
 			});
-			saveClearedSelectionLogLabelsPreference();
+			saveClearedSelectionLogLabelsPreference(); invalidateSelectionLogLabelNodeIdCache();
 		}
 		saveSelectionLogBoldPreference();
 		saveSession();
@@ -10922,7 +10922,7 @@ async function importPastedCrdList(rawText: string) {
 			if (node) addToSelectionLog(node, { skipBold: true, skipPersist: true, skipPaint: true });
 		}
 		if (addedNodeIds.length) {
-			saveClearedSelectionLogLabelsPreference();
+			saveClearedSelectionLogLabelsPreference(); invalidateSelectionLogLabelNodeIdCache();
 			saveSelectionLog();
 			scheduleSelectionLogUI();
 			syncSelectionLogAuxiliaryRenderers();
@@ -11638,7 +11638,7 @@ async function hydratePendingNodeIds(
 			forgetSelectionLogBoldId(clickedLogId);
 		}
 		selectedNodesLog = nextLog;
-		saveClearedSelectionLogLabelsPreference();
+		saveClearedSelectionLogLabelsPreference(); invalidateSelectionLogLabelNodeIdCache();
 		saveSelectionLog();
 		updateSelectionLogUI();
 		syncSelectionLogAuxiliaryRenderers();
