@@ -833,7 +833,7 @@ export function drawCanvasFrame(
 		const isFocused = Boolean(focusedNodeId && focusedNodeId === String(n.id));
 		const isForcedLabel = forcedLabelIds.has(String(n.id));
 		const isPriorityForcedLabel = priorityLabelIds.has(String(n.id));
-		const isBoldLabel = isForcedLabel || isNodeSelected || isFocused;
+		const isBoldLabel = isForcedLabel;
 		const isControlPosition = isControlPositionNode(n);
 		const hasCurrentFirmConnections = n.group === 'firm' && Number(n?._deg?.total || 0) > 0;
 		const size = getCanvasNodeSize(n);
