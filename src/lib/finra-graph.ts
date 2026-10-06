@@ -774,7 +774,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 				: moving ? 32
 				: 60; // Allow much higher throughput
 			// Only protect memory on dense graphs (Skia realloc bug)
-			if (count > 250 && paintStormPaintCount >= stormLimit && (fetchHot || moving || paintStormPaintCount >= 60)) {
+			if (count > 800 && paintStormPaintCount >= stormLimit && (fetchHot || moving || paintStormPaintCount >= 60)) {
 				emergencyStopLayoutPaintStorm(
 					fetchHot ? 'fetch-reflow-paint-storm'
 					: moving ? 'sim-paint-storm'
