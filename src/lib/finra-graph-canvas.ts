@@ -135,8 +135,8 @@ function updateCanvasTooltip(node: Node | null, clientX?: number, clientY?: numb
 		hideCanvasTooltip();
 		return;
 	}
-	// Default labels are on-canvas when zoomed in — tooltips are redundant.
-	if (areDefaultCanvasLabelsVisible()) {
+	// Label already painted on the canvas — no tooltip needed.
+	if (isCanvasNodeLabelPainted(node)) {
 		hideCanvasTooltip();
 		return;
 	}
@@ -157,10 +157,7 @@ export function syncCanvasFocusTooltip() {
 		hideCanvasTooltip();
 		return;
 	}
-	if (areDefaultCanvasLabelsVisible()) {
-		hideCanvasTooltip();
-		return;
-	}
+
 	const focusedId = currentOpts?.focusedNodeId != null ? String(currentOpts.focusedNodeId).trim() : '';
 	if (!focusedId) {
 		if (!hoverNodeId) hideCanvasTooltip();
@@ -169,6 +166,10 @@ export function syncCanvasFocusTooltip() {
 	const node = currentNodes.find((n) => String(n?.id) === focusedId) || null;
 	if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) {
 		if (!hoverNodeId) hideCanvasTooltip();
+		return;
+	}
+	if (isCanvasNodeLabelPainted(node)) {
+		if (!hoverNodeId || hoverNodeId === focusedId) hideCanvasTooltip();
 		return;
 	}
 	// Keep hover tooltip if the pointer is over a different unlabeled node.
