@@ -87,7 +87,8 @@ function hideCanvasTooltip() {
 
 function ensureCanvasTooltipEl() {
 	if (!parentEl) return null;
-	if (!canvasTooltip) {
+	if (!canvasTooltip || canvasTooltip.parentNode !== parentEl) {
+		if (canvasTooltip && canvasTooltip.parentNode) canvasTooltip.remove();
 		canvasTooltip = document.createElement('div');
 		canvasTooltip.style.position = 'absolute';
 		canvasTooltip.style.pointerEvents = 'none';
@@ -428,6 +429,8 @@ export function destroyCanvas() {
 	currentTransform = { x: 0, y: 0, k: 1 };
 	hoverNodeId = null;
 	canvas = null;
+	if (canvasTooltip) canvasTooltip.remove();
+	canvasTooltip = null;
 	ctx = null;
 	parentEl = null;
 }
@@ -794,7 +797,7 @@ export function drawCanvasFrame(
 			return (
 				forcedLabelIds.has(id) ||
 				priorityLabelIds.has(id) ||
-				hoverNodeId === id ||
+				
 				(focusedNodeId && id === focusedNodeId) ||
 				(selectedNodeId && id === selectedNodeId)
 			);
@@ -830,7 +833,7 @@ export function drawCanvasFrame(
 		const isFocused = Boolean(focusedNodeId && focusedNodeId === String(n.id));
 		const isForcedLabel = forcedLabelIds.has(String(n.id));
 		const isPriorityForcedLabel = priorityLabelIds.has(String(n.id));
-		const isBoldLabel = isForcedLabel;
+		const isBoldLabel = isForcedLabel || isNodeSelected || isFocused;
 		const isControlPosition = isControlPositionNode(n);
 		const hasCurrentFirmConnections = n.group === 'firm' && Number(n?._deg?.total || 0) > 0;
 		const size = getCanvasNodeSize(n);

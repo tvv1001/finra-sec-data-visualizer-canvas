@@ -705,14 +705,7 @@ function emergencyStopLayoutPaintStorm(reason = 'paint-storm') {
 		if (typeof console !== 'undefined' && console.info) {
 			console.info(`[finra-graph] emergency layout stop (${reason})`);
 		}
-		try {
-			applyStatusPresentation?.('Layout paused to protect memory — pan/zoom still work. Click Refresh Layout if needed.', {
-				transient: true,
-				dismissible: true,
-			});
-		} catch {
-			/* status chrome may not be ready */
-		}
+		// message removed per user request
 	} catch {
 		/* ignore */
 	}
@@ -775,11 +768,13 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 				paintStormPaintCount = 0;
 			}
 			paintStormPaintCount += 1;
+			const count = globalState.layoutNodes?.length || 0;
 			const stormLimit =
-				fetchHot ? 8
-				: moving ? 12
-				: 28; // idle/hover: allow more; continuous 60fps still trips (~40ms floor)
-			if (paintStormPaintCount >= stormLimit && (fetchHot || moving || paintStormPaintCount >= 40)) {
+				fetchHot ? 24
+				: moving ? 32
+				: 60; // Allow much higher throughput
+			// Only protect memory on dense graphs (Skia realloc bug)
+			if (count > 250 && paintStormPaintCount >= stormLimit && (fetchHot || moving || paintStormPaintCount >= 60)) {
 				emergencyStopLayoutPaintStorm(
 					fetchHot ? 'fetch-reflow-paint-storm'
 					: moving ? 'sim-paint-storm'
@@ -7727,9 +7722,9 @@ function getLayoutReflowCooling(
 				: isLarge ? 0.05
 				: 0.042,
 			velocityDecay:
-				isHuge ? 0.65
-				: isLarge ? 0.55
-				: 0.48,
+				isHuge ? 0.88
+				: isLarge ? 0.8
+				: 0.6,
 			safetyStopMs:
 				isHuge ? 1100
 				: isLarge ? 1500
@@ -7745,13 +7740,13 @@ function getLayoutReflowCooling(
 			: isLarge ? 0.2
 			: 0.26,
 		alphaDecay:
-			isHuge ? 0.024
-			: isLarge ? 0.016
-			: 0.012,
+			isHuge ? 0.028
+			: isLarge ? 0.02
+			: 0.016,
 		velocityDecay:
-			isHuge ? 0.55
-			: isLarge ? 0.48
-			: 0.42,
+			isHuge ? 0.8
+			: isLarge ? 0.75
+			: 0.5,
 		safetyStopMs:
 			isHuge ? 3200
 			: isLarge ? 4800
@@ -15309,7 +15304,7 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			: isLarge ? 0.015
 			: 0.008,
 		)
-		.velocityDecay(isLarge ? 0.46 : 0.38)
+		.velocityDecay(isHuge ? 0.6 : isLarge ? 0.5 : 0.4)
 		.force(
 			'link',
 			d3
