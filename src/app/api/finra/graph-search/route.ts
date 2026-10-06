@@ -94,18 +94,26 @@ function buildNodesFromFirmDetail(detail: any, id: string) {
 	];
 
 	const links: any[] = [];
+	const parentFirmActive = !/inactive|terminated|revoked|suspended/i.test(
+		String(merged?.bcScope || basic?.bcScope || merged?.firmStatus || basic?.firmStatus || 'ACTIVE').replace(/\s+/g, ''),
+	);
 	const owners = Array.isArray(merged?.directOwners) ? merged.directOwners : [];
 	for (const owner of owners) {
 		const ownerCrd = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
 		if (!ownerCrd) continue;
 		const personId = `person:${ownerCrd}`;
+		const ownerBcScope = String(owner?.bcScope || '').trim().toLowerCase().replace(/\s+/g, '');
+		const isNonLiveOwner = !ownerBcScope || ownerBcScope === 'notinscope';
+
 		nodes.push({
 			id: personId,
 			label: owner?.legalName || owner?.name || '',
 			group: 'individual',
 			crd: ownerCrd,
 			_source: 'direct-crd-fallback',
-			stub: true,
+			stub: isNonLiveOwner,
+			bcScope: isNonLiveOwner ? (parentFirmActive ? 'Active' : 'Inactive') : owner?.bcScope || null,
+			orphanPosition: isNonLiveOwner ? owner?.position || null : null,
 		});
 		links.push({ source: personId, target: firmNodeId, relationship: 'controls' });
 	}

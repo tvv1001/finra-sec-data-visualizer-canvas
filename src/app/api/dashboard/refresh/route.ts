@@ -755,6 +755,9 @@ export function buildMainAppGraphArtifactsFromFetchedPayload(payload: unknown, t
 		},
 	];
 	const links: Record<string, any>[] = [];
+	const parentFirmActive = !/inactive|terminated|revoked|suspended/i.test(
+		String(detail?.bcScope || detail?.basicInformation?.bcScope || detail?.firmStatus || detail?.basicInformation?.firmStatus || 'ACTIVE').replace(/\s+/g, ''),
+	);
 	const seenOwnerIds = new Set<string>();
 	for (const owner of Array.isArray(detail?.directOwners) ? detail.directOwners : []) {
 		const ownerCrd = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
@@ -762,13 +765,17 @@ export function buildMainAppGraphArtifactsFromFetchedPayload(payload: unknown, t
 		const personId = `person:${ownerCrd}`;
 		if (!seenOwnerIds.has(personId)) {
 			seenOwnerIds.add(personId);
+			const ownerBcScope = String(owner?.bcScope || '').trim().toLowerCase().replace(/\s+/g, '');
+			const isNonLiveOwner = !ownerBcScope || ownerBcScope === 'notinscope';
 			nodes.push({
 				id: personId,
 				label: owner?.legalName || owner?.name || `Node person:${ownerCrd}`,
 				group: 'individual',
 				crd: ownerCrd,
 				_source: 'dashboard-fetch',
-				stub: true,
+				stub: isNonLiveOwner,
+				bcScope: isNonLiveOwner ? (parentFirmActive ? 'Active' : 'Inactive') : owner?.bcScope || null,
+				orphanPosition: isNonLiveOwner ? owner?.position || null : null,
 				discovered_by_crd: firmNodeId,
 			});
 		}
