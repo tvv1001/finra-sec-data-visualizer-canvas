@@ -786,7 +786,7 @@ export function drawCanvasFrame(
 	// isMoving via fetchReflowPaintBoostUntil and wiped labels right after they appeared.
 	const labelBudget =
 		simMoving && !labelsInZoomBand ? (visibleNodes.length > 200 ? 24 : 48)
-		: simMoving && labelsInZoomBand ? (visibleNodes.length > 800 ? 160 : visibleNodes.length > 400 ? 240 : 360)
+		: labelsInZoomBand ? Infinity
 		: visibleNodes.length > 1000 ? 120
 		: visibleNodes.length > 600 ? 180
 		: visibleNodes.length > 300 ? 280
