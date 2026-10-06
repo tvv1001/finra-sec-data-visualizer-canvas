@@ -7823,8 +7823,8 @@ function reheatLayoutLikeRefresh(
 			node._fetchLayoutBiasX = Number(node.x);
 			node._fetchLayoutBiasY = Number(node.y);
 			node._fetchLayoutBiasStrength = cooling.isHuge ? 0.14 : cooling.isLarge ? 0.18 : 0.22;
-			node.fx = Number(node.x);
-			node.fy = Number(node.y);
+			// node.fx = Number(node.x); // Removed so nodes can spread apart
+			// node.fy = Number(node.y);
 			nearParentPinned.push(node);
 			touchedIds.add(id);
 		} else if (!light && centerIdSet.has(id) && placementKind !== 'near-parent') {
@@ -14980,50 +14980,9 @@ function appendFetchedImpl(
 	}
 
 	const nearParentCount = uniqNodes.filter((n) => (n as any)?._fetchPlacementKind === 'near-parent').length;
-	// Any all-near-parent append (even 1–2 children) must skip force reheat — small
-	// firm-owner fans used to fall through and climb renderer RSS on every expand.
-	const nearParentOnly = uniqNodes.length > 0 && nearParentCount === uniqNodes.length;
-	// Firm-expand / Queue fans are already seeded next to the parent. Skipping the
-	// multi-second force reheat is the biggest crash mitigator for those fetches.
-	if (nearParentOnly) {
-		for (const node of globalState.layoutNodes || []) {
-			if ((node as any)?._fetchPlacementKind !== 'near-parent') continue;
-			node.vx = 0;
-			node.vy = 0;
-			// Keep _fetchPlacementKind so a later connections append can soft-pin this fan
-			// instead of stretching it; clear after a short idle window.
-			if (Number.isFinite(node.x) && Number.isFinite(node.y)) {
-				node.fx = Number(node.x);
-				node.fy = Number(node.y);
-			}
-		}
-		try {
-			globalState.simulation.alphaTarget?.(0);
-			globalState.simulation.stop?.();
-		} catch {
-			/* ignore */
-		}
-		if (globalState.spreadReleaseTimer) {
-			clearTimeout(globalState.spreadReleaseTimer);
-			globalState.spreadReleaseTimer = null;
-		}
-		globalState.spreadReleaseTimer = setTimeout(() => {
-			try {
-				for (const node of globalState.layoutNodes || []) {
-					if ((node as any)?._fetchPlacementKind === 'near-parent') {
-						delete node._fetchPlacementKind;
-						node.fx = null;
-						node.fy = null;
-					}
-				}
-			} catch {
-				/* ignore */
-			}
-			globalState.spreadReleaseTimer = null;
-		}, 4500);
-		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
-		return;
-	}
+	// The nearParentOnly hard-bypass was removed. We now always fall through to
+	// reheatLayoutLikeRefresh so D3 forceCollide can un-overlap the dense nodes.
+	// The "paint storm" RSS climbs are handled by the throttled tick handler below.
 
 	// Replace tick handler so it covers the full updated selections.
 	// Throttle paints the same way as the main renderGraph tick path — an unthrottled
