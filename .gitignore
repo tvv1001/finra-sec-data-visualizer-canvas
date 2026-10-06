@@ -96,3 +96,7 @@ patch_**
 next-env.d.ts
 .local/scripts/generate_search**.js
 rust-force-layout/target/
+
+/test-*.mjs
+/fix-*.mjs
+/fix-*.js
