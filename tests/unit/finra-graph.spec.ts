@@ -68,7 +68,11 @@ import {
 	handleNodeKeyboardActivation,
 	resolveEmploymentConnectionFirmNodeId,
 } from '../../src/lib/finra-graph';
-import { shouldRenderBlueNodeHighlight } from '../../src/lib/finra-graph-canvas';
+import {
+	areDefaultCanvasLabelsVisible,
+	CANVAS_DEFAULT_LABEL_ZOOM_THRESHOLD,
+	shouldRenderBlueNodeHighlight,
+} from '../../src/lib/finra-graph-canvas';
 import { DEFAULT_NODE_LABEL_FONT_SIZE_PX } from '../../src/lib/finra-graph-defaults';
 import { applyIndividualDetail as applyIndividualDetailFromDetailUtils, hasRichIndividualDetail } from '../../src/lib/finra-graph/detailUtils';
 import { mergeGraphNodesForAppend, rewriteGraphLinksForNodeIdentity } from '../../src/lib/graphIdentity';
@@ -793,8 +797,8 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			expect(result.placements.get(id)?.kind).toBe('near-parent');
 			const p = result.placements.get(id)!;
 			const distToParent = Math.hypot(p.x - 400, p.y - 300);
-			expect(distToParent).toBeLessThan(200);
-			expect(distToParent).toBeGreaterThan(60);
+			expect(distToParent).toBeLessThan(300);
+			expect(distToParent).toBeGreaterThan(100);
 			// Must not be parked on the global outer ring.
 			const distToCenter = Math.hypot(p.x - result.center.x, p.y - result.center.y);
 			expect(distToCenter).toBeLessThan(result.inwardRadius - 10);
@@ -828,8 +832,8 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			expect(result.placements.get(id)?.kind).toBe('near-parent');
 			const firm = result.placements.get('firm:9')!;
 			const p = result.placements.get(id)!;
-			expect(Math.hypot(p.x - firm.x, p.y - firm.y)).toBeLessThan(200);
-			expect(Math.hypot(p.x - firm.x, p.y - firm.y)).toBeGreaterThan(60);
+			expect(Math.hypot(p.x - firm.x, p.y - firm.y)).toBeLessThan(300);
+			expect(Math.hypot(p.x - firm.x, p.y - firm.y)).toBeGreaterThan(100);
 		}
 	});
 
@@ -1172,6 +1176,12 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	it('includes firm CRDs in the node tooltip title', () => {
 		const node = { id: 'firm:7803022', group: 'firm', label: 'Example Firm', firmId: '7803022' } as any;
 		expect(getNodeTooltipTitle(node)).toContain('CRD: 7803022');
+	});
+
+	it('treats default canvas labels as visible at the label zoom threshold (tooltips off)', () => {
+		expect(areDefaultCanvasLabelsVisible(CANVAS_DEFAULT_LABEL_ZOOM_THRESHOLD - 0.01)).toBe(false);
+		expect(areDefaultCanvasLabelsVisible(CANVAS_DEFAULT_LABEL_ZOOM_THRESHOLD)).toBe(true);
+		expect(areDefaultCanvasLabelsVisible(1)).toBe(true);
 	});
 
 	it('renderPersonDetail uses parent-firm summary URLs for active current employment records', () => {

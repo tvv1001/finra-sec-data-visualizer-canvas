@@ -11,8 +11,11 @@
 #
 # Usage:
 #   bash .local/scripts/chrome-nvidia.sh
-#   bash .local/scripts/chrome-nvidia.sh 'http://127.0.0.1:4444/?dgpu=1'
+#   bash .local/scripts/chrome-nvidia.sh 'http://127.0.0.1:4444/?dgpu=1&safe_gpu=1'
 #   CHROME_BIN=/usr/bin/google-chrome-stable bash .local/scripts/chrome-nvidia.sh
+#
+# Prefer safe_gpu=1 (default). safe_gpu=0 re-enables soft CSS/SVG glow filters and
+# correlates with multi-GB renderer RSS climbs on both NVIDIA-only and hybrid.
 set -euo pipefail
 
 if ! command -v nvidia-smi >/dev/null 2>&1; then
@@ -49,7 +52,7 @@ if [[ -z "$CHROME_BIN" ]]; then
 	exit 1
 fi
 
-URL="${1:-http://127.0.0.1:4444/?dgpu=1&disable_analytics=1}"
+URL="${1:-http://127.0.0.1:4444/?dgpu=1&safe_gpu=1&disable_analytics=1}"
 PROFILE_DIR="${CHROME_NVIDIA_PROFILE:-$HOME/.config/google-chrome-nvidia-finra}"
 mkdir -p "$PROFILE_DIR"
 

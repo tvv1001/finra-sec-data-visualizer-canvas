@@ -266,7 +266,7 @@ function formatFindCounter(total: number, activeOrdinal = 0) {
 	return `${total} match${total === 1 ? '' : 'es'}`;
 }
 
-/** Capability-aware GPU mode: lone dGPU gets full SVG filters; hybrid keeps GPU but strips crashy filters. */
+/** Capability-aware GPU mode: all tiers default to filter/glow-safe; GPU compositing stays on. */
 function applySafeGpuMode() {
 	if (typeof document === 'undefined' || typeof window === 'undefined') return false;
 	const info = probeWebGlGpuInfo();

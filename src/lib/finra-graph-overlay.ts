@@ -21,6 +21,8 @@ let dpr = 1;
 const detailCache = new Map<string, any>();
 let hoverTimerGlobal: number | null = null;
 let activeTooltipIdGlobal: string | null = null;
+/** Last zoom scale from updateOverlay — used to suppress tooltips when labels show. */
+let lastOverlayZoomScale = 1;
 const OVERLAY_LABEL_ZOOM_THRESHOLD = 0.8;
 const MAX_OVERLAY_LABELS = 100;
 const OVERLAY_DEFAULT_LABEL_SIZE_PX = 26;
@@ -197,7 +199,8 @@ function createLabelElement(node: Node) {
 	el.style.padding = '4px 8px';
 	el.style.borderRadius = '4px';
 	el.style.background = 'rgba(255,255,255,0.95)';
-	el.style.boxShadow = '0 2px 6px rgba(16,24,40,0.12)';
+	el.style.boxShadow = 'none';
+	el.style.border = '1px solid rgba(15,23,42,0.12)';
 	el.style.fontSize = DEFAULT_NODE_LABEL_FONT_SIZE;
 	el.style.fontWeight = DEFAULT_NODE_LABEL_FONT_WEIGHT;
 	el.style.color = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
@@ -233,6 +236,12 @@ export function updateOverlay(
 	const w = rect.width,
 		h = rect.height;
 	const scale = transform.k || 1;
+	lastOverlayZoomScale = scale;
+	// Default labels visible → drop any open tooltip (zoom-in mid-hover).
+	if (scale >= OVERLAY_LABEL_ZOOM_THRESHOLD) {
+		hideTooltip();
+		activeTooltipIdGlobal = null;
+	}
 	const invK = 1 / (transform.k || 1);
 	const minX = -transform.x * invK - 40;
 	const minY = -transform.y * invK - 40;
@@ -338,6 +347,12 @@ function focusNextLabel(currentEl: HTMLElement, delta: number) {
 
 function showTooltipForNode(node: any, anchorEl: HTMLElement, cache: Map<string, any>) {
 	if (!container) return;
+	// Default overlay labels paint at this zoom — tooltips are redundant.
+	if (lastOverlayZoomScale >= OVERLAY_LABEL_ZOOM_THRESHOLD) {
+		hideTooltip();
+		activeTooltipIdGlobal = null;
+		return;
+	}
 	const id = String(node.id);
 	const existing = document.getElementById('fg-overlay-tooltip');
 	if (existing) existing.remove();
@@ -349,7 +364,8 @@ function showTooltipForNode(node: any, anchorEl: HTMLElement, cache: Map<string,
 	tip.style.background = 'white';
 	tip.style.padding = '8px 10px';
 	tip.style.borderRadius = '6px';
-	tip.style.boxShadow = '0 6px 20px rgba(2,6,23,0.16)';
+	tip.style.boxShadow = 'none';
+	tip.style.border = '1px solid rgba(15,23,42,0.14)';
 	tip.style.fontSize = '13px';
 	tip.style.color = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
 	tip.tabIndex = -1;

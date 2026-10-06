@@ -449,9 +449,7 @@
 	background: linear-gradient(180deg, #2f65ea 0%, #1d4ed8 100%);
 	border-color: #7c3aed;
 	color: #fff;
-	box-shadow:
-		0 0 0 1px rgba(29, 78, 216, 0.18),
-		0 6px 14px rgba(29, 78, 216, 0.18);
+	box-shadow: none;
 }
 
 .cardSourceKeyBtnActive:hover {
@@ -940,7 +938,7 @@
 	inset: 2px;
 	border-radius: 50%;
 	background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, transparent 70%);
-	filter: blur(4px);
+	filter: none;
 	pointer-events: none;
 	animation: vectorPulse 2s ease-in-out infinite alternate;
 }
@@ -1033,7 +1031,7 @@
 	height: 6px;
 	border-radius: 50%;
 	background: var(--cyan, #06b6d4);
-	box-shadow: 0 0 8px var(--cyan, #06b6d4);
+	box-shadow: none;
 	animation: pulseDot 1.4s ease-in-out infinite;
 }
 
@@ -2582,14 +2580,12 @@
 	border-color: var(--border-cyan-strong);
 	border-left: 3px solid #38bdf8;
 	background: linear-gradient(90deg, rgba(6, 182, 212, 0.18) 0%, var(--content-surface) 100%);
-	box-shadow:
-		0 0 16px rgba(6, 182, 212, 0.22),
-		inset 0 0 12px rgba(6, 182, 212, 0.08);
+	box-shadow: none;
 }
 
 .searchResultCardSelected .searchResultName {
 	color: #ffffff;
-	text-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+	text-shadow: none;
 }
 
 .middlePane {
@@ -2674,9 +2670,7 @@
 	border-color: var(--border-cyan-strong);
 	border-left: 3px solid #38bdf8;
 	background: linear-gradient(90deg, rgba(6, 182, 212, 0.18) 0%, var(--content-surface) 100%);
-	box-shadow:
-		0 0 16px rgba(6, 182, 212, 0.22),
-		inset 0 0 12px rgba(6, 182, 212, 0.08);
+	box-shadow: none;
 }
 
 .middlePaneItemSelected:hover {
@@ -2689,12 +2683,12 @@
 	border-color: #38bdf8;
 	background: rgba(6, 182, 212, 0.28);
 	color: #ffffff;
-	box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+	box-shadow: none;
 }
 
 .middlePaneItemSelected .middlePaneItemName {
 	color: #ffffff;
-	text-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+	text-shadow: none;
 }
 
 .middlePaneItemSelected .middlePaneItemMeta {
@@ -2913,9 +2907,7 @@
 	border-color: var(--border-cyan-strong);
 	border-left: 3px solid #38bdf8;
 	background: linear-gradient(90deg, rgba(6, 182, 212, 0.18) 0%, rgba(32, 9, 20, 0.96) 100%);
-	box-shadow:
-		0 0 16px rgba(6, 182, 212, 0.22),
-		inset 0 0 12px rgba(6, 182, 212, 0.08);
+	box-shadow: none;
 }
 
 .rightPaneItemSelected:hover {
@@ -2926,7 +2918,7 @@
 
 .rightPaneItemSelected .rightPaneItemTitle {
 	color: #ffffff;
-	text-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+	text-shadow: none;
 }
 
 .rightPaneItemSelected .rightPaneItemMeta {
@@ -3355,7 +3347,7 @@
 .currentConnectionName {
 	color: #e0f2fe;
 	font-size: 14px;
-	text-shadow: 0 0 12px rgba(56, 189, 248, 0.18);
+	text-shadow: none;
 }
 
 .currentConnectionMeta {
@@ -3444,9 +3436,7 @@
 	padding: 20px;
 	color: #ff9900;
 	margin-bottom: 24px;
-	box-shadow:
-		0 4px 12px rgba(255, 153, 0, 0.15),
-		inset 0 0 10px rgba(255, 153, 0, 0.05);
+	box-shadow: none;
 	position: relative;
 	overflow: hidden;
 }
@@ -3491,14 +3481,14 @@
 	padding: 16px;
 	border-radius: 6px;
 	text-align: center;
-	backdrop-filter: blur(2px);
+	backdrop-filter: none;
 }
 
 .orangeVectorValue {
 	font-size: 2rem;
 	font-weight: bold;
 	margin-bottom: 8px;
-	text-shadow: 0 0 8px rgba(255, 153, 0, 0.5);
+	text-shadow: none;
 }
 
 .orangeVectorLabel {
@@ -3544,7 +3534,7 @@
 	padding: 2px 8px;
 	border-radius: 0px;
 	white-space: nowrap;
-	text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+	text-shadow: none;
 	outline: 1px solid rgba(96, 165, 250, 0.4);
 }
 

@@ -518,6 +518,20 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 	}
 
 	updateInactiveLabelZoomState(globalState.rootGroup, normalizedScale);
+	syncNativeNodeTooltips(normalizedScale);
+}
+
+/** Native SVG <title> tooltips only when default labels are hidden (zoomed out). */
+function syncNativeNodeTooltips(zoomScale = getCurrentGraphZoomScale()) {
+	if (!globalState.nodeGroup || typeof globalState.nodeGroup.selectAll !== 'function') return;
+	const labelsVisible = Math.max(0.1, Number(zoomScale) || 1) >= (globalState.activeLabelZoomThreshold || 0.3);
+	try {
+		globalState.nodeGroup.selectAll('g.fg-node title').text(function (d) {
+			return labelsVisible ? '' : getNodeTooltipTitle(d);
+		});
+	} catch {
+		/* ignore */
+	}
 }
 
 export function setGraphLabelRenderMode(_nodeCount = globalState.layoutNodes?.length || 0) {
@@ -580,8 +594,12 @@ function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) 
 }
 
 function shouldRefreshOverlayLabels(nodeCount = globalState.layoutNodes?.length || 0) {
-	if (nodeCount <= 1200) return true;
-	const interval = 2;
+	const alpha = globalState.simulation?.alpha?.() || 0;
+	const fetchReflowHot = typeof performance !== 'undefined' && performance.now() < fetchReflowPaintBoostUntil;
+	// Overlay DOM churn during sim/fetch is a compositor RSS amplifier — skip until settled.
+	if (fetchReflowHot || alpha > 0.05) return false;
+	if (nodeCount <= 400) return true;
+	const interval = nodeCount > 1200 ? 4 : 2;
 	const shouldUpdate = globalState.overlayRefreshFrameCounter % interval === 0;
 	globalState.overlayRefreshFrameCounter += 1;
 	return shouldUpdate;
@@ -621,8 +639,22 @@ function scheduleWasmLayoutSnapshot(nodes: any[], links: any[], width: number, h
 					if (Number.isFinite(position.x)) node.x = position.x;
 					if (Number.isFinite(position.y)) node.y = position.y;
 				}
-				globalState.simulation.alpha(Math.min(0.16, Math.max(0.06, getIncrementalRestartAlpha(nodes.length, nodes.length)))).restart();
+				if (typeof performance !== 'undefined') {
+					fetchReflowPaintBoostUntil = Math.max(fetchReflowPaintBoostUntil, performance.now() + 1600);
+				}
+				const settleAlpha = Math.min(0.1, Math.max(0.04, getIncrementalRestartAlpha(nodes.length, nodes.length)));
+				globalState.simulation.alpha(settleAlpha).restart();
 				scheduleGraphTickPositions(null, null, null);
+				setTimeout(() => {
+					try {
+						globalState.simulation?.alphaTarget?.(0);
+						globalState.simulation?.alpha?.(0);
+						globalState.simulation?.stop?.();
+					} catch {
+						/* ignore */
+					}
+					scheduleGraphTickPositions(null, null, null);
+				}, nodes.length > 400 ? 900 : 1400);
 			})
 			.catch(() => {
 				// The existing D3 simulation remains the fallback if WASM is unavailable.
@@ -650,16 +682,68 @@ function startProgressiveRevealForGraph(_nodeCount = globalState.layoutNodes?.le
 // even when JS heap stays ~80MB. Cap paint cadence while the force sim is hot.
 let graphTickLastPaintAt = 0;
 let graphTickThrottleTimer: ReturnType<typeof setTimeout> | null = null;
+/** True while append/fetch reheat is holding the sim hot (spreadReleaseTimer). */
+let fetchReflowPaintBoostUntil = 0;
+/** Rolling window for emergency sim-stop when paints keep thrashing native RSS. */
+let paintStormWindowStart = 0;
+let paintStormPaintCount = 0;
+
+/** Kill a runaway force sim before Skia/partition_alloc climbs to multi-GB OOM. */
+function emergencyStopLayoutPaintStorm(reason = 'paint-storm') {
+	try {
+		if (globalState.spreadReleaseTimer) {
+			clearTimeout(globalState.spreadReleaseTimer);
+			globalState.spreadReleaseTimer = null;
+		}
+		fetchReflowPaintBoostUntil = 0;
+		paintStormPaintCount = 0;
+		paintStormWindowStart = typeof performance !== 'undefined' ? performance.now() : 0;
+		globalState.simulation?.alpha?.(0);
+		globalState.simulation?.alphaTarget?.(0);
+		globalState.simulation?.stop?.();
+		stopNodePulseLoop?.();
+		if (typeof console !== 'undefined' && console.info) {
+			console.info(`[finra-graph] emergency layout stop (${reason})`);
+		}
+		try {
+			applyStatusPresentation?.('Layout paused to protect memory — pan/zoom still work. Click Refresh Layout if needed.', {
+				transient: true,
+				dismissible: true,
+			});
+		} catch {
+			/* status chrome may not be ready */
+		}
+	} catch {
+		/* ignore */
+	}
+}
 
 function getGraphPaintMinIntervalMs() {
 	const count = globalState.layoutNodes?.length || 0;
 	const alpha = globalState.simulation?.alpha?.() || 0;
 	const moving = alpha > 0.03;
-	if (count > 800 && moving) return 110;
-	if (count > 400 && moving) return 80;
-	if (count > 200 && moving) return 55;
-	if (count > 800) return 50;
-	if (count > 400) return 33;
+	const fetchReflowHot = typeof performance !== 'undefined' && performance.now() < fetchReflowPaintBoostUntil;
+	// Firm-expand / fetch / pan-zoom: paint even less often — Skia realloc dominates crashes.
+	// Small graphs previously returned 0ms here, so wheel/drag still hit ~60fps canvas paints
+	// and climbed ~150–300MB/s even with the sim stopped.
+	if (fetchReflowHot && moving) {
+		if (count > 400) return 220;
+		if (count > 120) return 160;
+		return 120;
+	}
+	if (fetchReflowHot) {
+		if (count > 200) return 110;
+		return 80;
+	}
+	if (count > 800 && moving) return 150;
+	if (count > 400 && moving) return 110;
+	if (count > 200 && moving) return 72;
+	if (count > 100 && moving) return 48;
+	if (count > 800) return 66;
+	if (count > 400) return 45;
+	if (count > 200) return 32;
+	// Floor for canvas idle paints (selection/hover) — never unrestricted 60fps.
+	if (globalState.canvasModeActive) return 24;
 	return 0;
 }
 
@@ -679,7 +763,30 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 	}
 	globalState.graphTickFrameId = requestAnimationFrame(() => {
 		globalState.graphTickFrameId = null;
-		if (typeof performance !== 'undefined') graphTickLastPaintAt = performance.now();
+		if (typeof performance !== 'undefined') {
+			const now = performance.now();
+			graphTickLastPaintAt = now;
+			const alpha = globalState.simulation?.alpha?.() || 0;
+			const moving = alpha > 0.03;
+			const fetchHot = now < fetchReflowPaintBoostUntil;
+			// Count every canvas paint in the window — pan/zoom storms happen with alpha=0.
+			if (now - paintStormWindowStart > 2500) {
+				paintStormWindowStart = now;
+				paintStormPaintCount = 0;
+			}
+			paintStormPaintCount += 1;
+			const stormLimit =
+				fetchHot ? 8
+				: moving ? 12
+				: 28; // idle/hover: allow more; continuous 60fps still trips (~40ms floor)
+			if (paintStormPaintCount >= stormLimit && (fetchHot || moving || paintStormPaintCount >= 40)) {
+				emergencyStopLayoutPaintStorm(
+					fetchHot ? 'fetch-reflow-paint-storm'
+					: moving ? 'sim-paint-storm'
+					: 'idle-paint-storm',
+				);
+			}
+		}
 		if (globalState.pixiModeActive && globalState.pixiApi && typeof globalState.pixiApi.drawFrame === 'function') {
 			try {
 				const transform = getCurrentZoomTransform();
@@ -712,6 +819,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 				const logLabelNodeIds = getSelectionLogLabelNodeIds();
 				const priorityLabelNodeIds = getCanvasPriorityLabelNodeIds();
 				const linkFocusNodeIds = getCanvasLinkFocusNodeIds();
+				const fetchHot = typeof performance !== 'undefined' && performance.now() < fetchReflowPaintBoostUntil;
 				globalState.canvasApi.drawFrame(globalState.layoutNodes || [], globalState.layoutLinks || [], transform, {
 					selectedId: globalState.selectedId,
 					selectedNodeIds: Array.from(new Set([globalState.selectedId, ...Array.from(globalState.persistentSelectedIds)].filter(Boolean))),
@@ -720,6 +828,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 					labelScale: 1,
 					logLabelNodeIds,
 					priorityLabelNodeIds,
+					// Sim cooling only — pan/zoom must not clear labels (paint cadence still uses fetchHot).
 					isMoving: (globalState.simulation?.alpha() || 0) > 0.05,
 				});
 				if (shouldRefreshOverlayLabels(globalState.layoutNodes?.length) && globalState.overlayApi && typeof globalState.overlayApi.update === 'function') {
@@ -865,6 +974,8 @@ const NON_GRAY_DETAIL_BATCH_SIZE = 5;
 const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 12;
 /** Hard cap: never dump mega-firm neighborhoods (e.g. Merrill ~2500) onto the canvas in one expand. */
 const MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND = 12;
+/** Form BD Direct Owners / Executive Officers painted on firm click — keep bounded. */
+const MAX_FIRM_CONTROL_OWNERS_ON_CANVAS = 24;
 /** Sidebar connection lists stay short; full roster lives on the dashboard. */
 const SIDEBAR_CONNECTIONS_PREVIEW_LIMIT = 24;
 const PROFILE_SEED_FETCH_CONCURRENCY = 5;
@@ -6774,7 +6885,7 @@ async function restoreSavedSession(session) {
 
 	const missingServerIds = (session.renderedServerIds || []).filter((id) => !renderedIds.has(id));
 	if (missingServerIds.length) {
-		injectNodesById(missingServerIds, { skipPersist: true });
+		injectNodesById(missingServerIds, { skipPersist: true, skipSimRestart: true });
 	}
 
 	if (session.extraNodes?.length || session.extraLinks?.length) {
@@ -6782,11 +6893,16 @@ async function restoreSavedSession(session) {
 		restoredExtraNodes.forEach((node) => resetTransientDetailState(node));
 		const normalized = normalizeGraphPayloadByIdentity(restoredExtraNodes, session.extraLinks || []);
 		mergeIntoGraphData(normalized.nodes, normalized.links);
-		globalState.appendFetched(normalized.nodes, normalized.links);
+		// Never reheat the force sim on session restore — that climbed multi-GB RSS on load.
+		globalState.appendFetched(normalized.nodes, normalized.links, {
+			skipPersist: true,
+			skipFindRefresh: true,
+			skipSimRestart: true,
+		});
 	} else if (session.extraNodeIds?.length) {
 		const missingExtraNodeIds = session.extraNodeIds.filter((id) => !globalState.layoutNodes.some((node) => node.id === id));
 		if (missingExtraNodeIds.length) {
-			injectNodesById(missingExtraNodeIds, { skipPersist: true });
+			injectNodesById(missingExtraNodeIds, { skipPersist: true, skipSimRestart: true });
 		}
 	}
 
@@ -6794,6 +6910,16 @@ async function restoreSavedSession(session) {
 		applySavedNodePositions(session.nodePositions || []);
 	} catch {
 		// non-critical
+	}
+
+	// Soft-pin restored coords so charge/link forces cannot walk the whole graph.
+	try {
+		pinLayoutNodesAtCurrentPositions?.(0);
+		globalState.simulation?.alpha?.(0);
+		globalState.simulation?.alphaTarget?.(0);
+		globalState.simulation?.stop?.();
+	} catch {
+		/* non-critical */
 	}
 
 	try {
@@ -6812,16 +6938,12 @@ async function restoreSavedSession(session) {
 		// non-critical
 	}
 
-	try {
-		refreshNodeLayout();
-	} catch {
-		// non-critical
-	}
+	// Do NOT call refreshNodeLayout() here — it restart()s the sim and was the
+	// main multi-GB renderer RSS climb on every crash-recovery / hard refresh.
 
 	try {
-		restoreHighlightStateFromSession(session, {
-			delayMs: getRefreshLayoutDurationMs(),
-		});
+		// No delay — a deferred highlight reheat after restore climbed RSS on load.
+		restoreHighlightStateFromSession(session, { delayMs: 0 });
 	} catch {
 		// non-critical
 	}
@@ -6830,6 +6952,25 @@ async function restoreSavedSession(session) {
 		selectionLogBold: typeof session.selectionLogBold === 'boolean' ? session.selectionLogBold : null,
 		clearedSelectionLogLabelIds: Array.isArray(session.clearedSelectionLogLabelIds) ? session.clearedSelectionLogLabelIds : null,
 	});
+
+	// Rebuild once with a frozen layout so restore never leaves a cooling sim ticking.
+	try {
+		const savedZoom = captureCurrentZoomTransform?.() || null;
+		renderGraph(globalState.graphData, { freezeLayout: true, skipInitialZoom: true });
+		if (savedZoom) {
+			try {
+				restoreCapturedZoomTransform?.(savedZoom);
+			} catch {
+				/* ignore */
+			}
+		}
+		globalState.simulation?.alpha?.(0);
+		globalState.simulation?.alphaTarget?.(0);
+		globalState.simulation?.stop?.();
+		stopNodePulseLoop?.();
+	} catch {
+		/* non-critical */
+	}
 
 	// After crash/refresh restore, force a clean link paint pass so zoom + selection
 	// emphasis cannot leave the whole canvas looking washed out.
@@ -7213,9 +7354,11 @@ function applySavedNodePositions(savedPositions) {
 		if (!p) return;
 		if (Number.isFinite(p.x)) n.x = p.x;
 		if (Number.isFinite(p.y)) n.y = p.y;
-		// Preserve positions, but keep nodes free so the simulation can flow.
-		n.fx = null;
-		n.fy = null;
+		// Pin restored coords — freeing them + restart() walked the whole graph and climbed RSS.
+		n.fx = n.x;
+		n.fy = n.y;
+		n.vx = 0;
+		n.vy = 0;
 	});
 
 	if (globalState.linkSel) {
@@ -7229,7 +7372,12 @@ function applySavedNodePositions(savedPositions) {
 		globalState.nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	}
 
-	globalState.simulation.alpha(0).restart();
+	try {
+		globalState.simulation.alpha(0).alphaTarget(0).stop();
+	} catch {
+		/* ignore */
+	}
+	scheduleGraphTickPositions(null, null, null);
 }
 
 export function buildSessionRenderGraphData(session, baseGraphData = globalState.graphData) {
@@ -7557,32 +7705,62 @@ function ensureGraphViewportVisible({ duration = 0 }: { duration?: number } = {}
 	});
 }
 
-function getLayoutReflowCooling(nodeCount = globalState.layoutNodes?.length || 0) {
+function getLayoutReflowCooling(
+	nodeCount = globalState.layoutNodes?.length || 0,
+	options: { light?: boolean } = {},
+) {
 	const isLarge = nodeCount > 300;
 	const isHuge = nodeCount > 1000;
+	const light = Boolean(options.light);
+	// Light reflow: near-parent / firm-owner fans are already placed — cool fast and stop
+	// painting so fetch/expand does not climb renderer RSS for 10–17s.
+	if (light) {
+		return {
+			isLarge,
+			isHuge,
+			alpha:
+				isHuge ? 0.08
+				: isLarge ? 0.1
+				: 0.12,
+			alphaDecay:
+				isHuge ? 0.06
+				: isLarge ? 0.05
+				: 0.042,
+			velocityDecay:
+				isHuge ? 0.88
+				: isLarge ? 0.9
+				: 0.92,
+			safetyStopMs:
+				isHuge ? 1100
+				: isLarge ? 1500
+				: 2000,
+			light: true,
+		};
+	}
 	return {
 		isLarge,
 		isHuge,
 		alpha:
-			isHuge ? 0.28
-			: isLarge ? 0.34
-			: 0.42,
+			isHuge ? 0.16
+			: isLarge ? 0.2
+			: 0.26,
 		alphaDecay:
-			isHuge ? 0.012
-			: isLarge ? 0.008
-			: 0.006,
+			isHuge ? 0.028
+			: isLarge ? 0.02
+			: 0.016,
 		velocityDecay:
-			isHuge ? 0.72
-			: isLarge ? 0.78
-			: 0.84,
+			isHuge ? 0.8
+			: isLarge ? 0.84
+			: 0.9,
 		safetyStopMs:
-			isHuge ? 9000
-			: isLarge ? 13000
-			: 17000,
+			isHuge ? 2400
+			: isLarge ? 3200
+			: 4200,
+		light: false,
 	};
 }
 
-/** Unpin the whole graph and reheat like the Refresh button so new nodes flow in. */
+/** Reheat the force sim after fetch/append. Prefer light mode for near-parent fans. */
 function reheatLayoutLikeRefresh(
 	options: {
 		newNodes?: any[];
@@ -7592,11 +7770,17 @@ function reheatLayoutLikeRefresh(
 		centerComponentIds?: string[];
 		placementCenter?: { x: number; y: number };
 		outerRadius?: number;
+		/** Already-placed near-parent / firm-owner fans: short cool + stop (crash mitigation). */
+		light?: boolean;
 	} = {},
 ) {
 	if (!globalState.simulation || !Array.isArray(globalState.layoutNodes) || !globalState.layoutNodes.length) return;
 	const newNodes = Array.isArray(options.newNodes) ? options.newNodes : [];
-	const cooling = getLayoutReflowCooling(globalState.layoutNodes.length);
+	const newIdSet = new Set(newNodes.map((n) => String(n?.id || '')).filter(Boolean));
+	const nearParentCount = newNodes.filter((n) => (n as any)?._fetchPlacementKind === 'near-parent').length;
+	const nearParentHeavy = newNodes.length > 0 && nearParentCount >= Math.max(1, Math.ceil(newNodes.length * 0.6));
+	const light = Boolean(options.light) || nearParentHeavy;
+	const cooling = getLayoutReflowCooling(globalState.layoutNodes.length, { light });
 	const eventName = options.eventName || 'fetch-reflow';
 	const main = document.getElementById('fg-main');
 	const width = main?.clientWidth || 800;
@@ -7617,26 +7801,23 @@ function reheatLayoutLikeRefresh(
 		releaseFrozenNodes(globalState.activeSpreadFrozenNodes);
 		globalState.activeSpreadFrozenNodes = [];
 	}
-	for (const node of globalState.layoutNodes) {
-		node.fx = null;
-		node.fy = null;
-	}
 
 	// Keep the largest already-on-canvas hop cluster near the viewport center.
-	if (centerComponentIds.length && priorIdSet.size) {
+	// Skip the full-graph slide on light firm-expand reflows — it dirties every node.
+	if (centerComponentIds.length && priorIdSet.size && !light) {
 		centerLargestHopComponentInViewport(globalState.layoutNodes, centerComponentIds, width, height, { strength: 0.9 });
 	}
 
 	const placementCenter = options.placementCenter || { x: width / 2, y: height / 2 };
 	const outerRadius = Number.isFinite(options.outerRadius) ? Number(options.outerRadius) : Math.min(width, height) * 0.42;
 	const centerIdSet = new Set(centerComponentIds);
-	const newIdSet = new Set(newNodes.map((n) => String(n?.id || '')).filter(Boolean));
 
 	// Soft fetch biases: center cluster → viewport center; unattached new nodes → outer ring;
 	// near-parent children → hold near their placed coords so they do not stretch out.
 	// Re-apply near-parent hold to *all* still-tagged nodes (not only this batch): a later
 	// firm-expand append would otherwise unpin the first fan and stretch it to the ring.
 	const nearParentPinned: any[] = [];
+	const touchedIds = new Set<string>();
 	for (const node of globalState.layoutNodes) {
 		const id = String(node?.id || '');
 		delete node._fetchLayoutBiasX;
@@ -7646,16 +7827,16 @@ function reheatLayoutLikeRefresh(
 		if (placementKind === 'near-parent' && Number.isFinite(node.x) && Number.isFinite(node.y)) {
 			node._fetchLayoutBiasX = Number(node.x);
 			node._fetchLayoutBiasY = Number(node.y);
-			// Strong bias for the whole reflow so kids stay near the parent after pin release.
 			node._fetchLayoutBiasStrength = cooling.isHuge ? 0.14 : cooling.isLarge ? 0.18 : 0.22;
-			// Soft-pin so link/charge/collision cannot immediately stretch the fan.
 			node.fx = Number(node.x);
 			node.fy = Number(node.y);
 			nearParentPinned.push(node);
-		} else if (centerIdSet.has(id) && placementKind !== 'near-parent') {
+			touchedIds.add(id);
+		} else if (!light && centerIdSet.has(id) && placementKind !== 'near-parent') {
 			node._fetchLayoutBiasX = width / 2;
 			node._fetchLayoutBiasY = height / 2;
 			node._fetchLayoutBiasStrength = cooling.isHuge ? 0.045 : cooling.isLarge ? 0.055 : 0.07;
+			touchedIds.add(id);
 		} else if (newIdSet.has(id) && placementKind === 'outer') {
 			const dx = Number.isFinite(node.x) ? Number(node.x) - placementCenter.x : 1;
 			const dy = Number.isFinite(node.y) ? Number(node.y) - placementCenter.y : 0;
@@ -7663,11 +7844,28 @@ function reheatLayoutLikeRefresh(
 			node._fetchLayoutBiasX = placementCenter.x + Math.cos(ang) * outerRadius;
 			node._fetchLayoutBiasY = placementCenter.y + Math.sin(ang) * outerRadius;
 			node._fetchLayoutBiasStrength = cooling.isHuge ? 0.03 : 0.04;
+			touchedIds.add(id);
 		} else if (newIdSet.has(id) && placementKind === 'inward') {
-			// Mild pull toward center so attached newcomers settle into the main cluster.
 			node._fetchLayoutBiasX = width / 2;
 			node._fetchLayoutBiasY = height / 2;
 			node._fetchLayoutBiasStrength = cooling.isHuge ? 0.02 : 0.028;
+			touchedIds.add(id);
+		}
+	}
+
+	// Only unpin nodes we are actively reflowing. Leaving the rest pinned/idle
+	// avoids a whole-graph jitter paint storm on every firm expand.
+	for (const node of globalState.layoutNodes) {
+		const id = String(node?.id || '');
+		if (touchedIds.has(id) || newIdSet.has(id)) continue;
+		// Soft-hold settled nodes during light reflow so charge does not thrash them.
+		if (light && Number.isFinite(node.x) && Number.isFinite(node.y) && node.fx == null && node.fy == null) {
+			node.fx = Number(node.x);
+			node.fy = Number(node.y);
+			touchedIds.add(id);
+		} else if (!light) {
+			node.fx = null;
+			node.fy = null;
 		}
 	}
 
@@ -7680,25 +7878,22 @@ function reheatLayoutLikeRefresh(
 		}
 		const angle = (idx / Math.max(1, newNodes.length)) * Math.PI * 2;
 		const jitter =
-			cooling.isHuge ? 10
-			: cooling.isLarge ? 12
-			: 16;
-		node.x += Math.cos(angle) * jitter + (Math.random() - 0.5) * 5;
-		node.y += Math.sin(angle) * jitter + (Math.random() - 0.5) * 5;
+			cooling.isHuge ? 8
+			: cooling.isLarge ? 10
+			: 12;
+		node.x += Math.cos(angle) * jitter + (Math.random() - 0.5) * 4;
+		node.y += Math.sin(angle) * jitter + (Math.random() - 0.5) * 4;
 		node.vx = 0;
 		node.vy = 0;
 	});
 
 	if (nearParentPinned.length) {
-		// Hold long enough for alpha to drop so charge/collision do not fling the fan
-		// to the outer ring the moment pins lift.
-		const releaseMs = cooling.isHuge ? 2800 : cooling.isLarge ? 3600 : 4800;
+		const releaseMs = light ? (cooling.isHuge ? 900 : cooling.isLarge ? 1200 : 1600) : cooling.isHuge ? 1800 : cooling.isLarge ? 2400 : 3200;
 		window.setTimeout(() => {
 			for (const node of nearParentPinned) {
 				if (!node) continue;
 				node.fx = null;
 				node.fy = null;
-				// Keep a firm local bias after unpin until finalize clears it.
 				if ((node as any)._fetchPlacementKind === 'near-parent' && Number.isFinite(node._fetchLayoutBiasX)) {
 					node._fetchLayoutBiasStrength = Math.max(Number(node._fetchLayoutBiasStrength) || 0, cooling.isHuge ? 0.1 : 0.14);
 				}
@@ -7763,20 +7958,31 @@ function reheatLayoutLikeRefresh(
 				delete node._fetchLayoutBiasY;
 				delete node._fetchLayoutBiasStrength;
 				delete node._fetchPlacementKind;
+				// Release soft-holds from light reflow so the user can drag again.
+				if (node.fx != null || node.fy != null) {
+					node.fx = null;
+					node.fy = null;
+				}
 			}
 			refreshSoftLocationGroupingForces(globalState.layoutNodes);
 			globalState.simulation?.alphaDecay?.(prevAlphaDecay);
 			globalState.simulation?.velocityDecay?.(prevVelocityDecay);
 			globalState.simulation?.alphaTarget?.(0);
 			globalState.simulation?.on?.(`end.${eventName}`, null);
+			// Stop ticks entirely — leaving alpha cooling still paints and climbs RSS.
+			globalState.simulation?.stop?.();
 		} catch {
 			/* ignore */
 		}
 		globalState.spreadReleaseTimer = null;
+		fetchReflowPaintBoostUntil = 0;
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	};
 
-	const restartAlpha = Number.isFinite(options.alpha) ? Number(options.alpha) : newNodes.length > 0 ? cooling.alpha : Math.max(0.16, cooling.alpha * 0.7);
+	const restartAlpha = Number.isFinite(options.alpha) ? Number(options.alpha) : newNodes.length > 0 ? cooling.alpha : Math.max(0.1, cooling.alpha * 0.7);
+	if (typeof performance !== 'undefined') {
+		fetchReflowPaintBoostUntil = performance.now() + cooling.safetyStopMs + 400;
+	}
 	globalState.simulation.alphaTarget(0);
 	globalState.simulation.alpha(restartAlpha).restart();
 	globalState.simulation.on(`end.${eventName}`, finalize);
@@ -8771,6 +8977,34 @@ export function init(
 					return '';
 				};
 
+				/** Prefer graph/search hit shapes: label + basicInformation.firmName, then sidecar firm_name. */
+				const getSearchHitFirmLabel = (hit, firmId = '') => {
+					const src = hit?._source || hit || {};
+					const bi = src?.basicInformation && typeof src.basicInformation === 'object' ? src.basicInformation : {};
+					const fromFields = [
+						src?.label,
+						bi?.firmName,
+						src?.firm_name,
+						src?.firmName,
+						src?.name,
+						src?.firm_source_nm,
+					]
+						.map((v) => String(v || '').trim())
+						.find((v) => v && !/^firm\s*\d+$/i.test(v));
+					if (fromFields) return fromFields;
+					if (typeof src?.content === 'string') {
+						try {
+							const parsed = JSON.parse(src.content);
+							const nested = parsed?.basicInformation?.firmName || parsed?.firmName || parsed?.firm_name || parsed?.label;
+							const name = String(nested || '').trim();
+							if (name && !/^firm\s*\d+$/i.test(name)) return name;
+						} catch {
+							/* ignore */
+						}
+					}
+					return firmId ? `Firm ${firmId}` : '';
+				};
+
 				const hitHasIndividualId = (hit) => Boolean(getSearchHitIndividualId(hit));
 				const hitHasFirmId = (hit) => Boolean(getSearchHitFirmId(hit));
 
@@ -9039,19 +9273,42 @@ export function init(
 					const firmId = getSearchHitFirmId(src);
 					if (!firmId) return;
 					const firmNodeId = `firm:${firmId}`;
-					const firmLabel = src?.firm_name || src?.firmName || src?.name || `Firm ${firmId}`;
+					const bi = src?.basicInformation && typeof src.basicInformation === 'object' ? src.basicInformation : {};
+					const firmLabel = getSearchHitFirmLabel(src, firmId);
+					const existingFirm = findExistingFirmNode(firmId);
+					if (existingFirm) {
+						if (firmLabel && isGenericOrPlaceholderLabel(existingFirm.label, 'firm')) {
+							existingFirm.label = firmLabel;
+						}
+						if (bi.bcScope && !existingFirm.bcScope) existingFirm.bcScope = bi.bcScope;
+						if (bi.iaScope && !existingFirm.iaScope) existingFirm.iaScope = bi.iaScope;
+						if (bi.firmStatus && !existingFirm.firmStatus) existingFirm.firmStatus = bi.firmStatus;
+						if (!existingFirm.basicInformation && Object.keys(bi).length) existingFirm.basicInformation = { ...bi };
+						updatedExistingNodeIds.add(existingFirm.id);
+						return;
+					}
 					if (!batchNodeIds.has(firmNodeId)) {
 						// Propagate disclosure flags if present
-						const disclosureFlag = src?.disclosureFlag ?? src?.firm_disclosure_flag;
-						const iaDisclosureFlag = src?.iaDisclosureFlag;
+						const disclosureFlag = src?.disclosureFlag ?? src?.firm_disclosure_flag ?? bi?.disclosureFlag;
+						const iaDisclosureFlag = src?.iaDisclosureFlag ?? bi?.iaDisclosureFlag;
 						batchNodeIds.add(firmNodeId);
 						batchAllNodes.push({
 							id: firmNodeId,
 							label: firmLabel,
 							group: 'firm',
 							firmId,
-							bdSecNumber: src?.firm_bd_sec_number || src?.bdSecNumber,
-							iaSecNumber: src?.firm_ia_sec_number || src?.iaSecNumber,
+							bcScope: bi.bcScope ?? src?.firm_bc_scope ?? src?.bcScope ?? null,
+							iaScope: bi.iaScope ?? src?.firm_ia_scope ?? src?.iaScope ?? null,
+							firmStatus: bi.firmStatus ?? src?.firmStatus ?? null,
+							firmStatusDate: bi.firmStatusDate ?? null,
+							firmType: bi.firmType ?? null,
+							formedState: bi.formedState ?? null,
+							formedDate: bi.formedDate ?? null,
+							regulator: bi.regulator ?? null,
+							bdSecNumber: src?.firm_bd_sec_number || src?.bdSecNumber || bi.bdSECNumber || bi.bdSecNumber,
+							iaSecNumber: src?.firm_ia_sec_number || src?.iaSecNumber || bi.iaSECNumber || bi.iaSecNumber,
+							otherNames: Array.isArray(bi.otherNames) ? bi.otherNames : [],
+							basicInformation: Object.keys(bi).length ? { ...bi } : undefined,
 							disclosureFlag,
 							iaDisclosureFlag,
 						});
@@ -9096,7 +9353,16 @@ export function init(
 						const firmId = firmKey;
 						if (firmId) {
 							addFirmFromSource(src);
-							const sidecarFirmReady = Boolean(src?.firm_name || src?.firmName || src?.firm_id || src?.firm_source_id);
+							const bi = src?.basicInformation && typeof src.basicInformation === 'object' ? src.basicInformation : {};
+							const firmLabel = getSearchHitFirmLabel(src, firmId);
+							const sidecarFirmReady = Boolean(
+								src?.firm_name ||
+									src?.firmName ||
+									src?.firm_id ||
+									src?.firm_source_id ||
+									(firmLabel && !isGenericOrPlaceholderLabel(firmLabel, 'firm')) ||
+									bi?.firmName,
+							);
 							textSearchHydrationCandidates.push({
 								nodeId: `firm:${firmId}`,
 								group: 'firm',
@@ -9106,7 +9372,8 @@ export function init(
 									Array.isArray(parsed?.directOwners) ||
 									Array.isArray(parsed?.owners) ||
 									Array.isArray(parsed?.disclosures) ||
-									Array.isArray(parsed?.activeStates),
+									Array.isArray(parsed?.activeStates) ||
+									Boolean(bi?.firmName || bi?.bcScope || bi?.iaScope || bi?.firmStatus),
 							});
 							continue;
 						}
@@ -9587,15 +9854,21 @@ async function fetchAndInjectQuery(q) {
 			const firmNodeId = `firm:${firmId}`;
 			if (!seenNodes.has(firmNodeId)) {
 				seenNodes.add(firmNodeId);
+				const bi = src?.basicInformation && typeof src.basicInformation === 'object' ? src.basicInformation : {};
+				const firmLabel =
+					String(src?.label || bi?.firmName || src?.firm_name || src?.firmName || src?.name || '').trim() || `Firm ${firmId}`;
 				// Propagate disclosure flags if present
 				const disclosureFlag = src?.disclosureFlag ?? src?.firm_disclosure_flag ?? null;
 				const iaDisclosureFlag = src?.iaDisclosureFlag ?? null;
 				newNodes.push({
 					id: firmNodeId,
-					label: src?.firm_name || src?.firmName || `Firm ${firmId}`,
+					label: firmLabel,
 					group: 'firm',
 					firmId,
-					bcScope: src?.firm_bc_scope ?? src?.bcScope ?? null,
+					bcScope: bi.bcScope ?? src?.firm_bc_scope ?? src?.bcScope ?? null,
+					iaScope: bi.iaScope ?? src?.iaScope ?? null,
+					firmStatus: bi.firmStatus ?? null,
+					basicInformation: Object.keys(bi).length ? { ...bi } : undefined,
 					disclosureFlag,
 					iaDisclosureFlag,
 					_source: 'finra',
@@ -9746,20 +10019,28 @@ async function fetchQueryBatch(q) {
 		// Minimal FINRA search-index stub docs only carry {id, crd, label, type, source} — fall back
 		// to the stub's own bare `crd` field when explicitly type: 'firm'.
 		const isStubFirm = src?.type === 'firm' && src?.crd;
-		const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || (isStubFirm ? src?.crd : '') || '').trim();
+		const bi = src?.basicInformation && typeof src.basicInformation === 'object' ? src.basicInformation : {};
+		const firmId = String(
+			bi?.firmId || src?.firm_id || src?.firmId || src?.firm_source_id || (isStubFirm ? src?.crd : '') || (typeof src?.id === 'string' && src.id.startsWith('firm:') ? src.id.split(':')[1] : '') || '',
+		).trim();
 		if (firmId) {
 			const firmNodeId = `firm:${firmId}`;
 			if (!seenNodes.has(firmNodeId)) {
 				seenNodes.add(firmNodeId);
+				const firmLabel =
+					String(src?.label || bi?.firmName || src?.firm_name || src?.firmName || src?.name || '').trim() || `Firm ${firmId}`;
 				// Propagate disclosure flags if present
 				const disclosureFlag = src?.disclosureFlag ?? src?.firm_disclosure_flag ?? null;
 				const iaDisclosureFlag = src?.iaDisclosureFlag ?? null;
 				newNodes.push({
 					id: firmNodeId,
-					label: src?.firm_name || src?.firmName || `Firm ${firmId}`,
+					label: firmLabel,
 					group: 'firm',
 					firmId,
-					bcScope: src?.firm_bc_scope ?? src?.bcScope ?? null,
+					bcScope: bi.bcScope ?? src?.firm_bc_scope ?? src?.bcScope ?? null,
+					iaScope: bi.iaScope ?? src?.iaScope ?? null,
+					firmStatus: bi.firmStatus ?? null,
+					basicInformation: Object.keys(bi).length ? { ...bi } : undefined,
 					disclosureFlag,
 					iaDisclosureFlag,
 					_source: 'finra',
@@ -12319,16 +12600,16 @@ function getForceLinkDistance(link, nodeCount = globalState.layoutNodes?.length 
 	// Firm children stay tight; non-firm low-degree nodes may drift farther.
 	const lowDegreePush = minDeg <= 3 ? (isFirmChild ? 1.0 : 1.75) : 1.0;
 	// Stronger pull for firm↔person edges so multi-child fetches do not stretch out.
-	// Near-parent fans (3+ kids) keep a moderate spoke — looser than a pile, still
-	// well inside the outer ring so collision/charge cannot walk them off-cluster.
-	const firmChildPull = nearParentHold ? 0.34 : isFirmChild ? 0.28 : 1.0;
-	const densityForLink = nearParentHold ? Math.min(densityMultiplier, 1.08) : densityMultiplier;
+	// Near-parent fans (3+ kids) keep a roomy spoke so firm + person labels clear each
+	// other, while still staying well inside the outer ring.
+	const firmChildPull = nearParentHold ? 0.52 : isFirmChild ? 0.28 : 1.0;
+	const densityForLink = nearParentHold ? Math.min(densityMultiplier, 1.1) : densityMultiplier;
 	const distance =
 		baseDistance * densityForLink * crowdDistanceBoost * lowDegreePush * firmChildPull +
 		(nearParentHold ? 0 : scatterBoost * 1.5) +
-		(nearParentHold ? Math.min(relationshipBoost, 12) : relationshipBoost);
-	// Cap near-parent spokes to the local cluster (~70–180px).
-	if (nearParentHold) return Math.max(70, Math.min(180, distance));
+		(nearParentHold ? Math.min(relationshipBoost, 16) : relationshipBoost);
+	// Cap near-parent spokes to the local cluster (~130–260px) — enough for labels.
+	if (nearParentHold) return Math.max(130, Math.min(260, distance));
 	return distance;
 }
 
@@ -12338,7 +12619,9 @@ function getNodeCollisionRadius(node, nodeCount = globalState.layoutNodes?.lengt
 	// (~80–100px on small graphs) immediately explodes that fan onto the outer ring.
 	if (nearParentHold) {
 		const half = node?._vizHalf != null ? node._vizHalf : NODE_R[(node as any)?.group] || 10;
-		return half + (nodeCount > 300 ? 20 : 26);
+		// Extra pad so sibling labels and the parent firm label do not sit on top of each other.
+		const labelClear = Math.min(36, Math.max(14, formatNodeLabel((node as any)?.label || '').length * 0.55));
+		return half + (nodeCount > 300 ? 28 : 36) + labelClear;
 	}
 	const padding =
 		nodeCount > 1000 ? 24
@@ -12685,17 +12968,17 @@ export function placeFetchedNodesOnOuterEdges(options: {
 			const px = Number(parent.x);
 			const py = Number(parent.y);
 			const outward = Math.atan2(py - center.y, px - center.x) || 0;
-			// Seed radius leaves room for the reduced near-parent collision pad so the
-			// sim does not have to inflate the fan toward the outer ring. Keep spokes
-			// looser than a tight pile (~90–190px) while still parent-local.
-			const perKidArc = 36;
-			const packedRadius = Math.max(90, (kids.length * perKidArc) / Math.PI);
-			const localRadius = Math.max(90, Math.min(190, packedRadius));
-			const fanSpan = Math.min(Math.PI * 1.45, Math.max(0.7, (kids.length - 1) * 0.32));
+			// Seed far enough from the parent for firm + person labels to clear, and
+			// space siblings along the arc so their labels do not stack. Stay parent-local
+			// (~140–280px) so the fan does not walk to the outer ring.
+			const perKidArc = 52;
+			const packedRadius = Math.max(140, (kids.length * perKidArc) / Math.PI);
+			const localRadius = Math.max(140, Math.min(280, packedRadius));
+			const fanSpan = Math.min(Math.PI * 1.55, Math.max(0.85, (kids.length - 1) * 0.38));
 			kids.forEach((node, idx) => {
 				const t = kids.length === 1 ? 0 : idx / (kids.length - 1) - 0.5;
 				const angle = outward + t * fanSpan;
-				const jitter = (Math.random() - 0.5) * 10;
+				const jitter = (Math.random() - 0.5) * 12;
 				applyPlacement(node, px + Math.cos(angle) * (localRadius + jitter), py + Math.sin(angle) * (localRadius + jitter), 'near-parent');
 			});
 		}
@@ -14693,6 +14976,52 @@ function appendFetchedImpl(
 		return;
 	}
 
+	const nearParentCount = uniqNodes.filter((n) => (n as any)?._fetchPlacementKind === 'near-parent').length;
+	// Any all-near-parent append (even 1–2 children) must skip force reheat — small
+	// firm-owner fans used to fall through and climb renderer RSS on every expand.
+	const nearParentOnly = uniqNodes.length > 0 && nearParentCount === uniqNodes.length;
+	// Firm-expand / Queue fans are already seeded next to the parent. Skipping the
+	// multi-second force reheat is the biggest crash mitigator for those fetches.
+	if (nearParentOnly) {
+		for (const node of globalState.layoutNodes || []) {
+			if ((node as any)?._fetchPlacementKind !== 'near-parent') continue;
+			node.vx = 0;
+			node.vy = 0;
+			// Keep _fetchPlacementKind so a later connections append can soft-pin this fan
+			// instead of stretching it; clear after a short idle window.
+			if (Number.isFinite(node.x) && Number.isFinite(node.y)) {
+				node.fx = Number(node.x);
+				node.fy = Number(node.y);
+			}
+		}
+		try {
+			globalState.simulation.alphaTarget?.(0);
+			globalState.simulation.stop?.();
+		} catch {
+			/* ignore */
+		}
+		if (globalState.spreadReleaseTimer) {
+			clearTimeout(globalState.spreadReleaseTimer);
+			globalState.spreadReleaseTimer = null;
+		}
+		globalState.spreadReleaseTimer = setTimeout(() => {
+			try {
+				for (const node of globalState.layoutNodes || []) {
+					if ((node as any)?._fetchPlacementKind === 'near-parent') {
+						delete node._fetchPlacementKind;
+						node.fx = null;
+						node.fy = null;
+					}
+				}
+			} catch {
+				/* ignore */
+			}
+			globalState.spreadReleaseTimer = null;
+		}, 4500);
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
+		return;
+	}
+
 	// Replace tick handler so it covers the full updated selections.
 	// Throttle paints the same way as the main renderGraph tick path — an unthrottled
 	// scheduleGraphTickPositions on every d3 tick was a native-memory crash source.
@@ -14701,24 +15030,27 @@ function appendFetchedImpl(
 		_appendTick += 1;
 		const count = globalState.layoutNodes?.length || 0;
 		const alpha = globalState.simulation?.alpha?.() || 0;
-		if (_appendTick === 1 || _appendTick % (count > 1000 ? 60 : 20) === 0) {
+		if (_appendTick === 1 || _appendTick % (count > 1000 ? 90 : count > 300 ? 40 : 24) === 0) {
 			estimateLocalCrowdFactors(globalState.layoutNodes);
 		}
-		if (count > 1000 && alpha > 0.05 && _appendTick % 10 !== 0) return;
-		if (count > 300 && alpha > 0.1 && _appendTick % 4 !== 0) return;
-		if (count <= 300 && alpha > 0.15 && _appendTick % 2 !== 0) return;
+		// Firm-expand / fetch reflow: paint far less often while alpha is hot.
+		if (count > 1000 && alpha > 0.04 && _appendTick % 16 !== 0) return;
+		if (count > 300 && alpha > 0.06 && _appendTick % 8 !== 0) return;
+		if (count <= 300 && alpha > 0.08 && _appendTick % 4 !== 0) return;
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	});
 
+	const lightReflow = uniqNodes.length > 0 && nearParentCount >= Math.max(1, Math.ceil(uniqNodes.length * 0.6));
 	reheatLayoutLikeRefresh({
 		newNodes: uniqNodes,
 		alpha:
-			uniqNodes.length > 0 ? undefined : Math.max(0.12, getIncrementalRestartAlpha(globalState.layoutNodes.length, Math.max(1, impactedIds?.length || 0))),
+			uniqNodes.length > 0 ? undefined : Math.max(0.1, getIncrementalRestartAlpha(globalState.layoutNodes.length, Math.max(1, impactedIds?.length || 0))),
 		eventName: 'fetch-reflow',
 		priorNodeIds: priorLayoutNodeIds,
 		centerComponentIds: fetchPlacement?.centerComponentIds,
 		placementCenter: fetchPlacement?.center,
 		outerRadius: fetchPlacement?.outerRadius,
+		light: lightReflow,
 	});
 }
 
@@ -14827,9 +15159,9 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	// ── Zoom ──────────────────────────────────────────────────────────────────
 	// LOD threshold: hide labels when zoomed out (less DOM paint, higher props)
 	const labelZoomThreshold =
-		isHuge ? 0.45
-		: isLarge ? 0.35
-		: 0.3;
+		isHuge ? 0.38
+		: isLarge ? 0.32
+		: 0.28;
 	globalState.activeLabelZoomThreshold = labelZoomThreshold;
 	globalState.inactiveLabelCompactZoomThreshold = labelZoomThreshold * 1.35;
 	globalState.inactiveLabelCompactMode = initialScaleForCompactState(nodeCount) < globalState.inactiveLabelCompactZoomThreshold;
@@ -14859,7 +15191,13 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			updateTraceStrokeScale(event.transform.k);
 			updateInactiveLinkScale(event.transform.k);
 			// Canvas mode paints links/labels itself — skip SVG stroke/label DOM work on the zoom hot path.
+			// Treat active pan/zoom like a short fetch-reflow so paint cadence drops hard (RSS climbs
+			// ~150–300MB/s were measured during continuous wheel/drag even with the sim stopped).
 			if (globalState.canvasModeActive || globalState.pixiModeActive) {
+				if (typeof performance !== 'undefined') {
+					// Keep the low-paint window open across continuous wheel/drag bursts.
+					fetchReflowPaintBoostUntil = Math.max(fetchReflowPaintBoostUntil, performance.now() + 900);
+				}
 				scheduleGraphTickPositions(null, null, null);
 			} else {
 				refreshRenderedLinkStrokeWidthsForZoom();
@@ -15131,10 +15469,13 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 
 	// If the data payload included recently added node ids (set by mergeIntoGraphData),
 	// pulse them to draw attention. Pulses will stop on the first user interaction.
+	// Skip when layout is frozen (session restore / prune) — 5s pulse paints climb RSS.
 	try {
-		if (Array.isArray(data._recentlyAddedNodeIds) && data._recentlyAddedNodeIds.length) {
+		if (!freezeLayout && Array.isArray(data._recentlyAddedNodeIds) && data._recentlyAddedNodeIds.length) {
 			startMultiNodePulseLoop(data._recentlyAddedNodeIds, { duration: 5000 });
 			// Clear so subsequent renders don't re-trigger pulses.
+			delete data._recentlyAddedNodeIds;
+		} else if (data && Array.isArray(data._recentlyAddedNodeIds)) {
 			delete data._recentlyAddedNodeIds;
 		}
 	} catch (e) {
@@ -15172,9 +15513,12 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 		// Stop simulation after a short settle window to prevent endless movement.
 		// Dense graphs must cool faster — continuous tick paints climb ~300MB/s RSS.
 		const stopAfterMs =
-			isHuge ? 1200
-			: isLarge ? 2000
-			: 3500;
+			isHuge ? 700
+			: isLarge ? 1100
+			: 1800;
+		if (typeof performance !== 'undefined') {
+			fetchReflowPaintBoostUntil = performance.now() + stopAfterMs + 400;
+		}
 		setTimeout(() => {
 			try {
 				globalState.simulation?.alphaTarget?.(0);
@@ -15183,6 +15527,7 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			} catch {
 				/* ignore */
 			}
+			fetchReflowPaintBoostUntil = 0;
 			scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 		}, stopAfterMs);
 	}
@@ -15266,8 +15611,17 @@ function fluidDrag() {
 					n.fy = null;
 				}
 			});
-			// Reheat just enough for fluid neighbor movement
-			globalState.simulation.alphaTarget(0.3).restart();
+			// Tiny reheat — alphaTarget(0.3) sustained paints and climbed multi-GB RSS on drag.
+			if (typeof performance !== 'undefined') {
+				fetchReflowPaintBoostUntil = Math.max(fetchReflowPaintBoostUntil, performance.now() + 1200);
+			}
+			try {
+				globalState.simulation?.alphaTarget?.(0.08);
+				globalState.simulation?.alpha?.(Math.max(globalState.simulation?.alpha?.() || 0, 0.1));
+				globalState.simulation?.restart?.();
+			} catch {
+				/* ignore */
+			}
 		})
 		.on('drag', function (event, d: GraphSimulationNode) {
 			if (isSelectToKeepMode) return;
@@ -15295,12 +15649,23 @@ function fluidDrag() {
 					}
 				});
 			}
+			if (typeof performance !== 'undefined') {
+				fetchReflowPaintBoostUntil = Math.max(fetchReflowPaintBoostUntil, performance.now() + 600);
+			}
+			scheduleGraphTickPositions(null, null, null);
 		})
 		.on('end', function (event, d: GraphSimulationNode) {
-			// Release the dragged node so the simulation can continue moving fluidly
-			d.fx = null;
-			d.fy = null;
-			globalState.simulation.alphaTarget(0);
+			// Keep the dragged node pinned; stop the sim so drag cannot leave alpha hot.
+			d.fx = d.x;
+			d.fy = d.y;
+			try {
+				globalState.simulation?.alphaTarget?.(0);
+				globalState.simulation?.alpha?.(0);
+				globalState.simulation?.stop?.();
+			} catch {
+				/* ignore */
+			}
+			scheduleGraphTickPositions(null, null, null);
 		});
 }
 
@@ -15443,7 +15808,10 @@ function buildNeighborMap(nodes, links) {
 
 // Inject nodes (by id) from the full `graphData` into the live layout and DOM.
 // Safe to call when the graph is already rendered; will skip already-present ids.
-function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean } = {}) {
+function injectNodesById(
+	ids,
+	{ skipPersist = false, skipSimRestart = false }: { skipPersist?: boolean; skipSimRestart?: boolean } = {},
+) {
 	if (!globalState.graphData || !globalState.layoutNodes || !globalState.layoutLinks) return;
 	const idSet = new Set(ids || []);
 	const toAdd = selectNodesToInjectById(Array.from(idSet), { renderedNodes: globalState.layoutNodes, graphNodes: globalState.graphData.nodes });
@@ -15520,8 +15888,9 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	}
 
 	// Pulse newly injected nodes so they're visually highlighted until interaction.
+	// Skip on session restore — a 5s pulse loop paints every frame and climbed RSS on load.
 	try {
-		if (toAdd.length) {
+		if (!skipSimRestart && toAdd.length) {
 			startMultiNodePulseLoop(
 				toAdd.map((n) => n.id),
 				{ duration: 5000 },
@@ -15540,11 +15909,34 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	globalState.simulation.force('link').links(globalState.layoutLinks);
 	globalState.simulation.force('collision').radius((d) => getNodeCollisionRadius(d, globalState.layoutNodes.length));
 
-	reheatLayoutLikeRefresh({ newNodes: toAdd, eventName: 'inject-reflow' });
+	if (skipSimRestart) {
+		// Session restore / bulk inject must not reheat — was climbing multi-GB RSS on load.
+		try {
+			toAdd.forEach((n) => {
+				if (Number.isFinite(n.x)) n.fx = n.x;
+				if (Number.isFinite(n.y)) n.fy = n.y;
+				n.vx = 0;
+				n.vy = 0;
+			});
+			globalState.simulation.alpha(0).alphaTarget(0).stop();
+		} catch {
+			/* ignore */
+		}
+		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
+	} else {
+		reheatLayoutLikeRefresh({ newNodes: toAdd, eventName: 'inject-reflow' });
+	}
 
 	// Persist session so reload restores these nodes
-	saveSession();
+	if (!skipPersist) {
+		try {
+			saveSession();
+		} catch {
+			/* ignore */
+		}
+	}
 
+	if (!skipSimRestart) {
 	let _updTick = 0;
 	estimateLocalCrowdFactors(globalState.layoutNodes);
 	bindSimulationTickHandler(globalState.simulation, () => {
@@ -15556,18 +15948,21 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	});
+	}
 
 	// Persist session so reload restores these revealed neighbors
+	if (!skipPersist) {
 	try {
 		saveSession();
 	} catch (e) {
 		/* ignore */
 	}
+	}
 	// Give the refresh/layout stop a small bump so the settling motion doesn't
 	// stop immediately when nodes are revealed — helps visibility of progressive
 	// reveals. If a refresh timer exists, extend it by a small delay.
 	try {
-		if (globalState.refreshLayoutStopTimer && globalState.refreshFinalizeLayoutFn) {
+		if (!skipSimRestart && globalState.refreshLayoutStopTimer && globalState.refreshFinalizeLayoutFn) {
 			// clear existing and schedule a short extra delay before finalizing
 			clearTimeout(globalState.refreshLayoutStopTimer);
 			globalState.refreshLayoutStopTimer = setTimeout(() => {
@@ -16385,7 +16780,8 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 		return;
 	}
 
-	const owners = detail.directOwners || detail.owners || [];
+	const ownersRaw = detail.directOwners || detail.owners || [];
+	const owners = Array.isArray(ownersRaw) ? ownersRaw.slice(0, MAX_FIRM_CONTROL_OWNERS_ON_CANVAS) : [];
 
 	for (const owner of owners) {
 		const personId = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
@@ -18870,9 +19266,10 @@ function revealNeighbors(
 			let _revealTick = 0;
 			bindSimulationTickHandler(globalState.simulation, () => {
 				_revealTick++;
-				if (_revealTick === 1 || _revealTick % 20 === 0) estimateLocalCrowdFactors(globalState.layoutNodes);
-				if (globalState.layoutNodes.length > 1000 && globalState.simulation.alpha() > 0.05 && _revealTick % 10 !== 0) return;
-				if (globalState.layoutNodes.length > 300 && globalState.simulation.alpha() > 0.1 && _revealTick % 4 !== 0) return;
+				if (_revealTick === 1 || _revealTick % 40 === 0) estimateLocalCrowdFactors(globalState.layoutNodes);
+				if (globalState.layoutNodes.length > 1000 && globalState.simulation.alpha() > 0.04 && _revealTick % 16 !== 0) return;
+				if (globalState.layoutNodes.length > 300 && globalState.simulation.alpha() > 0.06 && _revealTick % 8 !== 0) return;
+				if (globalState.layoutNodes.length <= 300 && globalState.simulation.alpha() > 0.08 && _revealTick % 4 !== 0) return;
 
 				scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 			});
@@ -18883,7 +19280,11 @@ function revealNeighbors(
 			globalState.simulation.force('link').links(globalState.layoutLinks);
 			globalState.simulation.force('collision').radius((d) => getNodeCollisionRadius(d, globalState.layoutNodes.length));
 
-			reheatLayoutLikeRefresh({ newNodes: batchNodes, eventName: 'reveal-reflow' });
+			reheatLayoutLikeRefresh({
+				newNodes: batchNodes,
+				eventName: 'reveal-reflow',
+				light: batchNodes.length <= 24 || (globalState.layoutNodes?.length || 0) > 200,
+			});
 
 			if (batchIndex < revealBatches.length - 1) {
 				const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, globalState.layoutNodes.length);

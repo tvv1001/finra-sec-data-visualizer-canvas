@@ -1,15 +1,17 @@
 /**
  * GPU capability tiers for graph visuals.
  *
- * - dedicated: discrete NVIDIA/AMD/Intel Arc alone → full SVG filters / effects
- * - hybrid: discrete + integrated (e.g. RTX 5060 Max-Q + AMD HawkPoint) → keep GPU,
- *   but disable SVG/backdrop filters that SIGILL on the Mesa iGPU compositor path
- * - integrated: iGPU only → safe mode (no crashy filters)
- * - software: llvmpipe / SwiftShader → safe mode
- * - unknown: probe failed → safe mode
+ * All tiers default to safeEffects=on (no SVG/backdrop glow filters, thin stroke
+ * rings). Soft CSS glows and blur shadows are stripped for NVIDIA-only and hybrid
+ * alike — they climb compositor RSS on both paths.
+ *
+ * - dedicated: discrete NVIDIA/AMD/Intel Arc alone → GPU on, filters/glows off
+ * - hybrid: discrete + integrated → GPU on, filters/glows off (Mesa SIGILL avoid)
+ * - integrated / software / unknown → safe mode
  *
  * Overrides: ?safe_gpu=0|1 or localStorage finra_safe_gpu=0|1
  * (safe_gpu means "safe effects / no SIGILL filters", not "disable the GPU")
+ * ?safe_gpu=0 re-enables richer effects (crash / RSS risk).
  */
 
 export type GpuCapabilityTier = 'dedicated' | 'hybrid' | 'integrated' | 'software' | 'unknown';
@@ -53,10 +55,11 @@ export function classifyGpuCapability(renderer = '', vendor = ''): GpuCapability
 	return 'unknown';
 }
 
-export function shouldEnableSafeGpuForTier(tier: GpuCapabilityTier): boolean {
-	// Full SVG filter effects only on a lone dedicated GPU. Hybrid keeps GPU accel
-	// but strips filters — Chrome often composites filters on the Mesa iGPU and SIGILLs.
-	return tier !== 'dedicated';
+export function shouldEnableSafeGpuForTier(_tier: GpuCapabilityTier): boolean {
+	// Always prefer filter/glow-safe mode. Soft drop-shadows and backdrop blurs climb
+	// Chromium compositor RSS on dedicated NVIDIA as well as hybrid/Mesa paths.
+	// Use ?safe_gpu=0 only when deliberately A/B testing richer effects.
+	return true;
 }
 
 export type SafeGpuOverride = 'force-on' | 'force-off' | null;
@@ -240,7 +243,7 @@ export function applySafeGpuDomState(enabled: boolean, tier?: GpuCapabilityTier)
 
 /**
  * Inline boot script (pre-paint). Keep in sync with classifyGpuCapability / resolveSafeGpuEnabled.
- * Uses persisted tier when present so dedicated-GPU users keep full effects without waiting on WebGL.
+ * Defaults to filter/glow-safe for every tier (including dedicated NVIDIA) before first paint.
  */
 export const SAFE_GPU_BOOT_SCRIPT = `
 (function () {
@@ -267,22 +270,10 @@ export const SAFE_GPU_BOOT_SCRIPT = `
     if (stored === '1' || stored === 'true') { setState(true, storedTier || 'unknown'); return; }
     if (stored === '0' || stored === 'false') { setState(false, storedTier || 'dedicated'); return; }
 
-    // Persisted positive dedicated detection → full capability before first paint.
-    if (storedTier === 'dedicated') { setState(false, 'dedicated'); return; }
-    // Hybrid / iGPU / software → filter-safe before first paint (avoids Mesa SVG-filter SIGILL).
-    if (storedTier === 'hybrid' || storedTier === 'integrated' || storedTier === 'software' || storedTier === 'unknown') {
-      setState(true, storedTier);
-      return;
-    }
+    // Default: filter/glow-safe for every known tier (NVIDIA-only and hybrid alike).
+    if (storedTier) { setState(true, storedTier); return; }
 
-    // First visit on Linux: start safe until WebGL multi-probe confirms a lone dedicated GPU.
-    var ua = navigator.userAgent || '';
-    var platform = navigator.platform || '';
-    var isLinux = /linux/i.test(platform) || /Linux/.test(ua);
-    if (isLinux) { setState(true, 'unknown'); return; }
-
-    // Non-Linux first visit: optimistic full capability until probe.
-    setState(false, 'unknown');
+    setState(true, 'unknown');
   } catch (error) {
     try { document.documentElement.classList.add('fg-safe-gpu'); } catch (e) {}
   }

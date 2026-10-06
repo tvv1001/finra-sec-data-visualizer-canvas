@@ -8,16 +8,16 @@ import {
 } from '../../src/lib/gpu-capability';
 
 describe('gpu-capability', () => {
-	it('classifies dedicated NVIDIA (e.g. RTX 4060) for full visual capability', () => {
+	it('classifies dedicated NVIDIA (e.g. RTX 4060) and still defaults to safe effects', () => {
 		expect(
 			classifyGpuCapability('ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 Laptop GPU, OpenGL ES 3.2)', 'Google Inc. (NVIDIA)'),
 		).toBe('dedicated');
-		expect(shouldEnableSafeGpuForTier('dedicated')).toBe(false);
+		expect(shouldEnableSafeGpuForTier('dedicated')).toBe(true);
 	});
 
-	it('classifies dedicated AMD Radeon RX for full visual capability', () => {
+	it('classifies dedicated AMD Radeon RX and still defaults to safe effects', () => {
 		expect(classifyGpuCapability('ANGLE (AMD, AMD Radeon RX 7800 XT, OpenGL ES 3.2)', 'Google Inc. (AMD)')).toBe('dedicated');
-		expect(shouldEnableSafeGpuForTier('dedicated')).toBe(false);
+		expect(shouldEnableSafeGpuForTier('dedicated')).toBe(true);
 	});
 
 	it('classifies AMD integrated graphics for safe mode', () => {
@@ -115,6 +115,18 @@ describe('gpu-capability', () => {
 		expect(classifyGpuCapability('', '')).toBe('unknown');
 		expect(shouldEnableSafeGpuForTier('unknown')).toBe(true);
 		expect(resolveSafeGpuEnabled({ renderer: '', vendor: '' }).enabled).toBe(true);
+	});
+
+	it('defaults dedicated NVIDIA-only to safe effects (glow budget)', () => {
+		const resolved = resolveSafeGpuEnabled({
+			renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Max-Q / Mobile, OpenGL ES 3.2)',
+			vendor: 'Google Inc. (NVIDIA)',
+			search: '',
+		});
+		expect(resolved.tier).toBe('dedicated');
+		expect(resolved.hybrid).toBe(false);
+		expect(resolved.enabled).toBe(true);
+		expect(resolved.override).toBeNull();
 	});
 
 	it('honors ?dgpu=1 hybrid opt-in when WebGL only exposes the iGPU', () => {

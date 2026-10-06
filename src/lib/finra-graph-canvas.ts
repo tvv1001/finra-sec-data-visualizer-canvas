@@ -32,10 +32,17 @@ let hoverMoveRaf: number | null = null;
 let pendingHoverClient: { x: number; y: number } | null = null;
 
 const CANVAS_NODE_SCALE = 1.25;
+/** Zoom at/above which default node text labels paint — tooltips stay off here. */
+export const CANVAS_DEFAULT_LABEL_ZOOM_THRESHOLD = 0.32;
 /** Normal canvas label size in screen pixels — static (does not change with zoom). */
 const CANVAS_DEFAULT_LABEL_SIZE = 26;
 /** Log-bold canvas label base size; multiplied by zoom so bold grows/shrinks with the view. */
 const CANVAS_BOLD_LABEL_SIZE = 40;
+
+/** True when zoom is high enough that default canvas labels are shown. */
+export function areDefaultCanvasLabelsVisible(zoomScale = currentTransform.k || 1) {
+	return Math.max(0.01, Number(zoomScale) || 1) >= CANVAS_DEFAULT_LABEL_ZOOM_THRESHOLD;
+}
 
 function getCanvasLabelScreenPx(isBoldLabel: boolean, zoomScale: number) {
 	const zoom = Math.max(0.01, Number(zoomScale));
@@ -127,6 +134,11 @@ function updateCanvasTooltip(node: Node | null, clientX?: number, clientY?: numb
 		hideCanvasTooltip();
 		return;
 	}
+	// Default labels are on-canvas when zoomed in — tooltips are redundant.
+	if (areDefaultCanvasLabelsVisible()) {
+		hideCanvasTooltip();
+		return;
+	}
 	if (!node || !parentEl) {
 		syncCanvasFocusTooltip();
 		return;
@@ -144,6 +156,10 @@ export function syncCanvasFocusTooltip() {
 		hideCanvasTooltip();
 		return;
 	}
+	if (areDefaultCanvasLabelsVisible()) {
+		hideCanvasTooltip();
+		return;
+	}
 	const focusedId = currentOpts?.focusedNodeId != null ? String(currentOpts.focusedNodeId).trim() : '';
 	if (!focusedId) {
 		if (!hoverNodeId) hideCanvasTooltip();
@@ -154,11 +170,6 @@ export function syncCanvasFocusTooltip() {
 		if (!hoverNodeId) hideCanvasTooltip();
 		return;
 	}
-	// Label already painted on the canvas — no tooltip needed.
-	/* if (isCanvasNodeLabelPainted(node)) {
-		if (!hoverNodeId || hoverNodeId === focusedId) hideCanvasTooltip();
-		return;
-	} */
 	// Keep hover tooltip if the pointer is over a different unlabeled node.
 	if (hoverNodeId && hoverNodeId !== focusedId) return;
 
@@ -424,10 +435,10 @@ export function destroyCanvas() {
 function resolveCanvasDpr(nodeCount = currentNodes?.length || 0) {
 	const device = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 	// High-DPI backing stores dominate partition_alloc during dense redraws.
-	// Cap at 1× once the graph is large; avoid toggling every frame (realloc thrash).
-	if (nodeCount > 300) return 1;
-	if (nodeCount > 150) return Math.min(1.25, Math.max(1, device));
-	return Math.max(1, device);
+	// Cap at 1× early — hybrid + NVIDIA both climb RSS on 1.5–2× canvases.
+	if (nodeCount > 80) return 1;
+	if (nodeCount > 40) return Math.min(1.25, Math.max(1, device));
+	return Math.min(1.5, Math.max(1, device));
 }
 
 function resize() {
@@ -656,6 +667,8 @@ export function drawCanvasFrame(
 		logLabelNodeIds?: Array<string | number>;
 		/** Force label visibility without Log Bold styling (e.g. selected person's employers). */
 		priorityLabelNodeIds?: Array<string | number>;
+		/** Force sim still cooling — slash default label budget to cut Skia RSS. */
+		isMoving?: boolean;
 	} = {},
 ) {
 	currentNodes = nodes;
@@ -757,16 +770,23 @@ export function drawCanvasFrame(
 
 	// node LOD: if zoomed out, draw small dots; zoomed in show larger and highlight selected
 	const scale = transform.k || 1;
-	const globalCanvasLabelZoomThreshold = 0.45;
+	const globalCanvasLabelZoomThreshold = CANVAS_DEFAULT_LABEL_ZOOM_THRESHOLD;
 	const selectedCanvasLabelZoomThreshold = globalCanvasLabelZoomThreshold;
 	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
 	const priorityLabelIds = new Set((opts.priorityLabelNodeIds || []).map((id) => String(id)));
 	const focusedNodeId = opts.focusedNodeId != null ? String(opts.focusedNodeId).trim() : '';
 	const selectedNodeId = opts.selectedId != null ? String(opts.selectedId).trim() : '';
+	const simMoving = Boolean(opts.isMoving);
+	const labelsInZoomBand = scale >= globalCanvasLabelZoomThreshold;
+	// Only slash default labels while the force sim is hot. Pan/zoom used to set
+	// isMoving via fetchReflowPaintBoostUntil and wiped labels right after they appeared.
 	const labelBudget =
-		visibleNodes.length > 1000 ? 160
-		: visibleNodes.length > 600 ? 240
-		: visibleNodes.length > 300 ? 400
+		simMoving && !labelsInZoomBand ? (visibleNodes.length > 200 ? 24 : 48)
+		: simMoving && labelsInZoomBand ? (visibleNodes.length > 800 ? 160 : visibleNodes.length > 400 ? 240 : 360)
+		: visibleNodes.length > 1000 ? 120
+		: visibleNodes.length > 600 ? 180
+		: visibleNodes.length > 300 ? 280
+		: visibleNodes.length > 150 ? 360
 		: Infinity;
 	const labelCandidates = visibleNodes
 		.filter((node) => {
