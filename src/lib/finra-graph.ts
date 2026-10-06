@@ -971,28 +971,28 @@ const NON_GRAY_HOP_DELAY_MS = 850;
 
 /** Meter on-screen person/firm detail fetches so localhost stays responsive. */
 const NON_GRAY_DETAIL_BATCH_SIZE = 5;
-const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 12;
+const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 60;
 /** Hard cap: never dump mega-firm neighborhoods (e.g. Merrill ~2500) onto the canvas in one expand. */
-const MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND = 12;
+const MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND = 60;
 /** Form BD Direct Owners / Executive Officers painted on firm click — keep bounded. */
 const MAX_FIRM_CONTROL_OWNERS_ON_CANVAS = 24;
 /** Sidebar connection lists stay short; full roster lives on the dashboard. */
-const SIDEBAR_CONNECTIONS_PREVIEW_LIMIT = 24;
+const SIDEBAR_CONNECTIONS_PREVIEW_LIMIT = 100;
 const PROFILE_SEED_FETCH_CONCURRENCY = 5;
 const SEED_QUERY_FETCH_CONCURRENCY = 5;
 // Sidecar hits usually already carry names + employments; keep optional id-detail
 // hydration small so a second search is not starved by Redis/disk GETs.
-const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 5;
-const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 5;
+const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 20;
+const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 20;
 /** Progressive database-search canvas flushes: coalesce pages so a large on-screen graph is not rebuilt per hit page. */
 const SEARCH_FLUSH_MIN_INTERVAL_MS = 280;
 const SEARCH_FLUSH_NODE_THRESHOLD = 36;
 /** Soft cap on text-search hits; shrinks when the canvas is already dense to keep inject work bounded. */
-const MAX_TEXT_SEARCH_HITS_BASE = 200;
-const MAX_TEXT_SEARCH_HITS_DENSE = 80;
+const MAX_TEXT_SEARCH_HITS_BASE = 1000;
+const MAX_TEXT_SEARCH_HITS_DENSE = 400;
 const SEARCH_DENSE_GRAPH_NODE_THRESHOLD = 200;
 /** Shared-selection / canvas import hydration chunk size. */
-const ON_SCREEN_DETAIL_FETCH_BATCH_SIZE = 5;
+const ON_SCREEN_DETAIL_FETCH_BATCH_SIZE = 20;
 /** Log-list / bulk restore: higher fan-out + larger chunks so hundreds of CRDs don't crawl. */
 const LOG_LIST_DETAIL_FETCH_BATCH_SIZE = 40;
 /** Cap ids per /nodes-by-ids request to keep query strings reasonable. */
@@ -7727,9 +7727,9 @@ function getLayoutReflowCooling(
 				: isLarge ? 0.05
 				: 0.042,
 			velocityDecay:
-				isHuge ? 0.88
-				: isLarge ? 0.9
-				: 0.92,
+				isHuge ? 0.65
+				: isLarge ? 0.55
+				: 0.48,
 			safetyStopMs:
 				isHuge ? 1100
 				: isLarge ? 1500
@@ -7745,17 +7745,17 @@ function getLayoutReflowCooling(
 			: isLarge ? 0.2
 			: 0.26,
 		alphaDecay:
-			isHuge ? 0.028
-			: isLarge ? 0.02
-			: 0.016,
+			isHuge ? 0.024
+			: isLarge ? 0.016
+			: 0.012,
 		velocityDecay:
-			isHuge ? 0.8
-			: isLarge ? 0.84
-			: 0.9,
+			isHuge ? 0.55
+			: isLarge ? 0.48
+			: 0.42,
 		safetyStopMs:
-			isHuge ? 2400
-			: isLarge ? 3200
-			: 4200,
+			isHuge ? 3200
+			: isLarge ? 4800
+			: 6000,
 		light: false,
 	};
 }
@@ -8133,14 +8133,22 @@ function drawDisclosureIndicator(g, d, r) {
 setOnNodeClickCallback(handleNodeOpen);
 
 export function destroy() {
+	if (globalState.sessionSaveTimer || globalState.zoomSaveTimer) {
+		if (globalState.sessionSaveTimer) clearTimeout(globalState.sessionSaveTimer);
+		if (globalState.zoomSaveTimer) clearTimeout(globalState.zoomSaveTimer);
+		globalState.sessionSaveTimer = null;
+		globalState.zoomSaveTimer = null;
+		persistSessionNow();
+	}
 	cancelGraphTickPositions();
 	if (globalState.spreadAnimId != null) {
 		cancelAnimationFrame(globalState.spreadAnimId);
 		globalState.spreadAnimId = null;
 	}
-	for (const timer of [globalState.refreshLayoutStopTimer, globalState.selectionRestoreTimer, globalState.traceRefreshTimer, globalState.nodePulseTimer, globalState.spreadReleaseTimer, globalState.nodePinReleaseTimer]) {
+	for (const timer of [globalState.zoomSaveTimer, globalState.refreshLayoutStopTimer, globalState.selectionRestoreTimer, globalState.traceRefreshTimer, globalState.nodePulseTimer, globalState.spreadReleaseTimer, globalState.nodePinReleaseTimer]) {
 		if (timer != null) clearTimeout(timer);
 	}
+	globalState.zoomSaveTimer = null;
 	globalState.refreshLayoutStopTimer = null;
 	globalState.selectionRestoreTimer = null;
 	globalState.traceRefreshTimer = null;
@@ -9744,7 +9752,7 @@ async function fetchAndInjectLocalQuery(q) {
  * Called during profile seed auto-loading on page load.
  */
 async function fetchAndInjectQuery(q) {
-	const ROWS = '200';
+	const ROWS = '1000';
 	const headers = { Accept: 'application/json' };
 
 	const [finraIndResp, finraFirmResp, secResp] = await Promise.allSettled([
@@ -9762,7 +9770,7 @@ async function fetchAndInjectQuery(q) {
 		return d?.hits?.hits || d?.response?.docs || d?.results || [];
 	};
 
-	const allHits = [...extractHits(finraIndResp), ...extractHits(finraFirmResp), ...extractHits(secResp)].slice(0, 200);
+	const allHits = [...extractHits(finraIndResp), ...extractHits(finraFirmResp), ...extractHits(secResp)].slice(0, 1000);
 
 	if (!allHits.length) return;
 
@@ -9916,7 +9924,7 @@ async function fetchLocalQueryBatch(q) {
 // Batch variant of the full text query that returns nodes/links without
 // appending. Mirrors `fetchAndInjectQuery` logic but returns the results.
 async function fetchQueryBatch(q) {
-	const ROWS = '200';
+	const ROWS = '1000';
 	const headers = { Accept: 'application/json' };
 
 	const [finraIndResp, finraFirmResp, secResp] = await Promise.allSettled([
@@ -9934,7 +9942,7 @@ async function fetchQueryBatch(q) {
 		return d?.hits?.hits || d?.response?.docs || d?.results || [];
 	};
 
-	const allHits = [...extractHits(finraIndResp), ...extractHits(finraFirmResp), ...extractHits(secResp)].slice(0, 200);
+	const allHits = [...extractHits(finraIndResp), ...extractHits(finraFirmResp), ...extractHits(secResp)].slice(0, 1000);
 
 	if (!allHits.length) return { nodes: [], links: [] };
 
@@ -15301,7 +15309,7 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 			: isLarge ? 0.015
 			: 0.008,
 		)
-		.velocityDecay(isLarge ? 0.54 : 0.46)
+		.velocityDecay(isLarge ? 0.46 : 0.38)
 		.force(
 			'link',
 			d3

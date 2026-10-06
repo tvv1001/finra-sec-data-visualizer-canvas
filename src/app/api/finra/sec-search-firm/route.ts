@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 		const query = searchQueries[0] || rawQuery.trim();
 		if (!searchQueries.some((candidate) => hasMinimumSearchQuery(candidate)))
 			return jsonNoStore({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
-		const limit = Math.min(Number.parseInt(params.get('nrows') || '12', 10) || 12, 200);
+		const limit = Math.min(Number.parseInt(params.get('nrows') || '12', 10) || 12, 1000);
 		const offset = Number.parseInt(params.get('start') || '0', 10) || 0;
 		let data = { total: 0 };
 		let skipLocalIndexSearch = false;

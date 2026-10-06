@@ -877,15 +877,13 @@ export function fetchedPayloadHasSourceCoverage(payload: unknown, target: { sour
 	return target.source === 'finra' ? hasFirmFinraPresence(detail) : hasFirmSecPresence(detail);
 }
 
-let batchPayloadsMap: Map<string, any> | null = null;
-
-async function prefetchPayloadsBatch(cards: CacheCard[]) {
-	batchPayloadsMap = new Map();
+async function prefetchPayloadsBatch(cards: CacheCard[]): Promise<Map<string, any>> {
+	const map = new Map<string, any>();
 	const redis = getRedisClientInstance({
 		url: process.env.UPSTASH_REDIS_REST_URL || '',
 		token: process.env.UPSTASH_REDIS_REST_TOKEN || ''
 	});
-	if (!redis) return;
+	if (!redis) return map;
 
 	const keysToFetch = new Set<string>();
 	for (const card of cards) {
@@ -894,63 +892,70 @@ async function prefetchPayloadsBatch(cards: CacheCard[]) {
 		}
 	}
 	const keys = Array.from(keysToFetch);
-	if (keys.length === 0) return;
+	if (keys.length === 0) return map;
 
 	try {
-		const results = await redis.mget(...keys);
-		for (let i = 0; i < keys.length; i++) {
-			const raw = results[i];
-			if (raw == null) continue;
-			
-			let parsed = null;
-			if (typeof raw === 'string') {
-				const decompressed = decompressPayload(raw);
-				try {
-					parsed = JSON.parse(decompressed);
-				} catch {
-					parsed = null;
+		const chunkSize = 20;
+		for (let j = 0; j < keys.length; j += chunkSize) {
+			const chunk = keys.slice(j, j + chunkSize);
+			const results = await redis.mget(...chunk);
+			for (let i = 0; i < chunk.length; i++) {
+				const raw = results[i];
+				if (raw == null) continue;
+				
+				let parsed = null;
+				if (typeof raw === 'string') {
+					const decompressed = decompressPayload(raw);
+					try {
+						parsed = JSON.parse(decompressed);
+					} catch {
+						parsed = null;
+					}
+				} else {
+					parsed = raw;
 				}
-			} else {
-				parsed = raw;
+				
+				if (parsed != null) {
+					map.set(chunk[i], parsed);
+				}
 			}
-			
-			if (parsed != null) {
-				batchPayloadsMap.set(keys[i], parsed);
-			}
+			// Small delay to allow GC and keep event loop healthy
+			await new Promise(r => setTimeout(r, 5));
 		}
 	} catch (error) {
 		console.warn('Batch fetch failed', error);
 	}
+	return map;
 }
 
-async function loadCachedIndividualPayload(source: 'finra' | 'sec', id: string) {
+async function loadCachedIndividualPayload(source: 'finra' | 'sec', id: string, payloadsMap?: Map<string, any>) {
 	const key = `${source}:individual:${id}`;
-	let payload = batchPayloadsMap?.get(key);
+	let payload = payloadsMap?.get(key);
 	if (!payload) {
 		payload = await cachedFetch<any>(key, 60 * 60 * 24, async () => undefined as unknown as any);
 	}
 	return parseIndividualDetailPayload(payload, source === 'finra' ? 'content' : 'iacontent', id);
 }
 
-async function loadCachedFirmPayload(source: 'finra' | 'sec', id: string) {
+async function loadCachedFirmPayload(source: 'finra' | 'sec', id: string, payloadsMap?: Map<string, any>) {
 	const key = `${source}:firm:${id}`;
-	let payload = batchPayloadsMap?.get(key);
+	let payload = payloadsMap?.get(key);
 	if (!payload) {
 		payload = await cachedFetch<any>(key, 60 * 60 * 24, async () => undefined as unknown as any);
 	}
 	return parseFirmDetailPayload(payload, source === 'finra' ? 'content' : 'iacontent');
 }
 
-async function normalizeCardSourcesForDisplay(card: CacheCard): Promise<CacheCard & { hasVerifiedPayload?: boolean }> {
+async function normalizeCardSourcesForDisplay(card: CacheCard, payloadsMap?: Map<string, any>): Promise<CacheCard & { hasVerifiedPayload?: boolean }> {
 	const normalizedSources: CacheCardSource[] = [];
 	let evaluatedSourceCount = 0;
 
 	for (const sourceEntry of card.sources) {
 		let detail: Record<string, any> | null = null;
 		if (card.entity === 'individual') {
-			detail = await loadCachedIndividualPayload(sourceEntry.source, card.id);
+			detail = await loadCachedIndividualPayload(sourceEntry.source, card.id, payloadsMap);
 		} else {
-			detail = await loadCachedFirmPayload(sourceEntry.source, card.id);
+			detail = await loadCachedFirmPayload(sourceEntry.source, card.id, payloadsMap);
 		}
 		if (!detail) continue;
 		evaluatedSourceCount += 1;
@@ -1126,12 +1131,12 @@ export function extractCardSummaryFields(detail: Record<string, any>, fallbackCr
 	};
 }
 
-async function buildCardSummary(card: CacheCard) {
+async function buildCardSummary(card: CacheCard, payloadsMap?: Map<string, any>) {
 	const summary: Pick<CacheCard, 'name' | 'statusText' | 'memberSince'> = {};
 
 	for (const sourceEntry of card.sources) {
 		if (card.entity === 'individual') {
-			const detail = await loadCachedIndividualPayload(sourceEntry.source, card.id);
+			const detail = await loadCachedIndividualPayload(sourceEntry.source, card.id, payloadsMap);
 			if (!detail) continue;
 
 			const normalized = normalizeIndividualDetailPayload(detail, card.id) as Record<string, any>;
@@ -1153,7 +1158,7 @@ async function buildCardSummary(card: CacheCard) {
 			continue;
 		}
 
-		const firmDetail = await loadCachedFirmPayload(sourceEntry.source, card.id);
+		const firmDetail = await loadCachedFirmPayload(sourceEntry.source, card.id, payloadsMap);
 		if (!firmDetail) continue;
 
 		const extracted = extractCardSummaryFields(firmDetail, card.id, sourceEntry.source);
@@ -2238,17 +2243,15 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 	}
 
 	const cardsToProcess = sortedForDisplay.slice(0, maxCards);
-	await prefetchPayloadsBatch(cardsToProcess);
+	const payloadsMap = await prefetchPayloadsBatch(cardsToProcess);
 
 	const shownCards = await Promise.all(
 		cardsToProcess.map(async (card) => {
-			const normalized = await normalizeCardSourcesForDisplay(card);
-			const summary = await buildCardSummary(normalized);
+			const normalized = await normalizeCardSourcesForDisplay(card, payloadsMap);
+			const summary = await buildCardSummary(normalized, payloadsMap);
 			return normalizeCardForDisplay({ ...normalized, ...summary });
 		}),
 	);
-	
-	batchPayloadsMap = null;
 
 	const response = {
 		ok: true,
@@ -2370,18 +2373,18 @@ async function listNewCrds(force = false) {
 	const topCardsToProcess = [...topPeople, ...topFirms];
 	
 	
-	await prefetchPayloadsBatch(topCardsToProcess);
+	const payloadsMap = await prefetchPayloadsBatch(topCardsToProcess);
 
 	const formattedWithNulls = await Promise.all(
 		topCardsToProcess.map(async (card) => {
-			const normalizedSources = await normalizeCardSourcesForDisplay(card);
+			const normalizedSources = await normalizeCardSourcesForDisplay(card, payloadsMap);
 			// Skip CRDs whose detail payload was never actually cached in Redis (e.g. an id present
 			// only in the `dashboard:highest-crds:*` zset). Without a real payload we can't verify
 			// the FINRA/SEC scopes or resolve a real name, so surfacing it here previously showed a
 			// fabricated "Individual <crd>" placeholder with both source tags checked, which looked
 			// like a data/decoding error.
 			if (normalizedSources.hasVerifiedPayload === false) return null;
-			const summary = await buildCardSummary(normalizedSources);
+			const summary = await buildCardSummary(normalizedSources, payloadsMap);
 			const normalized = normalizeCardForDisplay({ ...normalizedSources, ...summary });
 			return {
 				id: normalized.id,
@@ -2400,7 +2403,7 @@ async function listNewCrds(force = false) {
 	
 	// Background check removed to prevent memory leaks and rate limit exhaustion.
 
-	batchPayloadsMap = null;
+	
 
 	const result = {
 		newCrds: formatted,

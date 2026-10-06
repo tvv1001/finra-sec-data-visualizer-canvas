@@ -227,7 +227,7 @@ export async function GET(request: NextRequest) {
 		const q = searchQueries[0] || '';
 		const baseUrl = new URL(request.url).origin;
 		const type = searchParams.get('type') || 'all';
-		const limit = Math.min(parseInt(searchParams.get('limit') || searchParams.get('nrows') || '50', 10), 200);
+		const limit = Math.min(parseInt(searchParams.get('limit') || searchParams.get('nrows') || '50', 10), 1000);
 		const rawStart = searchParams.get('start');
 		const rawPageNumber = searchParams.get('pageNumber');
 		const offset =
