@@ -751,9 +751,6 @@ export default function FinraGraph() {
 	}, [browserPathname, isMounted, pathname]);
 
 	useEffect(() => {
-		if (typeof window !== 'undefined' && window.location.pathname !== '/') {
-			window.history.replaceState(null, '', '/');
-		}
 		setIsMounted(true);
 	}, []);
 
