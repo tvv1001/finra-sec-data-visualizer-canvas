@@ -8060,18 +8060,31 @@ function refreshNodeLayout() {
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	};
 
-	// Let the refresh reheat briefly, then cool naturally to D3's alpha minimum.
-	globalState.simulation.alphaTarget(0);
+	// Let the refresh reheat continuously until the user clicks somewhere.
+	globalState.simulation.alphaTarget(0.1);
 	globalState.simulation.alpha(cooling.alpha).restart();
 	globalState.simulation.on('end.refresh-layout', globalState.refreshFinalizeLayoutFn);
-	globalState.refreshLayoutStopTimer = setTimeout(() => {
+
+	const stopAnimationOnClick = () => {
 		try {
 			globalState.simulation?.on?.('end.refresh-layout', null);
 		} catch {
 			/* ignore */
 		}
 		if (globalState.refreshFinalizeLayoutFn) globalState.refreshFinalizeLayoutFn();
-	}, cooling.safetyStopMs);
+			try { globalState.simulation?.stop?.(); } catch {}
+								document.removeEventListener('pointerdown', stopAnimationOnClick, { capture: true } as any);
+			document.removeEventListener('mousedown', stopAnimationOnClick, { capture: true } as any);
+			document.removeEventListener('touchstart', stopAnimationOnClick, { capture: true } as any);
+			document.removeEventListener('wheel', stopAnimationOnClick, { capture: true } as any);
+		};
+
+		setTimeout(() => {
+			document.addEventListener('pointerdown', stopAnimationOnClick, { capture: true });
+			document.addEventListener('mousedown', stopAnimationOnClick, { capture: true });
+			document.addEventListener('touchstart', stopAnimationOnClick, { capture: true });
+			document.addEventListener('wheel', stopAnimationOnClick, { capture: true });
+		}, 100);
 }
 
 function hasAffirmativeDisclosureFlag(value) {
@@ -12605,8 +12618,8 @@ function getForceLinkDistance(link, nodeCount = globalState.layoutNodes?.length 
 	// Stronger pull for firm↔person edges so multi-child fetches do not stretch out.
 	// Near-parent fans (3+ kids) keep a roomy spoke so firm + person labels clear each
 	// other, while still staying well inside the outer ring.
-	const firmChildPull = nearParentHold ? 0.52 : isFirmChild ? 0.28 : 1.0;
-	const densityForLink = nearParentHold ? Math.min(densityMultiplier, 1.1) : densityMultiplier;
+	const firmChildPull = nearParentHold ? (maxDeg > 50 ? 0.8 : maxDeg > 20 ? 0.65 : 0.52) : isFirmChild ? (maxDeg > 50 ? 0.5 : maxDeg > 20 ? 0.4 : 0.28) : 1.0;
+	const densityForLink = nearParentHold ? Math.min(densityMultiplier, 1.5) : densityMultiplier;
 	const distance =
 		baseDistance * densityForLink * crowdDistanceBoost * lowDegreePush * firmChildPull +
 		(nearParentHold ? 0 : scatterBoost * 1.5) +
@@ -15279,7 +15292,7 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 						(link.source as any)?._fetchPlacementKind === 'near-parent' ||
 						(link.target as any)?._fetchPlacementKind === 'near-parent';
 					const baseStrength =
-						nearParentHold ? (isHuge ? 0.7 : isLarge ? 0.78 : 0.85)
+						nearParentHold ? (maxDeg > 50 ? 0.15 : maxDeg > 20 ? 0.3 : (isHuge ? 0.7 : isLarge ? 0.78 : 0.85))
 						: isHuge ? 0.35
 						: isLarge ? 0.45
 						: 0.55;
