@@ -18,7 +18,7 @@ export function getRedisClient(): Redis | null {
 	return client;
 }
 
-const limiter = new Bottleneck({ maxConcurrent: 1000, minTime: 1 });
+const limiter = new Bottleneck({ maxConcurrent: 1000, minTime: 0 });
 
 export function isEmptyHitsObj(obj: any): boolean {
 	if (!obj || !obj.hits) return false;

@@ -973,12 +973,12 @@ const MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND = 60;
 const MAX_FIRM_CONTROL_OWNERS_ON_CANVAS = 24;
 /** Sidebar connection lists stay short; full roster lives on the dashboard. */
 const SIDEBAR_CONNECTIONS_PREVIEW_LIMIT = 100;
-const PROFILE_SEED_FETCH_CONCURRENCY = 5;
-const SEED_QUERY_FETCH_CONCURRENCY = 5;
+const PROFILE_SEED_FETCH_CONCURRENCY = 50;
+const SEED_QUERY_FETCH_CONCURRENCY = 50;
 // Sidecar hits usually already carry names + employments; keep optional id-detail
 // hydration small so a second search is not starved by Redis/disk GETs.
 const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 20;
-const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 20;
+const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 100;
 /** Progressive database-search canvas flushes: coalesce pages so a large on-screen graph is not rebuilt per hit page. */
 const SEARCH_FLUSH_MIN_INTERVAL_MS = 280;
 const SEARCH_FLUSH_NODE_THRESHOLD = 36;
