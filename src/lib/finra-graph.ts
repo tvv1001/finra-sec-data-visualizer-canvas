@@ -6305,12 +6305,12 @@ function isPersonClickEmploymentLink(link) {
 // Clicking a firm node should only reveal its Form BD — Direct Owners & Executive
 // Officers ("controls") connections, not employment/registration history — that
 // data is expensive to fetch/render for mega-firms and is dashboard-only now.
-function isFirmControlOnlyExpansionLink(link) {
+function isFirmControlOnlyLink(link) {
 	if (!link) return false;
 	const rel = String(link.relationship || '')
 		.trim()
 		.toLowerCase();
-	return rel === 'controls' || rel === 'controlled_by' || rel === 'owner' || rel === 'officer';
+	return rel === 'controls' || rel === 'controlled_by' || rel === 'owner' || rel === 'officer' || rel.includes('employed') || rel.includes('registered');
 }
 
 function getDirectAutoExpansionNeighborCount(node) {
@@ -8048,6 +8048,7 @@ function refreshNodeLayout() {
 			globalState.simulation?.alphaDecay?.(prevAlphaDecay);
 			globalState.simulation?.velocityDecay?.(prevVelocityDecay);
 			globalState.simulation?.alphaTarget?.(0);
+			globalState.simulation?.alpha?.(0);
 		} catch {
 			/* ignore */
 		}
@@ -8060,8 +8061,8 @@ function refreshNodeLayout() {
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	};
 
-	// Let the refresh reheat continuously until the user clicks somewhere.
-	globalState.simulation.alphaTarget(0.1);
+	// Let the refresh reheat and settle naturally.
+	globalState.simulation.alphaTarget(0);
 	globalState.simulation.alpha(cooling.alpha).restart();
 	globalState.simulation.on('end.refresh-layout', globalState.refreshFinalizeLayoutFn);
 
@@ -8072,19 +8073,21 @@ function refreshNodeLayout() {
 			/* ignore */
 		}
 		if (globalState.refreshFinalizeLayoutFn) globalState.refreshFinalizeLayoutFn();
-			try { globalState.simulation?.stop?.(); } catch {}
-								document.removeEventListener('pointerdown', stopAnimationOnClick, { capture: true } as any);
-			document.removeEventListener('mousedown', stopAnimationOnClick, { capture: true } as any);
-			document.removeEventListener('touchstart', stopAnimationOnClick, { capture: true } as any);
-			document.removeEventListener('wheel', stopAnimationOnClick, { capture: true } as any);
-		};
+		try { globalState.simulation?.alpha?.(0)?.stop?.(); } catch {}
+		document.removeEventListener('pointerdown', stopAnimationOnClick, { capture: true } as any);
+		document.removeEventListener('mousedown', stopAnimationOnClick, { capture: true } as any);
+		document.removeEventListener('touchstart', stopAnimationOnClick, { capture: true } as any);
+		document.removeEventListener('wheel', stopAnimationOnClick, { capture: true } as any);
+		document.removeEventListener('click', stopAnimationOnClick, { capture: true } as any);
+	};
 
-		setTimeout(() => {
-			document.addEventListener('pointerdown', stopAnimationOnClick, { capture: true });
-			document.addEventListener('mousedown', stopAnimationOnClick, { capture: true });
-			document.addEventListener('touchstart', stopAnimationOnClick, { capture: true });
-			document.addEventListener('wheel', stopAnimationOnClick, { capture: true });
-		}, 100);
+	setTimeout(() => {
+		document.addEventListener('pointerdown', stopAnimationOnClick, { capture: true });
+		document.addEventListener('mousedown', stopAnimationOnClick, { capture: true });
+		document.addEventListener('touchstart', stopAnimationOnClick, { capture: true });
+		document.addEventListener('wheel', stopAnimationOnClick, { capture: true });
+		document.addEventListener('click', stopAnimationOnClick, { capture: true });
+	}, 100);
 }
 
 function hasAffirmativeDisclosureFlag(value) {
@@ -10232,6 +10235,7 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 		if (incomingLen >= currentLen) targetNode.previousIAEmployments = incomingNode.previousIAEmployments;
 	}
 	if (incomingNode._employmentHistoryResolved === true) targetNode._employmentHistoryResolved = true;
+	if (incomingNode._detailLoaded === true) targetNode._detailLoaded = true;
 	if (incomingNode.basicInformation) {
 		targetNode.basicInformation = {
 			...(targetNode.basicInformation || {}),
@@ -12637,15 +12641,15 @@ function getNodeCollisionRadius(node, nodeCount = globalState.layoutNodes?.lengt
 		const half = node?._vizHalf != null ? node._vizHalf : NODE_R[(node as any)?.group] || 10;
 		// Extra pad so sibling labels and the parent firm label do not sit on top of each other.
 		const labelClear = Math.min(36, Math.max(14, formatNodeLabel((node as any)?.label || '').length * 0.55));
-		return half + (nodeCount > 300 ? 28 : 36) + labelClear;
+		return half + (nodeCount > 300 ? 40 : 50) + labelClear;
 	}
 	const padding =
-		nodeCount > 1000 ? 24
-		: nodeCount > 600 ? 30
-		: nodeCount > 300 ? 36
-		: nodeCount > 120 ? 45
-		: nodeCount > 60 ? 55
-		: 65;
+		nodeCount > 1000 ? 30
+		: nodeCount > 600 ? 40
+		: nodeCount > 300 ? 50
+		: nodeCount > 120 ? 65
+		: nodeCount > 60 ? 75
+		: 90;
 	const labelPadding =
 		nodeCount > 1000 ? 24
 		: nodeCount > 600 ? 20
@@ -17628,12 +17632,12 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 	// history and other relationship types stay hidden (dashboard-only, see ensureFirmConnections).
 	// Person clicks include previous (gray) employment links for the opened person only.
 	const expansionLinkFilter =
-		clickedNode.group === 'firm' ? isFirmControlOnlyExpansionLink
+		clickedNode.group === 'firm' ? isFirmControlOnlyLink
 		: clickedNode.group === 'individual' ? isPersonClickEmploymentLink
 		:	isAutoExpansionLink;
 	const waveLinkFilterFor = (fromNodeId: string) => {
 		if (clickedNode.group === 'individual' && String(fromNodeId) === String(clickedNode.id)) return isPersonClickEmploymentLink;
-		if (clickedNode.group === 'firm') return isFirmControlOnlyExpansionLink;
+		if (clickedNode.group === 'firm') return isFirmControlOnlyLink;
 		return isAutoExpansionLink;
 	};
 	let didRevealOrMerge = false;
@@ -18333,10 +18337,10 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 			console.warn('Failed to fetch route-selected neighborhood from server:', error);
 		}
 
-		// Firms only auto-reveal Form BD "controls" connections (see isFirmControlOnlyExpansionLink);
+		// Firms only auto-reveal Form BD "controls" connections (see isFirmControlOnlyLink);
 		// employment/registration history is dashboard-only now for performance.
 		revealNeighbors(node, normalizedHops, {
-			linkFilter: isFirmControlOnlyExpansionLink,
+			linkFilter: isFirmControlOnlyLink,
 			markSelected: true,
 		});
 	}
@@ -18581,7 +18585,7 @@ async function openNodeWithExpansionTask(
 			if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
 				revealNeighbors(d, clickExpansionHops, {
 					linkFilter:
-						d.group === 'firm' ? isFirmControlOnlyExpansionLink
+						d.group === 'firm' ? isFirmControlOnlyLink
 						: d.group === 'individual' ? isPersonClickEmploymentLink
 						:	isAutoExpansionLink,
 					markSelected: true,
@@ -18719,7 +18723,7 @@ function selectNode(
 					if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
 						revealNeighbors(d, clickExpansionHops, {
 							linkFilter:
-								d.group === 'firm' ? isFirmControlOnlyExpansionLink
+								d.group === 'firm' ? isFirmControlOnlyLink
 								: d.group === 'individual' ? isPersonClickEmploymentLink
 								:	isAutoExpansionLink,
 							markSelected: true,
