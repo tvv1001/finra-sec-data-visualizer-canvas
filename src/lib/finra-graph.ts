@@ -8061,8 +8061,8 @@ function refreshNodeLayout() {
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	};
 
-	// Let the refresh reheat and settle naturally.
-	globalState.simulation.alphaTarget(0);
+	// Let the refresh reheat continuously until the user clicks somewhere.
+	globalState.simulation.alphaTarget(0.1);
 	globalState.simulation.alpha(cooling.alpha).restart();
 	globalState.simulation.on('end.refresh-layout', globalState.refreshFinalizeLayoutFn);
 
