@@ -15143,9 +15143,11 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	// Deep-copy so D3 mutation doesn't corrupt the original.
 	// When freezing, prefer live layout coords over bare graphData stubs that lack x/y
 	// (session restore used to wipe every pinned position on the final renderGraph).
-	const prevLayoutById =
+	const prevLayoutById: Map<string, GraphSimulationNode> | null =
 		preferFrozenLayout && Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.length ?
-			new Map(globalState.layoutNodes.map((node) => [String(node?.id || '').trim(), node]))
+			new Map(
+				globalState.layoutNodes.map((node) => [String(node?.id || '').trim(), node as GraphSimulationNode] as const),
+			)
 		:	null;
 	const nodes: GraphSimulationNode[] = data.nodes.map((n) => {
 		const copy = { ...n } as GraphSimulationNode;
