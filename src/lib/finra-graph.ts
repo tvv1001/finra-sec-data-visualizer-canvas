@@ -6901,8 +6901,9 @@ async function restoreSavedSession(session) {
 		}
 	}
 
+	const savedPositions = Array.isArray(session.nodePositions) ? session.nodePositions : [];
 	try {
-		applySavedNodePositions(session.nodePositions || []);
+		applySavedNodePositions(savedPositions);
 	} catch {
 		// non-critical
 	}
@@ -6949,9 +6950,20 @@ async function restoreSavedSession(session) {
 	});
 
 	// Rebuild once with a frozen layout so restore never leaves a cooling sim ticking.
+	// Sync live coords into graphData first — renderGraph deep-copies from graphData and
+	// previously wiped every restored x/y because positions lived only on layoutNodes.
 	try {
+		syncLayoutPositionsIntoGraphDataNodes();
+		if (savedPositions.length) {
+			stampSavedPositionsOntoNodeList(savedPositions, globalState.graphData?.nodes);
+		}
 		const savedZoom = captureCurrentZoomTransform?.() || null;
 		renderGraph(globalState.graphData, { freezeLayout: true, skipInitialZoom: true });
+		// Re-stamp after rebuild — defensive if any node object was replaced without coords.
+		if (savedPositions.length) {
+			applySavedNodePositions(savedPositions);
+		}
+		pinLayoutNodesAtCurrentPositions?.(0);
 		if (savedZoom) {
 			try {
 				restoreCapturedZoomTransform?.(savedZoom);
@@ -7340,21 +7352,44 @@ function parseZoomTransformString(t) {
 	return null;
 }
 
-function applySavedNodePositions(savedPositions) {
-	if (!Array.isArray(savedPositions) || !globalState.layoutNodes || !globalState.simulation) return;
+function stampSavedPositionsOntoNodeList(savedPositions, nodes) {
+	if (!Array.isArray(savedPositions) || !savedPositions.length || !Array.isArray(nodes) || !nodes.length) return 0;
+	const byId = new Map();
+	for (const entry of savedPositions) {
+		const id = String(entry?.id || '').trim();
+		if (!id) continue;
+		byId.set(id, entry);
+		// Also accept bare CRD / alternate id forms when present on the entry.
+		if (entry?.id != null) byId.set(entry.id, entry);
+	}
+	let stamped = 0;
+	for (const node of nodes) {
+		if (!node) continue;
+		const p = byId.get(node.id) || byId.get(String(node.id || '').trim());
+		if (!p) continue;
+		if (Number.isFinite(p.x)) node.x = p.x;
+		if (Number.isFinite(p.y)) node.y = p.y;
+		if (Number.isFinite(node.x) && Number.isFinite(node.y)) {
+			// Pin restored coords — freeing them + restart() walked the whole graph and climbed RSS.
+			node.fx = node.x;
+			node.fy = node.y;
+			node.vx = 0;
+			node.vy = 0;
+			stamped += 1;
+		}
+	}
+	return stamped;
+}
 
-	const byId = new Map(savedPositions.map((p) => [p.id, p]));
-	globalState.layoutNodes.forEach((n) => {
-		const p = byId.get(n.id);
-		if (!p) return;
-		if (Number.isFinite(p.x)) n.x = p.x;
-		if (Number.isFinite(p.y)) n.y = p.y;
-		// Pin restored coords — freeing them + restart() walked the whole graph and climbed RSS.
-		n.fx = n.x;
-		n.fy = n.y;
-		n.vx = 0;
-		n.vy = 0;
-	});
+function applySavedNodePositions(savedPositions) {
+	if (!Array.isArray(savedPositions) || !savedPositions.length) return;
+	if (Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.length) {
+		stampSavedPositionsOntoNodeList(savedPositions, globalState.layoutNodes);
+	}
+	// Keep graphData in sync so a later renderGraph({ freezeLayout }) rebuild does not drop coords.
+	if (Array.isArray(globalState.graphData?.nodes) && globalState.graphData.nodes.length) {
+		stampSavedPositionsOntoNodeList(savedPositions, globalState.graphData.nodes);
+	}
 
 	if (globalState.linkSel) {
 		globalState.linkSel
@@ -7367,10 +7402,12 @@ function applySavedNodePositions(savedPositions) {
 		globalState.nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	}
 
-	try {
-		globalState.simulation.alpha(0).alphaTarget(0).stop();
-	} catch {
-		/* ignore */
+	if (globalState.simulation) {
+		try {
+			globalState.simulation.alpha(0).alphaTarget(0).stop();
+		} catch {
+			/* ignore */
+		}
 	}
 	scheduleGraphTickPositions(null, null, null);
 }
@@ -7458,6 +7495,13 @@ function renderSavedSessionGraph(session) {
 	const sessionNodes = sessionGraphData.nodes;
 	if (!sessionNodes.length) return false;
 
+	// Stamp persisted coords before the first paint so freezeLayout can pin them
+	// instead of letting the force sim assign fresh random positions.
+	if (Array.isArray(session?.nodePositions) && session.nodePositions.length) {
+		stampSavedPositionsOntoNodeList(session.nodePositions, sessionNodes);
+		stampSavedPositionsOntoNodeList(session.nodePositions, globalState.graphData.nodes);
+	}
+
 	globalState.isSubsetMode = sessionNodes.length < globalState.graphData.nodes.length;
 	if (globalState.isSubsetMode) {
 		updateSubsetInfo(sessionNodes.length, globalState.graphData.nodes.length);
@@ -7465,11 +7509,14 @@ function renderSavedSessionGraph(session) {
 		clearSubsetInfo();
 	}
 
-	renderGraph({
-		...globalState.graphData,
-		nodes: sessionNodes,
-		links: sessionGraphData.links,
-	});
+	renderGraph(
+		{
+			...globalState.graphData,
+			nodes: sessionNodes,
+			links: sessionGraphData.links,
+		},
+		{ freezeLayout: true, skipInitialZoom: Boolean(session?.zoomTransform) },
+	);
 	showEmpty(false);
 	updateMeta(globalState.graphData.meta);
 	return true;
@@ -8043,16 +8090,40 @@ function refreshNodeLayout() {
 
 	// Create a stable finalize function so other code (e.g. revealNeighbors)
 	// can delay the final stop briefly after newly-revealed nodes settle.
+	let finalized = false;
+	const detachRefreshStopListeners = () => {
+		const stopFn = (globalState as any).refreshLayoutStopOnInteract as (() => void) | null;
+		if (!stopFn || typeof document === 'undefined') return;
+		document.removeEventListener('pointerdown', stopFn, { capture: true } as any);
+		document.removeEventListener('mousedown', stopFn, { capture: true } as any);
+		document.removeEventListener('touchstart', stopFn, { capture: true } as any);
+		document.removeEventListener('wheel', stopFn, { capture: true } as any);
+		document.removeEventListener('click', stopFn, { capture: true } as any);
+		(globalState as any).refreshLayoutStopOnInteract = null;
+	};
+	// Drop a previous refresh's interact listeners before arming a new run.
+	detachRefreshStopListeners();
+
 	globalState.refreshFinalizeLayoutFn = () => {
+		if (finalized) return;
+		finalized = true;
+		detachRefreshStopListeners();
+		if (globalState.refreshLayoutStopTimer) {
+			clearTimeout(globalState.refreshLayoutStopTimer);
+			globalState.refreshLayoutStopTimer = null;
+		}
 		try {
 			globalState.simulation?.alphaDecay?.(prevAlphaDecay);
 			globalState.simulation?.velocityDecay?.(prevVelocityDecay);
 			globalState.simulation?.alphaTarget?.(0);
 			globalState.simulation?.alpha?.(0);
+			globalState.simulation?.on?.('end.refresh-layout', null);
+			// Stop ticks entirely — leaving alpha cooling still paints and climbs RSS.
+			globalState.simulation?.stop?.();
 		} catch {
 			/* ignore */
 		}
-		globalState.refreshLayoutStopTimer = null;
+		fetchReflowPaintBoostUntil = 0;
 		try {
 			saveSession();
 		} catch {
@@ -8061,32 +8132,30 @@ function refreshNodeLayout() {
 		scheduleGraphTickPositions(globalState.linkSel, globalState.nodeSel, globalState.arrowSel);
 	};
 
-	// Let the refresh reheat continuously until the user clicks somewhere.
+	// Keep reheating until the user clicks/interacts — long runs help collision
+	// resolve overlapping hop clusters that a short cool leaves piled together.
 	globalState.simulation.alphaTarget(0.1);
 	globalState.simulation.alpha(cooling.alpha).restart();
 	globalState.simulation.on('end.refresh-layout', globalState.refreshFinalizeLayoutFn);
 
-	const stopAnimationOnClick = () => {
+	const stopAnimationOnInteract = () => {
 		try {
 			globalState.simulation?.on?.('end.refresh-layout', null);
 		} catch {
 			/* ignore */
 		}
 		if (globalState.refreshFinalizeLayoutFn) globalState.refreshFinalizeLayoutFn();
-		try { globalState.simulation?.alpha?.(0)?.stop?.(); } catch {}
-		document.removeEventListener('pointerdown', stopAnimationOnClick, { capture: true } as any);
-		document.removeEventListener('mousedown', stopAnimationOnClick, { capture: true } as any);
-		document.removeEventListener('touchstart', stopAnimationOnClick, { capture: true } as any);
-		document.removeEventListener('wheel', stopAnimationOnClick, { capture: true } as any);
-		document.removeEventListener('click', stopAnimationOnClick, { capture: true } as any);
 	};
+	(globalState as any).refreshLayoutStopOnInteract = stopAnimationOnInteract;
 
+	// Delay arming so the Refresh button click itself does not immediately stop the run.
 	setTimeout(() => {
-		document.addEventListener('pointerdown', stopAnimationOnClick, { capture: true });
-		document.addEventListener('mousedown', stopAnimationOnClick, { capture: true });
-		document.addEventListener('touchstart', stopAnimationOnClick, { capture: true });
-		document.addEventListener('wheel', stopAnimationOnClick, { capture: true });
-		document.addEventListener('click', stopAnimationOnClick, { capture: true });
+		if (finalized || typeof document === 'undefined') return;
+		document.addEventListener('pointerdown', stopAnimationOnInteract, { capture: true });
+		document.addEventListener('mousedown', stopAnimationOnInteract, { capture: true });
+		document.addEventListener('touchstart', stopAnimationOnInteract, { capture: true });
+		document.addEventListener('wheel', stopAnimationOnInteract, { capture: true });
+		document.addEventListener('click', stopAnimationOnInteract, { capture: true });
 	}, 100);
 }
 
@@ -8166,6 +8235,15 @@ export function destroy() {
 	globalState.nodePulseTimer = null;
 	globalState.spreadReleaseTimer = null;
 	globalState.nodePinReleaseTimer = null;
+	const refreshStopOnInteract = (globalState as any).refreshLayoutStopOnInteract as (() => void) | null;
+	if (refreshStopOnInteract && typeof document !== 'undefined') {
+		document.removeEventListener('pointerdown', refreshStopOnInteract, { capture: true } as any);
+		document.removeEventListener('mousedown', refreshStopOnInteract, { capture: true } as any);
+		document.removeEventListener('touchstart', refreshStopOnInteract, { capture: true } as any);
+		document.removeEventListener('wheel', refreshStopOnInteract, { capture: true } as any);
+		document.removeEventListener('click', refreshStopOnInteract, { capture: true } as any);
+	}
+	(globalState as any).refreshLayoutStopOnInteract = null;
 	globalState.refreshFinalizeLayoutFn = null;
 	if (globalState.nodePulseInterval) {
 		clearInterval(globalState.nodePulseInterval);
@@ -15062,8 +15140,24 @@ function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?:
 	const W = main.clientWidth;
 	const H = main.clientHeight;
 
-	// Deep-copy so D3 mutation doesn't corrupt the original
-	const nodes: GraphSimulationNode[] = data.nodes.map((n) => ({ ...n }) as GraphSimulationNode);
+	// Deep-copy so D3 mutation doesn't corrupt the original.
+	// When freezing, prefer live layout coords over bare graphData stubs that lack x/y
+	// (session restore used to wipe every pinned position on the final renderGraph).
+	const prevLayoutById =
+		preferFrozenLayout && Array.isArray(globalState.layoutNodes) && globalState.layoutNodes.length ?
+			new Map(globalState.layoutNodes.map((node) => [String(node?.id || '').trim(), node]))
+		:	null;
+	const nodes: GraphSimulationNode[] = data.nodes.map((n) => {
+		const copy = { ...n } as GraphSimulationNode;
+		const prev = prevLayoutById?.get(String(n?.id || '').trim());
+		if (prev) {
+			if (!Number.isFinite(copy.x) && Number.isFinite(prev.x)) copy.x = prev.x;
+			if (!Number.isFinite(copy.y) && Number.isFinite(prev.y)) copy.y = prev.y;
+			if (!Number.isFinite(copy.fx) && Number.isFinite(prev.fx)) copy.fx = prev.fx;
+			if (!Number.isFinite(copy.fy) && Number.isFinite(prev.fy)) copy.fy = prev.fy;
+		}
+		return copy;
+	});
 	const nodeIdSet = new Set(nodes.map((n) => n.id));
 	const allLinks: GraphSimulationLink[] = data.links.map((l) => ({ ...l }) as GraphSimulationLink);
 	// Strip links whose endpoints aren't in the node set — D3 force throws if
