@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildNameQueryCandidates, extractCandidateIdsFromSearchPayload, shouldSkipCronRun } from '@/lib/externalValidityCron';
+import {
+	buildGapCandidates,
+	buildNameQueryCandidates,
+	extractCandidateIdsFromSearchPayload,
+	shouldSkipCronRun,
+} from '@/lib/externalValidityCron';
 
 describe('externalValidityCron candidate discovery', () => {
 	it('generates 3-10 character name terms from seed bank names', () => {
@@ -47,5 +52,19 @@ describe('externalValidityCron candidate discovery', () => {
 		const lastRunAt = new Date('2026-07-26T00:00:00.000Z').toISOString();
 		expect(shouldSkipCronRun(lastRunAt, Date.parse('2026-07-26T03:00:00.000Z'), 360)).toBe(true);
 		expect(shouldSkipCronRun(lastRunAt, Date.parse('2026-07-26T08:00:00.000Z'), 360)).toBe(false);
+	});
+
+	it('buildGapCandidates walks backward and skips known CRDs', () => {
+		const known = new Set(['100', '98', '95']);
+		const { candidates, nextCursor } = buildGapCandidates(100, known, 3, 90);
+		expect(candidates).toEqual(['99', '97', '96']);
+		// Cursor sits on the next number to inspect (95 is known and will be skipped next run).
+		expect(nextCursor).toBe(95);
+	});
+
+	it('buildGapCandidates stops at the floor without probing known IDs', () => {
+		const { candidates, nextCursor } = buildGapCandidates(5, new Set(['5', '4', '3']), 5, 3);
+		expect(candidates).toEqual([]);
+		expect(nextCursor).toBe(2);
 	});
 });

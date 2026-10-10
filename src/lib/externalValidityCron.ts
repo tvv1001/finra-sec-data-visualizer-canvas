@@ -21,9 +21,12 @@ const INDIVIDUAL_QUERY = new URLSearchParams({ hl: 'true', includePrevious: 'tru
 const FIRM_QUERY = new URLSearchParams({ hl: 'true', wt: 'json' }).toString();
 
 const DEFAULT_DISCOVERY_BATCH = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_DISCOVERY_BATCH || 3));
-const DEFAULT_UPDATE_BATCH = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_UPDATE_BATCH || 3));
+/** Backward gap-scan batch (unknown CRDs only). Kept under the old UPDATE_BATCH env name. */
+const DEFAULT_GAP_BATCH = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_GAP_BATCH || process.env.FINRA_EXTERNAL_VALIDITY_UPDATE_BATCH || 3));
 const DEFAULT_FAILBACK_MINUTES = [6, 11] as const;
 const DEFAULT_MIN_RUN_INTERVAL_MINUTES = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_RUN_INTERVAL_MINUTES || 360));
+const DEFAULT_MIN_INDIVIDUAL_GAP = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_INDIVIDUAL_UPDATE || 7000000));
+const DEFAULT_MIN_FIRM_GAP = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_FIRM_UPDATE || 300000));
 
 type CronState = {
 	backoffUntil: number;
@@ -31,6 +34,7 @@ type CronState = {
 		individualNext: number;
 		firmNext: number;
 	};
+	/** Next CRD to consider when scanning downward for gaps (unknown IDs only). */
 	updateIndex: {
 		individual: number;
 		firm: number;
@@ -625,17 +629,30 @@ function buildDiscoveryCandidates(nextValue: number, batchSize: number) {
 	return Array.from({ length: batchSize }, (_, index) => String(nextValue + index));
 }
 
-function buildUpdateCandidates(idsDesc: string[], cursor: number, batchSize: number) {
-	if (!idsDesc.length) return [] as string[];
-	const threshold = Math.max(0, cursor);
-	return idsDesc.filter((id) => Number(id) <= threshold).slice(0, batchSize);
-}
+/**
+ * Walk downward from `startFrom` and collect CRDs that are missing from `knownIds`.
+ * Known CRDs are skipped without probing. Returns the next cursor (already below the
+ * last inspected number) so the cron can resume without rechecking known IDs.
+ */
+export function buildGapCandidates(
+	startFrom: number,
+	knownIds: Iterable<string> | Set<string>,
+	batchSize: number,
+	minFloor = 1,
+): { candidates: string[]; nextCursor: number } {
+	const known = knownIds instanceof Set ? knownIds : new Set(Array.from(knownIds).map((id) => String(id)));
+	const size = Math.max(0, Math.floor(Number(batchSize) || 0));
+	const floor = Math.max(1, Math.floor(Number(minFloor) || 1));
+	let cursor = Math.floor(Number(startFrom));
+	if (!Number.isFinite(cursor)) cursor = floor - 1;
 
-function nextThreshold(ids: string[], picked: number) {
-	if (!picked || !ids.length) return 0;
-	const selected = ids.slice(0, picked);
-	const lowestSelected = selected.length ? Math.min(...selected.map((id) => Number(id)).filter((n) => Number.isFinite(n))) : 0;
-	return lowestSelected > 0 ? lowestSelected - 1 : 0;
+	const candidates: string[] = [];
+	while (candidates.length < size && cursor >= floor) {
+		const id = String(cursor);
+		if (!known.has(id)) candidates.push(id);
+		cursor -= 1;
+	}
+	return { candidates, nextCursor: cursor };
 }
 
 export function shouldSkipCronRun(lastRunAt: string | null | undefined, now = Date.now(), minIntervalMinutes = DEFAULT_MIN_RUN_INTERVAL_MINUTES) {
@@ -654,17 +671,17 @@ async function processCandidate(
 
 	const graphNodeId = kind === 'individual' ? `person:${normalizeId(id)}` : `firm:${normalizeId(id)}`;
 	const existingNode = graph?.nodes?.find((n: any) => n.id === graphNodeId || n.id === `${kind}:${normalizeId(id)}`);
-	if (existingNode && existingNode.basicInformation) {
-		const bcScope = String(existingNode.basicInformation.bcScope || '')
-			.trim()
-			.toLowerCase();
-		const iaScope = String(existingNode.basicInformation.iaScope || '')
-			.trim()
-			.toLowerCase();
-		if (bcScope !== 'active' && iaScope !== 'active') {
-			await markProcessed(redis, kind, id);
-			return { found: true, discovered: false, updated: false, 429: false };
-		}
+	// Do not re-validate known CRDs — this cron only discovers new / gap IDs.
+	if (
+		existingNode &&
+		(existingNode.basicInformation ||
+			existingNode.hasFinraData ||
+			existingNode.hasSecData ||
+			existingNode._detailLoaded ||
+			existingNode._employmentHistoryResolved)
+	) {
+		await markProcessed(redis, kind, id);
+		return { found: true, discovered: false, updated: false, 429: false };
 	}
 
 	const { finra, sec } = await fetchRecord(kind, id);
@@ -775,7 +792,12 @@ export async function runExternalValidityCron() {
 		}
 
 		const discoveryBatch = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_DISCOVERY_BATCH || DEFAULT_DISCOVERY_BATCH));
-		const updateBatch = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_UPDATE_BATCH || DEFAULT_UPDATE_BATCH));
+		const gapBatch = Math.max(
+			1,
+			Number(process.env.FINRA_EXTERNAL_VALIDITY_GAP_BATCH || process.env.FINRA_EXTERNAL_VALIDITY_UPDATE_BATCH || DEFAULT_GAP_BATCH),
+		);
+		const minIndividualGap = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_INDIVIDUAL_UPDATE || DEFAULT_MIN_INDIVIDUAL_GAP));
+		const minFirmGap = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_FIRM_UPDATE || DEFAULT_MIN_FIRM_GAP));
 		let nextState: CronState = {
 			...state,
 			lastRunAt: new Date().toISOString(),
@@ -806,7 +828,21 @@ export async function runExternalValidityCron() {
 			return { ok: true, rateLimited: true, ...summary, state: nextState };
 		};
 
-		const processList = async (kind: 'individual' | 'firm', ids: string[], isDiscovery: boolean) => {
+		const advanceCursor = (kind: 'individual' | 'firm', id: string, isDiscovery: boolean) => {
+			if (isDiscovery) {
+				if (kind === 'individual') nextState.discovery.individualNext = Number(id) + 1;
+				else nextState.discovery.firmNext = Number(id) + 1;
+				return;
+			}
+			// Gap scan: leave updateIndex at the precomputed nextCursor after the batch.
+		};
+
+		const processList = async (
+			kind: 'individual' | 'firm',
+			ids: string[],
+			isDiscovery: boolean,
+			options: { gapNextCursor?: number; gapFloor?: number } = {},
+		) => {
 			for (const id of ids) {
 				// persist candidate in queue for durability
 				try {
@@ -818,6 +854,7 @@ export async function runExternalValidityCron() {
 				// skip if already processed
 				try {
 					if (await isProcessed(redis, kind, id)) {
+						advanceCursor(kind, id, isDiscovery);
 						continue;
 					}
 				} catch {
@@ -826,17 +863,10 @@ export async function runExternalValidityCron() {
 				try {
 					const result = await processCandidate(redis, graph, kind, id);
 					summary.processed += 1;
-					if (result.found) {
-						summary.updated += 1;
-						if (isDiscovery) summary.discovered += 1;
-					}
-					if (kind === 'individual') {
-						if (isDiscovery) nextState.discovery.individualNext = Number(id) + 1;
-						else nextState.updateIndex.individual = Math.max(Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_INDIVIDUAL_UPDATE || 7000000), Number(id) - 1);
-					} else {
-						if (isDiscovery) nextState.discovery.firmNext = Number(id) + 1;
-						else nextState.updateIndex.firm = Math.max(Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_FIRM_UPDATE || 300000), Number(id) - 1);
-					}
+					if (result.updated) summary.updated += 1;
+					if (result.discovered) summary.discovered += 1;
+					if (!result.found) summary.skippedNoData += 1;
+					advanceCursor(kind, id, isDiscovery);
 					await storeState(redis, nextState);
 				} catch (error: any) {
 					if (Number(error?.status || error?.response?.status) === 429) {
@@ -852,20 +882,24 @@ export async function runExternalValidityCron() {
 					} catch {}
 					summary.processed += 1;
 					summary.skippedNoData += 1;
-					if (kind === 'individual') {
-						if (isDiscovery) nextState.discovery.individualNext = Number(id) + 1;
-						else nextState.updateIndex.individual = Math.max(Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_INDIVIDUAL_UPDATE || 7000000), Number(id) - 1);
-					} else {
-						if (isDiscovery) nextState.discovery.firmNext = Number(id) + 1;
-						else nextState.updateIndex.firm = Math.max(Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_FIRM_UPDATE || 300000), Number(id) - 1);
-					}
+					advanceCursor(kind, id, isDiscovery);
 					await storeState(redis, nextState);
 				}
+			}
+			if (!isDiscovery && Number.isFinite(options.gapNextCursor)) {
+				const floor = Math.max(1, Number(options.gapFloor) || 1);
+				const cursor = Math.max(floor - 1, Number(options.gapNextCursor));
+				if (kind === 'individual') nextState.updateIndex.individual = cursor;
+				else nextState.updateIndex.firm = cursor;
+				await storeState(redis, nextState);
 			}
 			return null;
 		};
 
-		// 1) Discover higher-number CRDs first.
+		const knownIndividuals = new Set(enrichedIndividuals);
+		const knownFirms = new Set(enrichedFirms);
+
+		// 1) Discover higher-number CRDs first (past high-water).
 		const discoveryIndividuals = buildDiscoveryCandidates(Math.max(state.discovery.individualNext, maxIndividual + 1), discoveryBatch);
 		const discoveryFirms = buildDiscoveryCandidates(Math.max(state.discovery.firmNext, maxFirm + 1), discoveryBatch);
 		let result = await processList('individual', discoveryIndividuals, true);
@@ -873,18 +907,28 @@ export async function runExternalValidityCron() {
 		result = await processList('firm', discoveryFirms, true);
 		if (result) return result;
 
-		// 2) Backfill existing CRDs from high to low.
-		const descendingIndividuals = [...enrichedIndividuals].sort(numericSortDesc);
-		const descendingFirms = [...enrichedFirms].sort(numericSortDesc);
-		const updateIndividuals = buildUpdateCandidates(descendingIndividuals, state.updateIndex.individual, updateBatch);
-		const updateFirms = buildUpdateCandidates(descendingFirms, state.updateIndex.firm, updateBatch);
-		result = await processList('individual', updateIndividuals, false);
+		// 2) Walk backward through numeric gaps only — never re-probe known CRDs.
+		const individualGapStart = Math.min(
+			Number.isFinite(state.updateIndex.individual) && state.updateIndex.individual > 0 ? state.updateIndex.individual : maxIndividual,
+			maxIndividual,
+		);
+		const firmGapStart = Math.min(
+			Number.isFinite(state.updateIndex.firm) && state.updateIndex.firm > 0 ? state.updateIndex.firm : maxFirm,
+			maxFirm,
+		);
+		const individualGaps = buildGapCandidates(individualGapStart, knownIndividuals, gapBatch, minIndividualGap);
+		const firmGaps = buildGapCandidates(firmGapStart, knownFirms, gapBatch, minFirmGap);
+		result = await processList('individual', individualGaps.candidates, false, {
+			gapNextCursor: individualGaps.nextCursor,
+			gapFloor: minIndividualGap,
+		});
 		if (result) return result;
-		result = await processList('firm', updateFirms, false);
+		result = await processList('firm', firmGaps.candidates, false, {
+			gapNextCursor: firmGaps.nextCursor,
+			gapFloor: minFirmGap,
+		});
 		if (result) return result;
 
-		nextState.updateIndex.individual = nextThreshold(updateIndividuals, updateIndividuals.length);
-		nextState.updateIndex.firm = nextThreshold(updateFirms, updateFirms.length);
 		nextState.updatedAt = new Date().toISOString();
 		await storeState(redis, nextState);
 

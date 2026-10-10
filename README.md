@@ -211,9 +211,12 @@ For runtime performance in production:
 
 ## Cron & revalidation
 
-There are **no Vercel cron jobs**. Search and roster data are local Redis + gzip sidecars. External FINRA/SEC fetches are not scheduled on a timer.
+Vercel runs a **daily** cron (`0 10 * * *` UTC) against `/api/finra/external-validity`. Each run:
 
-Search behavior remains local-first: the app queries the gzip search sidecar first and only reaches external FINRA/SEC search endpoints when that is missing.
+1. Probes sequential CRDs **above** the current high-water mark (new discoveries).
+2. Walks **backward through gaps only** (unknown CRD numbers), skipping known CRDs.
+
+Search and roster reads stay local-first (gzip sidecars / Redis). The cron is the deliberate external FINRA/SEC discovery path; it does not re-validate known CRDs.
 
 ## CONTRIBUTING & TESTS
 
@@ -596,8 +599,9 @@ node .local/scripts/enrich_nodes.js
 
 ### Vercel
 
-- `vercel.json` does **not** schedule crons.
-- API routes under `src/app/api/**` are configured with `maxDuration: 30`
+- `vercel.json` schedules a daily cron (`0 10 * * *` UTC) for `GET /api/finra/external-validity`.
+- That cron discovers CRDs above the high-water mark, then walks backward through **gaps only** (unknown CRDs). It does not re-validate known CRDs.
+- API routes under `src/app/api/**` are configured with `maxDuration: 30` (`external-validity` is 60s).
 
 ### Runtime bundle contents
 
